@@ -1,5 +1,5 @@
 /*
- * File name: tdaemon.cpp
+ * File name: BDaemon.cpp
  * Date:	  2006-08-08 10:32
  * Author:	Kristjan Runarsson
  */

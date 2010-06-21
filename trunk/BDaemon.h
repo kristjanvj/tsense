@@ -1,5 +1,5 @@
 /*
-   File name: tdaemon.h
+   File name: BDaemon.h
    Date:	  2006-08-08 14:29
    Author:	Kristjan Runarsson
 */
