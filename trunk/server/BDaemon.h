@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
 #ifndef __TDAEMON_H__
 #define __TDAEMON_H__

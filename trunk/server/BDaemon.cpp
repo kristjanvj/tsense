@@ -4,7 +4,7 @@
  * Author:	Kristjan Runarsson
  */
 
-#include "bdaemon.h"
+#include "BDaemon.h"
 #include <stdexcept>
 #include <signal.h>
 
