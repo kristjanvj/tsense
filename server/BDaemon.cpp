@@ -100,7 +100,7 @@ void BDaemon::detachTerminal(){
 	msg << "Detatched terminal for '" << _daemonName
 		 << "' with pid: " << _daemonPid << endl;
 
-	syslog(LOG_NOTICE, msg.str().c_str());
+	syslog(LOG_NOTICE, "%s", msg.str().c_str());
 
 	setsid(); // Create a new session.
 

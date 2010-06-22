@@ -107,7 +107,7 @@ void TlsServer::serverMain() {
 	}
 
 	msg << "Server ready. Listening to port '" <<  _listenPort << "'." << endl;
-	syslog(LOG_NOTICE, msg.str().c_str());
+	syslog(LOG_NOTICE, "%s", msg.str().c_str());
 
 	// Client socket IP address length.
 	client_len = sizeof (saClient);
@@ -123,7 +123,7 @@ void TlsServer::serverMain() {
 		msg << " - Connection from: " 
 			<< inet_ntop (AF_INET, &saClient.sin_addr, topbuf, sizeof (topbuf))
 			<< " on port: " << ntohs (saClient.sin_port) << endl;
-		syslog(LOG_NOTICE, msg.str().c_str());
+		syslog(LOG_NOTICE, "%s", msg.str().c_str());
 
 		// Sets first argument of transport function (PUSH/PULL).
 		gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) connSockDes);
@@ -138,14 +138,14 @@ void TlsServer::serverMain() {
 
 			msg.str("");
 			msg << " *** Handshake failed " << gnutls_strerror (result) << endl << endl;
-			syslog(LOG_NOTICE, msg.str().c_str());
+			syslog(LOG_NOTICE, "%s", msg.str().c_str());
 
 			continue;
 		}
 
 		msg.str("");
 		msg << " - Handshake was completed" << endl;
-		syslog(LOG_NOTICE, msg.str().c_str());
+		syslog(LOG_NOTICE, "%s", msg.str().c_str());
 
 		while(true) {
 			memset(buffer, 0, MAX_BUF + 1);
@@ -156,20 +156,20 @@ void TlsServer::serverMain() {
 			if (result == 0) {
 				msg.str("");
 				msg << " - Peer has closed the GNUTLS connection" << endl;
-				syslog(LOG_NOTICE, msg.str().c_str());
+				syslog(LOG_NOTICE, "%s", msg.str().c_str());
 				break;
 			} else if (result < 0) {
 				msg.str("");
 				msg << " *** Received corrupted data(" << result 
 					 << "). Closing the connection." << endl << endl;
-				syslog(LOG_NOTICE, msg.str().c_str());
+				syslog(LOG_NOTICE, "%s", msg.str().c_str());
 				break;
 			} else if (result > 0) {
 				// Dispatch reply to sender.
 				msg.str("");
 				msg << " - Dispatching reply to client." << endl;
 				gnutls_record_send(session, buffer, strlen (buffer));
-				syslog(LOG_NOTICE, msg.str().c_str());
+				syslog(LOG_NOTICE, "%s", msg.str().c_str());
 			}
 		}
 
