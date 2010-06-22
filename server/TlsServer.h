@@ -26,6 +26,7 @@
 #include <syslog.h>
 #include <errno.h>
 #include <gnutls/gnutls.h>
+#include <string.h>
 
 /* This is a sample TLS 1.0 echo server, for anonymous authentication only.
  */

@@ -4,12 +4,12 @@
  * Author:	Kristjan Runarsson
  */
 
-#include <iostream>;
-#include <sstream>;
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
-#include <string>;
-#include "BDaemon.h";
-#include "TlsServer.h";
+#include <string>
+#include "BDaemon.h"
+#include "TlsServer.h"
 
 using namespace std;
 
