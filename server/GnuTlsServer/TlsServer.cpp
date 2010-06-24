@@ -36,7 +36,7 @@ gnutls_session_t TlsServer::initTlsSession(void) {
  * unrelated entities to establish a shared secret key over an encrypted
  * connection. This can then be use for symmetric-key encryption.
  * 	
- *  - http://en.wikipedia.org/wiki/Diffie-Hellman_key_exchange
+*  - http://en.wikipedia.org/wiki/Diffie-Hellman_key_exchange
  *  - http://en.wikipedia.org/wiki/Symmetric_key
  */
 int TlsServer::genDHParams (void) {
