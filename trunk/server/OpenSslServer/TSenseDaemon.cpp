@@ -34,8 +34,8 @@ int main()
 {
 
 	try{
-		TSenseDaemon arDaemon("tsensed", "/tmp/", SINGLETON);
-		//TSenseDaemon arDaemon("tsensed", "/tmp/", SINGLETON|NO_DTTY);
+		//TSenseDaemon arDaemon("tsensed", "/tmp/", SINGLETON);
+		TSenseDaemon arDaemon("tsensed", "/tmp/", SINGLETON|NO_DTTY);
 
 		arDaemon.run();
 	}
