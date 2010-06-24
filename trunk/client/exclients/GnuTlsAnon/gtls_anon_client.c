@@ -19,7 +19,8 @@
 #include <unistd.h>
 #include <gnutls/gnutls.h>
 
-/* A very basic TLS client, with anonymous authentication.
+/* Example of a basic anonymous TLS client. The code was shamelessly ripped 
+ * from the OpenSSL demo code.
  */
 
 #define MAX_BUF 1024
