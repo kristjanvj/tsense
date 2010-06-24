@@ -138,9 +138,8 @@ void TlsServer::serverMain() {
         SSL_set_bio(ssl, client, client);
 
 		/* Waits for a TLS/SSL handshake.*/
-        if (SSL_accept(ssl) <= 0)
-
-        handleError("Error accepting SSL connection");
+        if (SSL_accept(ssl) <= 0) 
+			handleError("Error accepting SSL connection");
 
 		stringstream msg;
         msg << "SSL connection opened: " 
