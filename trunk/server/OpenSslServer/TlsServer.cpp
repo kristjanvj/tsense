@@ -120,11 +120,12 @@ void TlsServer::serverMain() {
 
 	//FIXME: Close this gracefully with a system signal.
     while (true) {
-	syslog(LOG_NOTICE, "%s", "Accepting connections ...");
+		syslog(LOG_NOTICE, "%s", "Accepting connections ...");
+
         if (BIO_do_accept(acc) <= 0)
             handleError("Error accepting connection");
 
-        client = BIO_pop(acc);
+		client = BIO_pop(acc);
 
 		/* Create a new SSL context this context inherits it's settings
 		 * from the master context created earlier.
@@ -158,7 +159,6 @@ void TlsServer::serverMain() {
 			msg.str("");
             msg << "Server received: <" << buff << ">\n";
 			syslog(LOG_NOTICE, "%s", msg.str().c_str());
-
             char answer[256] = {0};
             r = sprintf(answer, "I (the server) received this: <%s>", buff);
             SSL_write(ssl, answer, r);
