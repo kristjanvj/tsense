@@ -13,11 +13,7 @@
 //#include "client.hpp"
 
 #include <iostream>
-#include <string>
-
-#ifdef WIN32
-#include <windows.h>
-#endif
+#include <sstream>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -96,7 +92,10 @@ int main()
 		int_error("Error connecting SSL object");
 	std::cout << "done\n";
 
-	SSL_write(ssl, "Lorem ipsum dolor sit amet", 26);
+	std::stringstream msg;
+	srand(time(NULL));
+	msg << "SudoRandomNum = " << (rand() % 1000 + 1);
+	SSL_write(ssl, msg.str().c_str(), 26);
 	
 	char buff[64] = {0};
 	int bread = SSL_read(ssl, buff, sizeof buff);
