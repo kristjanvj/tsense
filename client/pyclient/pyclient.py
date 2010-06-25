@@ -51,6 +51,5 @@ if __name__ == '__main__':
     else:
         print 'Recieved this data from server: %s' % recv_data
 
-    # Close the socket
     sock.shutdown()
     sock.close()
