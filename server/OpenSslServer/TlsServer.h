@@ -28,8 +28,9 @@
 #include <gnutls/gnutls.h>
 #include <string.h>
 
-#include <openssl/ssl.h>
+#include <openssl/ssl.h> /* Ubuntu/Debian: libssl-dev */
 #include <openssl/err.h>
+
 
 /* This is a sample TLS 1.0 echo server, for anonymous authentication only.
  */

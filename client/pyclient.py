@@ -4,7 +4,7 @@
 # Tsense research project
 
 from OpenSSL import SSL
-import socket, sys, random, os
+import socket, sys, random, os, serial
 
 def init_OpenSSL():
     # What is going on here?
@@ -18,6 +18,11 @@ def setup_ctx():
     print '\bdone.'
     return ctx
 
+def setup_serial():
+    # If we want to waste enery on making the client run on windows
+    # we can use os.name to check for the platform
+    ser = serial.Serial('/dev/ttyUSB0', 9600)
+    return ser
 
 if __name__ == '__main__':
     # Port and host information
@@ -49,7 +54,18 @@ if __name__ == '__main__':
     except SSL.Error, e:    # returns a tuple, see pyOpenSSL documentation
         print e 
     else:
-        print 'Recieved this data from server: %s' % recv_data
+        print 'Recieved this data from server: \' %s\'' % recv_data
 
-    sock.shutdown()
-    sock.close()
+    # Talk to the board
+    board = setup_serial();
+    # My Arduino is set up to send the ID after 10 seconds...
+    print 'Waiting for board ID...',
+    board_id = board.readline()[3:-1]
+    print '\b [%s]' % board_id
+
+    print 'Signalling challenge to board...',
+    board.write('C')
+    print '\bdone.\nBoard response: %s' % board.readline()[:-1]
+
+    ssl_conn.shutdown()
+    ssl_conn.close()
