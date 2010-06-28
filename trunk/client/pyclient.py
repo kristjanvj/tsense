@@ -4,7 +4,9 @@
 # Tsense research project
 
 from OpenSSL import SSL
+from glob imoprt glob
 import socket, sys, random, os, serial
+
 
 def setup_ctx():
     # Initialize context
@@ -17,7 +19,10 @@ def setup_ctx():
 def setup_serial():
     # If we want to waste enery on making the client run on windows
     # we can use os.name to check for the platform
-    ser = serial.Serial('/dev/ttyUSB0', 9600)
+
+    # Linux, look for /dev/ttyUSB* (since the Arduino is USB)
+    port = glob('/dev/ttyUSB*')
+    ser = serial.Serial(port[0], 9600)
     return ser
 
 if __name__ == '__main__':
@@ -54,6 +59,7 @@ if __name__ == '__main__':
 
     # Talk to the board
     board = setup_serial();
+    print board.port + "\n"
     # My Arduino is set up to send the ID after 10 seconds...
     print 'Waiting for board ID...',
     board_id = board.readline()[3:-1]
