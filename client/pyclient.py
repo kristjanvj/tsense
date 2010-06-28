@@ -6,10 +6,6 @@
 from OpenSSL import SSL
 import socket, sys, random, os, serial
 
-def init_OpenSSL():
-    # What is going on here?
-    pass
-
 def setup_ctx():
     # Initialize context
     print 'Initializing context..',
