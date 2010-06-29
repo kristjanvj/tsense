@@ -18,7 +18,7 @@
 
 //#define unroll_encrypt_loop
 
-#define verbose_debug
+//#define verbose_debug
 
 // Some defines to aid code readability
 #define KEY_BYTES 16
@@ -273,7 +273,7 @@ void setup(void)
 {
   Serial.begin(9600);  
  
-  delay(10000);
+  delay(1000);
   
   // Initialize the t-boxes
   #if defined(t_box_transform) && defined(t_table_generate)
@@ -296,7 +296,7 @@ void loop(void) {
   printBytes((unsigned char*)pStr,16,16);
   printBytes(pText,16,16); // Print to serial in more or less readable format
   Serial.print("\n\n");
-  delay(100000);
+  delay(10000);
 }
 
 /**
