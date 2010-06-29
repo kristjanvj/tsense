@@ -13,10 +13,10 @@
 // textbook and various other sources. T-tables can be generated on startup or loaded from the
 // pre-generated definitions. See the initialization for the latter case in the code.
 //
-//#define t_box_transform 
+//#define t_box_transform  // 32 bit optimization, else vanilla 8 bit.
 //#define t_table_generate
 
-//#define unroll_encrypt_loop
+//#define unroll_encrypt_loop 
 
 //#define verbose_debug
 
@@ -245,9 +245,12 @@ unsigned int t3[256] = {
     0x82c34141, 0x29b09999, 0x5a772d2d, 0x1e110f0f, 0x7bcbb0b0, 0xa8fc5454, 0x6dd6bbbb, 0x2c3a1616};
 #endif
 
-
+// Dummy key for testing normally this would be secret.
 unsigned char pKey[] = {0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c}; // FIPS key
 unsigned char pKeys[KEY_BYTES*12];
+
+// Arduino specific code.
+// ----------------------
 
 /**
  *  printBytes
@@ -288,6 +291,7 @@ void setup(void)
   Serial.println("Key expansion done -- starting main loop");
 }
 
+
 void loop(void) { 
   char pStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34}; // FIPS test vector
   unsigned char pText[128];
@@ -298,6 +302,10 @@ void loop(void) {
   Serial.print("\n\n");
   delay(10000);
 }
+
+
+// Below this point is code common to Arduino and Intel.
+// -----------------------------------------------------
 
 /**
  *  keyExpansion
@@ -566,7 +574,7 @@ inline void lttransform(void *pText, const unsigned int *pKeys, int round)
  *  Note: Only 10 rounds and 128 bit keys are supported in this implementation.
  */
 inline void encryptBlock(void *pText, const unsigned long *pKeys)
-{
+
         #ifdef verbose_debug
         Serial.println("\n\nStarting encrypt, plaintext is");
         printBytes((unsigned char *)pText,16,16);

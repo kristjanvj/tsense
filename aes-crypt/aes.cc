@@ -796,6 +796,7 @@ int main(int argc, char *argv[])
 		dBlockWords=dTextLen/4;
 		for( i=0; i < dBlockWords; i+=4 )
 			encryptBlock(pText+i, (unsigned int*)pKeys);
+
 		#ifndef verbose
 		#ifdef use_cin_cout
 		#ifndef text_mode_output
@@ -816,7 +817,6 @@ int main(int argc, char *argv[])
 	#else
 	while( !feof(stdin) );
 	#endif
-
 	// Free the allocated text buffer
 	free(pText);
 
