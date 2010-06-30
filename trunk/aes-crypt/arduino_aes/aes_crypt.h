@@ -36,33 +36,26 @@ extern unsigned char pKey[]; // FIPS key
 extern unsigned char pKeys[KEY_BYTES*12];
 
 void KeyExpansion(const void *key, void *keys);
-//inline void KeyExpansion(const void *key, void *keys);
 
 void addRoundKey(void *pText, const unsigned long *pKeys, int round);
-//inline void addRoundKey(void *pText, const unsigned long *pKeys, int round);
+//void addRoundKey(void *pText, const unsigned int *pKeys, int round); //FIXME: Temporary
 
 #ifndef t_box_transform
-//inline void subAndShift(void *pText);
 void subAndShift(void *pText);
 
-//inline void mixColumns(void *pText);
 void mixColumns(void *pText);
 
-//inline void ttransform(void *pText, const unsigned int *pKeys, int round);
 void ttransform(void *pText, const unsigned int *pKeys, int round);
 
-//inline void lttransform(void *pText, const unsigned int *pKeys, int round);
 void lttransform(void *pText, const unsigned int *pKeys, int round);
 #endif
 
 #define ntransform(text,keys,round) subAndShift(text);mixColumns(text);addRoundKey(text,keys,round);
 
-//inline void encryptBlock(void *pText, const unsigned long *pKeys);
 void encryptBlock(void *pText, const unsigned long *pKeys);
-//void encryptBlock(void *pText, const unsigned long *pKeys);
+//void encryptBlock(void *pText, const unsigned int *pKeys); //FIXME: Temporary
 
 #if defined(t_box_transform) && defined(t_table_generate)
-//inline void initializeTboxes();
 void initializeTboxes();
 #endif
 

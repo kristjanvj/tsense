@@ -348,7 +348,7 @@ void printState(unsigned int pState[4])
  *  See FIPS-197 and http://en.wikipedia.org/wiki/Rijndael_key_schedule on the algorithm.
  *  The Rcon table used in the algorithm copied from (but verified!) the wikipedia article.
  */
-inline void KeyExpansion(const void *key, void *keys) 
+void KeyExpansion(const void *key, void *keys) 
 {
 	memcpy(keys,key,16); // Copy the first key unmodified
 
@@ -388,7 +388,7 @@ inline void KeyExpansion(const void *key, void *keys)
  *  Adds a key from the schedule (for the specified round) to the current state.
  *  Loop unrolled for a bit of performance gain.
  */
-inline void addRoundKey(void *pText, const unsigned int *pKeys, int round)
+void addRoundKey(void *pText, const unsigned int *pKeys, int round)
 {
 	int roundOffset=round*4;
 	unsigned int *pState = (unsigned int *)pText;
@@ -418,7 +418,7 @@ inline void addRoundKey(void *pText, const unsigned int *pKeys, int round)
  *  See: http://en.wikipedia.org/wiki/Rijndael_S-box
  */
 #ifndef t_box_transform
-inline void subAndShift(void *pText)
+void subAndShift(void *pText)
 {
 	unsigned char *pState = (unsigned char*)pText;
 	unsigned char temp;
@@ -467,7 +467,7 @@ inline void subAndShift(void *pText)
  *
  */
 #ifndef t_box_transform
-inline void mixColumns(void *pText)
+void mixColumns(void *pText)
 {
 	// The sub bytes operation is as follows (see 5.1.3 in the FIPS-197 document):
 	//
@@ -533,7 +533,7 @@ inline void mixColumns(void *pText)
  *  In addition, the round key is applied.
  */
 #ifdef t_box_transform
-inline void ttransform(void *pText, const unsigned int *pKeys, int round)
+void ttransform(void *pText, const unsigned int *pKeys, int round)
 {
 	#ifdef verbose_debug
 	printf("Applying ttransform at round #%d:\n", round);
@@ -564,7 +564,7 @@ inline void ttransform(void *pText, const unsigned int *pKeys, int round)
  *  update.
  */
 #ifdef t_box_transform
-inline void lttransform(void *pText, const unsigned int *pKeys, int round)
+void lttransform(void *pText, const unsigned int *pKeys, int round)
 {
 	#ifdef verbose_debug
 	printf("Applying lttransform at round #%d:\n", round);
@@ -607,7 +607,7 @@ inline void lttransform(void *pText, const unsigned int *pKeys, int round)
  *
  *  Note: Only 10 rounds and 128 bit keys are supported in this implementation.
  */
-inline void encryptBlock(void *pText, const unsigned int *pKeys)
+void encryptBlock(void *pText, const unsigned int *pKeys)
 {
 	#ifdef verbose_debug
 	printf("\nStarting to encrypt block:\n");
@@ -682,7 +682,7 @@ inline void encryptBlock(void *pText, const unsigned int *pKeys)
  *  on the code.
  */
 #if defined(t_box_transform) && defined(t_table_generate)
-inline void initializeTboxes()
+void initializeTboxes()
 {
 	#ifdef debug_print_tbox_construction
 	printf("\nGenerating the t-boxes\n\n");
