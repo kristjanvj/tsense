@@ -42,13 +42,14 @@ void setup(void)
   Serial.print("\n\nVersion:");
   #ifdef __ARDUINO__DUEMILANOVE__
   Serial.println("Arduino");
-  #elif  __INTEL_32_LINUX__
-  Serial.println("LINUX");
-  #elif  __INTEL32_BSD__
-  Serial.println("BSD");
-  #else
-  Serial.println("Default");
   #endif
+  #ifdef  __INTEL_32_LINUX__
+  Serial.println("LINUX");
+  #endif
+  #ifdef  __INTEL32_BSD__
+  Serial.println("BSD");
+  #endif
+
   // Doublecheck the actual size of int16 and int32
   Serial.print("Size of int16: ");  
   Serial.println(sizeof(int16_ard));
