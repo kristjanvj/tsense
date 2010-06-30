@@ -139,6 +139,7 @@ int main(int argc, char *argv[])
 		for( i=0; i < dBlockWords; i+=4 ) {
 			//printBytes2((unsigned char*)pText,16);
 			encryptBlock(pText+i, (unsigned long*)pKeys);
+			//encryptBlock(pText+i, (unsigned int*)pKeys);
 		}
 
 		#ifndef verbose

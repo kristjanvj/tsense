@@ -239,7 +239,6 @@ unsigned char pKeys[KEY_BYTES*12];
  *  See FIPS-197 and http://en.wikipedia.org/wiki/Rijndael_key_schedule on the algorithm.
  *  The Rcon table used in the algorithm copied from (but verified!) the wikipedia article.
  */
-//inline void KeyExpansion(const void *key, void *keys) 
 void KeyExpansion(const void *key, void *keys) 
 {
 	memcpy(keys,key,16); // Copy the first key unmodified
@@ -296,11 +295,12 @@ void KeyExpansion(const void *key, void *keys)
  *  Adds a key from the schedule (for the specified round) to the current state.
  *  Loop unrolled for a bit of performance gain.
  */
-//inline void addRoundKey(void *pText, const unsigned long *pKeys, int round)
 void addRoundKey(void *pText, const unsigned long *pKeys, int round)
+//void addRoundKey(void *pText, const unsigned int *pKeys, int round)  // FIXME: Temporary.
 {
 	int roundOffset=round*4;
 	unsigned long *pState = (unsigned long *)pText;
+	//unsigned int *pState = (unsigned int *)pText;  // FIXME: Temporary.
 
 	pState[0] ^= pKeys[roundOffset];
 	pState[1] ^= pKeys[roundOffset+1];
@@ -328,7 +328,6 @@ void addRoundKey(void *pText, const unsigned long *pKeys, int round)
  *  See: http://en.wikipedia.org/wiki/Rijndael_S-box
  */
 #ifndef t_box_transform
-//inline void subAndShift(void *pText)
 void subAndShift(void *pText)
 {
 	unsigned char *pState = (unsigned char*)pText;
@@ -378,7 +377,6 @@ void subAndShift(void *pText)
  *
  */
 #ifndef t_box_transform
-//inline void mixColumns(void *pText)
 void mixColumns(void *pText)
 {
 	// The sub bytes operation is as follows (see 5.1.3 in the FIPS-197 document):
@@ -448,7 +446,6 @@ void mixColumns(void *pText)
  *  In addition, the round key is applied.
  */
 #ifdef t_box_transform
-//inline void ttransform(void *pText, const unsigned int *pKeys, int round)
 void ttransform(void *pText, const unsigned int *pKeys, int round)
 {    
 	unsigned char *pState = (unsigned char *)pText;
@@ -470,7 +467,6 @@ void ttransform(void *pText, const unsigned int *pKeys, int round)
  *  update.
  */
 #ifdef t_box_transform
-//inline void lttransform(void *pText, const unsigned int *pKeys, int round)
 void lttransform(void *pText, const unsigned int *pKeys, int round)
 {
 	unsigned char *pState = (unsigned char *)pText;
@@ -504,8 +500,8 @@ void lttransform(void *pText, const unsigned int *pKeys, int round)
  *
  *  Note: Only 10 rounds and 128 bit keys are supported in this implementation.
  */
-//inline void encryptBlock(void *pText, const unsigned long *pKeys) {
 void encryptBlock(void *pText, const unsigned long *pKeys) {
+//void encryptBlock(void *pText, const unsigned int *pKeys) {  // FIXME: Temporary.
 
         #ifdef verbose_debug
         Serial.println("\n\nStarting encrypt, plaintext is");
@@ -579,7 +575,6 @@ void encryptBlock(void *pText, const unsigned long *pKeys) {
  *  on the code.
  */
 #if defined(t_box_transform) && defined(t_table_generate)
-//inline void initializeTboxes()
 void initializeTboxes()
 {
 	#ifdef debug_print_tbox_construction

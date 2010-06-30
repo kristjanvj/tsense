@@ -8,7 +8,7 @@
  *
  */
 
-#include "aes_crypt.h"
+#include "../aes_library/aes_crypt.h"
 
 /**
  *  printBytes
@@ -46,7 +46,7 @@ void setup(void)
   
   Serial.println("Expanding keys");
   KeyExpansion(pKey,pKeys);
-  Serial.println("Key expansion done -- starting main loop (new code #4)");
+  Serial.println("Key expansion done -- starting main loop (new code #5)");
 }
 
 
