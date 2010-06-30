@@ -13,10 +13,26 @@
 #ifndef __AES_CRYPT_H__
 #define __AES_CRYPT_H__
 
+#include "environment.h" // Def the platform version in environment.h
+
+#ifdef __ARDUINO__DUEMILANOVE__
+typedef int int16_ard;
+typedef unsigned int u_int16_ard;
+typedef long int32_ard;
+typedef unsigned long u_int32_ard;
+#endif
+#ifdef  __INTEL_32_LINUX__
 typedef short int16_ard;
 typedef unsigned short u_int16_ard;
 typedef int int32_ard;
-typedef unsigned long u_int32_ard;
+typedef unsigned int u_int32_ard;
+#endif
+#ifdef  __INTEL32_BSD__
+typedef short int16_ard;
+typedef unsigned short u_int16_ard;
+typedef int int32_ard;
+typedef unsigned int u_int32_ard;
+#endif
 
 //
 // These switches control the use of t-table transformations v.s. the 8-bit version as used in the
@@ -42,7 +58,7 @@ extern unsigned char pKeys[KEY_BYTES*12];
 
 void KeyExpansion(const void *key, void *keys);
 
-void addRoundKey(void *pText, const unsigned long *pKeys, int round);
+void addRoundKey(void *pText, const u_int32_ard *pKeys, int round);
 //void addRoundKey(void *pText, const unsigned int *pKeys, int round); //FIXME: Temporary
 
 #ifndef t_box_transform
