@@ -38,6 +38,23 @@ void setup(void)
  
   delay(1000);
   
+  // Test code to print the version def'd in the envrionment.h file
+  Serial.println("\n\nVersion:");
+  #ifdef __ARDUINO__DUEMILANOVE__
+  Serial.println("Arduino");
+  #elif  __INTEL_32_LINUX__
+  Serial.println("LINUX");
+  #elif  __INTEL32_BSD__
+  Serial.println("BSD");
+  #else
+  Serial.println("Default");
+  #endif
+  // Doublecheck the actual size of int16 and int32
+  Serial.print("Size of int16: ");  
+  Serial.println(sizeof(int16_ard));
+  Serial.print("Size of int32: ");
+  Serial.println(sizeof(int32_ard));  
+      
   // Initialize the t-boxes
   #if defined(t_box_transform) && defined(t_table_generate)
   initializeTboxes();
@@ -48,7 +65,7 @@ void setup(void)
   
   Serial.println("Expanding keys");
   KeyExpansion(pKey,pKeys);
-  Serial.println("Key expansion done -- starting main loop (new code #9)");
+  Serial.println("Key expansion done -- starting main loop (new code #10 kvj)");
 }
 
 void doCount(void) {
@@ -84,6 +101,8 @@ void doFips197Test(void) {
 }
 
 void loop(void) { 
-  //doFips197Test();
-  doCount();
+  
+  
+  doFips197Test();
+  //doCount();  
 }
