@@ -46,7 +46,7 @@ void setup(void)
   
   Serial.println("Expanding keys");
   KeyExpansion(pKey,pKeys);
-  Serial.println("Key expansion done -- starting main loop (new code #6)");
+  Serial.println("Key expansion done -- starting main loop (new code #8)");
 }
 
 
@@ -54,7 +54,7 @@ void loop(void) {
   char pStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34}; // FIPS test vector
   unsigned char pText[128];
   strncpy((char*)pText,pStr,16);
-  encryptBlock((void*)pText,(unsigned long *)pKeys);  
+  encryptBlock((void*)pText,(u_int32_ard *)pKeys);  
   printBytes((unsigned char*)pStr,16,16);
   printBytes(pText,16,16); // Print to serial in more or less readable format
   Serial.print("\n\n");
