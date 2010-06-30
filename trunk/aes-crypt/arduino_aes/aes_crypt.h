@@ -13,6 +13,11 @@
 #ifndef __AES_CRYPT_H__
 #define __AES_CRYPT_H__
 
+typedef short int16_ard;
+typedef unsigned short u_int16_ard;
+typedef int int32_ard;
+typedef unsigned long u_int32_ard;
+
 //
 // These switches control the use of t-table transformations v.s. the 8-bit version as used in the
 // textbook and various other sources. T-tables can be generated on startup or loaded from the
@@ -52,7 +57,7 @@ void lttransform(void *pText, const unsigned int *pKeys, int round);
 
 #define ntransform(text,keys,round) subAndShift(text);mixColumns(text);addRoundKey(text,keys,round);
 
-void encryptBlock(void *pText, const unsigned long *pKeys);
+void encryptBlock(void *pText, const u_int32_ard *pKeys);
 //void encryptBlock(void *pText, const unsigned int *pKeys); //FIXME: Temporary
 
 #if defined(t_box_transform) && defined(t_table_generate)

@@ -295,7 +295,7 @@ void KeyExpansion(const void *key, void *keys)
  *  Adds a key from the schedule (for the specified round) to the current state.
  *  Loop unrolled for a bit of performance gain.
  */
-void addRoundKey(void *pText, const unsigned long *pKeys, int round)
+void addRoundKey(void *pText, const u_int32_ard *pKeys, int round)
 //void addRoundKey(void *pText, const unsigned int *pKeys, int round)  // FIXME: Temporary.
 {
 	int roundOffset=round*4;
@@ -500,7 +500,7 @@ void lttransform(void *pText, const unsigned int *pKeys, int round)
  *
  *  Note: Only 10 rounds and 128 bit keys are supported in this implementation.
  */
-void encryptBlock(void *pText, const unsigned long *pKeys) {
+void encryptBlock(void *pText, const u_int32_ard *pKeys) {
 //void encryptBlock(void *pText, const unsigned int *pKeys) {  // FIXME: Temporary.
 
         #ifdef verbose_debug
