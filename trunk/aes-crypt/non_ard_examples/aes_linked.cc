@@ -36,6 +36,7 @@
 // use this for c++ code when input- output streams are used.
 // Otherwise, fread/fwrite will be used
 #define use_cin_cout
+#define text_mode_output
 
 #ifdef use_cin_cout
 #include <iostream>
@@ -57,8 +58,7 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 	int bytecount=0;
 	for(unsigned long i=0;i<dLength;i++)
 	{
-		printf("%x",pBytes[i]);
-                printf(" ");
+		printf("%x ",pBytes[i]);
 		if ( ++bytecount == textWidth )
 		{
 			printf("\n");
@@ -71,6 +71,20 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 
 int main(int argc, char *argv[])
 {
+	printf("\n\nAES test program -- linked version\n\n");
+
+	printf("Version: ");
+	#ifdef __ARDUINO__DUEMILANOVE__
+	printf("Arduino");
+    #endif
+	#ifdef __INTEL_32_LINUX__
+	printf("LINUX");
+	#endif
+	#ifdef __INTEL32_BSD__
+	printf("BSD");
+	#endif
+	printf("\n\n");
+
 	// Only support 128 bit keys and 10 rounds at this time.
 
 	#ifdef verbose
@@ -110,11 +124,11 @@ int main(int argc, char *argv[])
 	// Allocate memory and generate the key schedule
 	unsigned char pKeys[KEY_BYTES*12];
 	KeyExpansion(pKey,pKeys);
-	#ifdef verbose_debug
+//	#ifdef verbose_debug
 	printf("\nKey schedule:\n");
 	printBytes2((unsigned char *)pKeys,16*11);
 	printf("\n\n");
-	#endif
+//	#endif
 
 	// The allocated buffer for plaintext. A fixed BUFFER_BLOCK_SIZE = PAGES*PAGE_SIZE is reserved.
 	// Make sure only entire pages are allocated!
@@ -138,7 +152,7 @@ int main(int argc, char *argv[])
 		dBlockWords=dTextLen/4;
 		for( i=0; i < dBlockWords; i+=4 ) {
 			//printBytes2((unsigned char*)pText,16);
-			encryptBlock(pText+i, (unsigned long*)pKeys);
+			encryptBlock(pText+i, (unsigned int*)pKeys);
 			//encryptBlock(pText+i, (unsigned int*)pKeys);
 		}
 
@@ -147,14 +161,15 @@ int main(int argc, char *argv[])
 		#ifndef text_mode_output
 		std::cout.write((const char*)pText,dTextLen);
 		#else
-		printBytes((unsigned char *)pText,dTextLen);
+		printf("\nOutput:\n");
+		printBytes2((unsigned char *)pText,dTextLen);
 		#endif
 		#else
 		fwrite(pText,sizeof(int),dBlockWords,stdout);
 		#endif
 		#else
 		printf("\nOutput:\n");
-		printBytes((unsigned char *)pText,dTextLen);
+		printBytes2((unsigned char *)pText,dTextLen);
 		#endif
 	}
 	#ifdef use_cin_cout
