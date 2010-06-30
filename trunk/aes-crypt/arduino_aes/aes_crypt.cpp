@@ -299,7 +299,7 @@ void addRoundKey(void *pText, const u_int32_ard *pKeys, int round)
 //void addRoundKey(void *pText, const unsigned int *pKeys, int round)  // FIXME: Temporary.
 {
 	int roundOffset=round*4;
-	unsigned long *pState = (unsigned long *)pText;
+	u_int32_ard *pState = (u_int32_ard *)pText;
 	//unsigned int *pState = (unsigned int *)pText;  // FIXME: Temporary.
 
 	pState[0] ^= pKeys[roundOffset];
