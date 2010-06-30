@@ -84,15 +84,12 @@ int main(int argc, char *argv[])
 
 	// Only support 128 bit keys and 10 rounds at this time.
 
-	#ifdef verbose
-	printf("\n\nAES ENCRYPTION\n\n");
-	#if defined(t_box_transform) && defined(t_table_pregenerated)	
+	#if defined(t_box_transform) && !defined(t_table_generate)	
 	printf("Using t-table transforms and pre-generated tables\n");
 	#elif defined(t_box_transform) && defined(t_table_generate)
 	printf("Using t-table transforms and generating tables\n");
 	#else
 	printf("Using the good-old 8-bit version\n");
-	#endif
 	#endif
 
 	// Initialize the t-boxes
