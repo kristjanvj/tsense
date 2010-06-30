@@ -10,6 +10,8 @@
 
 #include "aes_crypt.h"
 
+int counter = 0;
+
 /**
  *  printBytes
  */
@@ -46,11 +48,31 @@ void setup(void)
   
   Serial.println("Expanding keys");
   KeyExpansion(pKey,pKeys);
-  Serial.println("Key expansion done -- starting main loop (new code #8)");
+  Serial.println("Key expansion done -- starting main loop (new code #9)");
 }
 
+void doCount(void) {
+  
+  unsigned char pText[16];
+  sprintf((char*)pText, "%.016d", counter);
+  Serial.print("pText (before): ");
+  Serial.print((char*)pText);
+  Serial.print("\n");
+  
+  encryptBlock((void*)pText,(u_int32_ard *)pKeys);  
 
-void loop(void) { 
+  Serial.print("printBytes(counter): ");
+  printBytes((unsigned char*)counter,16,16);
+  Serial.print("pText (after): ");
+  printBytes(pText,16,16); // Print to serial in more or less readable format
+
+  Serial.print("\n\n");
+  delay(10000);
+
+  counter ++;
+}
+
+void doFips197Test(void) { 
   char pStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34}; // FIPS test vector
   unsigned char pText[128];
   strncpy((char*)pText,pStr,16);
@@ -59,4 +81,9 @@ void loop(void) {
   printBytes(pText,16,16); // Print to serial in more or less readable format
   Serial.print("\n\n");
   delay(10000);
+}
+
+void loop(void) { 
+  //doFips197Test();
+  doCount();
 }
