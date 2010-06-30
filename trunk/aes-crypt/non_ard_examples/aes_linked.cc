@@ -35,12 +35,9 @@
 
 // use this for c++ code when input- output streams are used.
 // Otherwise, fread/fwrite will be used
-#define use_cin_cout
 #define text_mode_output
+#define print_key_schedule
 
-#ifdef use_cin_cout
-#include <iostream>
-#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -58,7 +55,7 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 	int bytecount=0;
 	for(unsigned long i=0;i<dLength;i++)
 	{
-		printf("%x ",pBytes[i]);
+		printf("%.2x ",pBytes[i]);
 		if ( ++bytecount == textWidth )
 		{
 			printf("\n");
@@ -71,7 +68,7 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 
 int main(int argc, char *argv[])
 {
-	printf("\n\nAES test program -- linked version\n\n");
+	printf("\n\nAES test program -- linked version 1\n\n");
 
 	printf("Version: ");
 	#ifdef __ARDUINO__DUEMILANOVE__
@@ -105,30 +102,19 @@ int main(int argc, char *argv[])
 
 	// Read the 16 keybytes from stdin
 	unsigned int pKey[4];
-	#ifdef use_cin_cout
-	std::cin.read( (char*)pKey,16);
-	if(std::cin.fail()) 
-	{
-		#ifdef verbose_errors
-		printf("Error reading key from stdin. Quitting.\n");
-		#endif
-		return -1;
-	}
-	assert(std::cin.gcount()==16);	
-	#else
 	assert( fread((char *)pKey,sizeof(char),16,stdin) == 16 );
-	#endif
 
-	//printBytes2((unsigned char *)pKey,16);
+	printf("\nKey:\n");
+	printBytes2((unsigned char *)pKey,16);
 
 	// Allocate memory and generate the key schedule
 	unsigned char pKeys[KEY_BYTES*12];
 	KeyExpansion(pKey,pKeys);
-//	#ifdef verbose_debug
+	#ifdef print_key_schedule
 	printf("\nKey schedule:\n");
 	printBytes2((unsigned char *)pKeys,16*11);
-	printf("\n\n");
-//	#endif
+	printf("\n");
+	#endif
 
 	// The allocated buffer for plaintext. A fixed BUFFER_BLOCK_SIZE = PAGES*PAGE_SIZE is reserved.
 	// Make sure only entire pages are allocated!
@@ -142,12 +128,7 @@ int main(int argc, char *argv[])
 	// appropriate defines.
 	do
 	{
-		#ifdef use_cin_cout
-		std::cin.read((char*)pText,BUFFER_BLOCK_SIZE);
-		dTextLen = std::cin.gcount();
-		#else
 		dTextLen = fread((char *)pText,sizeof(char),BUFFER_BLOCK_SIZE,stdin);
-		#endif
 
 		dBlockWords=dTextLen/4;
 		for( i=0; i < dBlockWords; i+=4 ) {
@@ -156,27 +137,16 @@ int main(int argc, char *argv[])
 			//encryptBlock(pText+i, (unsigned int*)pKeys);
 		}
 
-		#ifndef verbose
-		#ifdef use_cin_cout
 		#ifndef text_mode_output
-		std::cout.write((const char*)pText,dTextLen);
-		#else
-		printf("\nOutput:\n");
-		printBytes2((unsigned char *)pText,dTextLen);
-		#endif
-		#else
 		fwrite(pText,sizeof(int),dBlockWords,stdout);
-		#endif
 		#else
 		printf("\nOutput:\n");
 		printBytes2((unsigned char *)pText,dTextLen);
+		printf("\n\n");
 		#endif
 	}
-	#ifdef use_cin_cout
-	while( !std::cin.eof() );
-	#else
 	while( !feof(stdin) );
-	#endif
+
 	// Free the allocated text buffer
 	free(pText);
 
