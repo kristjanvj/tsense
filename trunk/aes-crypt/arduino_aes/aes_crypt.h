@@ -16,18 +16,21 @@
 #include "environment.h" // Def the platform version in environment.h
 
 #ifdef __ARDUINO__DUEMILANOVE__
+typedef unsigned char byte_ard;
 typedef int int16_ard;
 typedef unsigned int u_int16_ard;
 typedef long int32_ard;
 typedef unsigned long u_int32_ard;
 #endif
 #ifdef  __INTEL_32_LINUX__
+typedef unsigned char byte_ard;
 typedef short int16_ard;
 typedef unsigned short u_int16_ard;
 typedef int int32_ard;
 typedef unsigned int u_int32_ard;
 #endif
 #ifdef  __INTEL32_BSD__
+typedef unsigned char byte_ard;
 typedef short int16_ard;
 typedef unsigned short u_int16_ard;
 typedef int int32_ard;
@@ -52,29 +55,26 @@ typedef unsigned int u_int32_ard;
 #define ROUNDS 10
 #define BLOCK_BYTE_SIZE 16
 
-// Dummy key for testing normally this would be secret.
-extern unsigned char pKey[]; // FIPS key
+extern unsigned char pKey[]; // The secret encryption key
 extern unsigned char pKeys[KEY_BYTES*12];
 
 void KeyExpansion(const void *key, void *keys);
 
 void addRoundKey(void *pText, const u_int32_ard *pKeys, int round);
-//void addRoundKey(void *pText, const unsigned int *pKeys, int round); //FIXME: Temporary
 
 #ifndef t_box_transform
 void subAndShift(void *pText);
 
 void mixColumns(void *pText);
 
-void ttransform(void *pText, const unsigned int *pKeys, int round);
+void ttransform(void *pText, const u_int32_ard *pKeys, int round);
 
-void lttransform(void *pText, const unsigned int *pKeys, int round);
+void lttransform(void *pText, const u_int32_ard *pKeys, int round);
 #endif
 
 #define ntransform(text,keys,round) subAndShift(text);mixColumns(text);addRoundKey(text,keys,round);
 
 void encryptBlock(void *pText, const u_int32_ard *pKeys);
-//void encryptBlock(void *pText, const unsigned int *pKeys); //FIXME: Temporary
 
 #if defined(t_box_transform) && defined(t_table_generate)
 void initializeTboxes();
