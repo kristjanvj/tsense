@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 		dBlockWords=dTextLen/4;
 		for( i=0; i < dBlockWords; i+=4 ) {
 			//printBytes2((unsigned char*)pText,16);
-			encryptBlock(pText+i, (unsigned int*)pKeys);
+			encryptBlock(pText+i, (const u_int32_ard*)pKeys);
 			//encryptBlock(pText+i, (unsigned int*)pKeys);
 		}
 
