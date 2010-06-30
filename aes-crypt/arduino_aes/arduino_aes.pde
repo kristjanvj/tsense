@@ -39,7 +39,7 @@ void setup(void)
   delay(1000);
   
   // Test code to print the version def'd in the envrionment.h file
-  Serial.println("\n\nVersion:");
+  Serial.print("\n\nVersion:");
   #ifdef __ARDUINO__DUEMILANOVE__
   Serial.println("Arduino");
   #elif  __INTEL_32_LINUX__
