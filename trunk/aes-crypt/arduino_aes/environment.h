@@ -1,8 +1,6 @@
 
 
-#define __ARDUINO__DUEMILANOVE__
-//#define __INTEL_32_LINUX__
-//#define __INTEL32_BSD__
+#define _ARDUINO_DUEMILANOVE
 
 //#define t_box_transform
 //#define t_table_generate

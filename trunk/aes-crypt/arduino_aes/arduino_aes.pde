@@ -40,14 +40,14 @@ void setup(void)
   
   // Test code to print the version def'd in the envrionment.h file
   Serial.print("\n\nVersion:");
-  #ifdef __ARDUINO__DUEMILANOVE__
+  #ifdef _ARDUINO_DUEMILANOVE
   Serial.println("Arduino");
   #endif
-  #ifdef  __INTEL_32_LINUX__
-  Serial.println("LINUX");
+  #ifdef  _INTEL_32
+  Serial.println("_INTEL_32");
   #endif
-  #ifdef  __INTEL32_BSD__
-  Serial.println("BSD");
+  #ifdef  _INTEL_64
+  Serial.println("_INTEL_64");
   #endif
 
   // Doublecheck the actual size of int16 and int32
@@ -66,7 +66,8 @@ void setup(void)
   
   Serial.println("Expanding keys");
   KeyExpansion(pKey,pKeys);
-  Serial.println("Key expansion done -- starting main loop (new code #10 kvj)");
+  Serial.println("Key expansion done -- starting main loop (new code #11)");
+  Serial.print("\n");
 }
 
 void doCount(void) {
@@ -91,7 +92,8 @@ void doCount(void) {
 }
 
 void doFips197Test(void) { 
-  char pStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34}; // FIPS test vector
+  char pStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,
+  				 0xe0,0x37,0x07,0x34}; // FIPS test vector
   unsigned char pText[128];
   strncpy((char*)pText,pStr,16);
   encryptBlock((void*)pText,(u_int32_ard *)pKeys);  
@@ -102,8 +104,6 @@ void doFips197Test(void) {
 }
 
 void loop(void) { 
-  
-  
   doFips197Test();
   //doCount();  
 }

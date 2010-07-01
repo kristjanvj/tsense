@@ -71,14 +71,14 @@ int main(int argc, char *argv[])
 	printf("\n\nAES test program -- linked version 1\n\n");
 
 	printf("Version: ");
-	#ifdef __ARDUINO__DUEMILANOVE__
+	#ifdef _ARDUINO_DUEMILANOVE
 	printf("Arduino");
     #endif
-	#ifdef __INTEL_32_LINUX__
-	printf("LINUX");
+	#ifdef _INTEL_32
+	printf("_INTEL_32");
 	#endif
-	#ifdef __INTEL32_BSD__
-	printf("BSD");
+	#ifdef _INTEL_64
+	printf("_INTEL_64");
 	#endif
 	printf("\n\n");
 
