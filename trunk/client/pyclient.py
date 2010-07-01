@@ -4,7 +4,7 @@
 # Tsense research project
 
 from OpenSSL import SSL
-from glob imoprt glob
+from glob import glob
 import socket, sys, random, os, serial
 
 
