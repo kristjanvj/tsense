@@ -13,35 +13,46 @@
 #ifndef __AES_CRYPT_H__
 #define __AES_CRYPT_H__
 
+/* Do not include the the environment file if we are compiling for something
+ * other than Arduino. The reason is that there does not seem to be a way 
+ * seem to be a way to pass preprocessor macros to the arv-gcc compiler with 
+ * the native Arduino IDE. This can be done on gcc/g++ using the '-D' option.
+ */
+#if !(defined(_INTEL_32) || defined(_INTEL_64))
 #include "environment.h" // Def the platform version in environment.h
-
-#ifdef __ARDUINO__DUEMILANOVE__
-typedef unsigned char byte_ard;
-typedef int int16_ard;
-typedef unsigned int u_int16_ard;
-typedef long int32_ard;
-typedef unsigned long u_int32_ard;
-#endif
-#ifdef  __INTEL_32_LINUX__
-typedef unsigned char byte_ard;
-typedef short int16_ard;
-typedef unsigned short u_int16_ard;
-typedef int int32_ard;
-typedef unsigned int u_int32_ard;
-#endif
-#ifdef  __INTEL32_BSD__
-typedef unsigned char byte_ard;
-typedef short int16_ard;
-typedef unsigned short u_int16_ard;
-typedef int int32_ard;
-typedef unsigned int u_int32_ard;
 #endif
 
-//
-// These switches control the use of t-table transformations v.s. the 8-bit version as used in the
-// textbook and various other sources. T-tables can be generated on startup or loaded from the
-// pre-generated definitions. See the initialization for the latter case in the code.
-//
+#ifdef _ARDUINO_DUEMILANOVE
+typedef unsigned char		byte_ard;
+typedef int					int16_ard;
+typedef unsigned int		u_int16_ard;
+typedef long				int32_ard;
+typedef unsigned long		u_int32_ard;
+#endif
+#ifdef  _INTEL_32
+typedef unsigned char		byte_ard;
+typedef short				int16_ard;
+typedef unsigned short		u_int16_ard;
+typedef int					int32_ard;
+typedef unsigned int		u_int32_ard;
+typedef long long			int64_ard;
+typedef unsigned long long	u_int64_ard;
+#endif
+#ifdef  _INTEL_64
+typedef unsigned char		byte_ard;
+typedef short				int16_ard;
+typedef unsigned short		u_int16_ard;
+typedef int					int32_ard;
+typedef unsigned int		u_int32_ard;
+typedef long				int64_ard;
+typedef unsigned long		u_int64_ard;
+#endif
+
+/* These switches control the use of t-table transformations v.s. the 8-bit 
+ * version as used in the textbook and various other sources. T-tables can be 
+ * generated on startup or loaded from the pre-generated definitions. See the
+ * initialization for the latter case in the code.
+ */
 //#define t_box_transform  // 32 bit optimization, else vanilla 8 bit.
 //#define t_table_generate
 
