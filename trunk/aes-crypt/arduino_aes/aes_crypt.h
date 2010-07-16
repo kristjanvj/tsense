@@ -15,11 +15,15 @@
 
 /* Do not include the the environment file if we are compiling for something
  * other than Arduino. The reason is that there does not seem to be a way 
- * seem to be a way to pass preprocessor macros to the arv-gcc compiler with 
+ * seem to be a way to pass preprocessor macros to the gcc-avr compiler with 
  * the native Arduino IDE. This can be done on gcc/g++ using the '-D' option.
+ *
+ * BK: Intel32 and Intel32 compiles the code using the -D flag. gcc-avr doesnt 
+ *     support -D so ifdef's are used instead. 
  */
+
 #if !(defined(_INTEL_32) || defined(_INTEL_64))
-#include "environment.h" // Def the platform version in environment.h
+#include "environment.h"    // Define platform in environment.h
 #endif
 
 #ifdef _ARDUINO_DUEMILANOVE

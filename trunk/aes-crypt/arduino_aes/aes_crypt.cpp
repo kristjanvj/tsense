@@ -12,14 +12,14 @@
 // The xtime macro is used in the mixColumns transformation. It implements the left shift and 
 // conditional XOR operations described in FIPS-197, section 4.2.1. This can be implemented by a
 // procedure and a conditional statement, but the macro is a much more compact form.
-// This macro is similar to one in the PolarSSL library http://www.polarssl.org/?page=show_source&file=aes.
+// This macro is similar to one in the PolarSSL library
+// http://www.polarssl.org/?page=show_source&file=aes.
 // The twotimes and threetimes macros are based on the description by Daemen and Rijmen.
 //
 #define xtime(a)  (a<<1) ^ ((a & 0x80) ? 0x1b : 0x00)
 // See the paper by Daemen and Rijmen (sec 2.1.3) on the 2x and 3x multiplication. 
 #define twotimes(a)  (((a<<1) ^ (((a>>7) & 1) * 0x1b)) & 0xFF)     
 #define threetimes(a) (a^twotimes(a))  
-
 //
 // byte rotate left and right
 //
