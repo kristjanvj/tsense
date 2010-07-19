@@ -296,7 +296,3 @@ void DecryptBlock(void* pEncrypted, const u_int32_ard *pKeys)
 
 } // DecryptBlock()
 
-int main()
-{
-  return 0;
-}
