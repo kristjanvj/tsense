@@ -62,4 +62,5 @@ void InvSubAndShift(void *pText);
 
 void InvMixColumns(void *pText);
 
+void DecryptBlock(void* pEncrypted, const u_int32_ard *pKeys);
 #endif // __AES_DECRYPT_H__
