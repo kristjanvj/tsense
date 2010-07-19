@@ -8,6 +8,8 @@
  *
  */
 
+
+#include "aes_cmac.h"
 #include "aes_crypt.h"
 
 int counter = 0;

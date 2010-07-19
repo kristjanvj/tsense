@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include "aes_crypt.h"
+#include "aes_cmac.h"
 
 #define PAGES 32 // The number of pages to allocate -- tune this for performance
 #define PAGE_SIZE 4096 // The page size in Intel systems (and some solaris -- some use 8kB pages)
