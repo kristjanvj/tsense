@@ -50,6 +50,8 @@
 #define BUFFER_BLOCK_SIZE PAGES*PAGE_SIZE   // Always allocate entire pages
 #define BLOCK_BYTE_SIZE 16
 
+using namespace std;
+
 void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 {	
 	int bytecount=0;
@@ -129,9 +131,10 @@ int main(int argc, char *argv[])
 
 		dBlockWords=dTextLen/4;
 		for( i=0; i < dBlockWords; i+=4 ) {
-			//printBytes2((unsigned char*)pText,16);
+			printf("before: "); printBytes2((unsigned char*)pText,16);
 			encryptBlock(pText+i, (const u_int32_ard*)pKeys);
 			//encryptBlock(pText+i, (unsigned int*)pKeys);
+			printf("after:  "); printBytes2((unsigned char*)pText,16);
 		}
 
 		#ifndef text_mode_output
