@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
   };
 
   // Allocate memory and generate the key schedule
-  unsigned char pKeys[KEY_BYTES*12];
+  byte_ard pKeys[KEY_BYTES*12];
   KeyExpansion(pKey, pKeys);
 
   printf("\nCiphertext: \n");

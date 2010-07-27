@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
   };
 
   // Allocate memory and generate the key schedule
-  unsigned char pKeys[KEY_BYTES*12];
+  byte_ard pKeys[KEY_BYTES*12];
   KeyExpansion(pKey, pKeys);
 
   printf("\nPlaintext: \n");
@@ -58,6 +58,6 @@ int main(int argc, char *argv[])
   EncryptBlock(pBlock, (const u_int32_ard*)pKeys);
   printf("\nCiphertext: \n");
   printBytes2((unsigned char *)pBlock, BLOCK_SIZE);
-  
+
   return 0;
 }
