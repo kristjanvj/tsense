@@ -3,6 +3,10 @@
 
 # Benedikt Kristinsson
 # An example implementation of a very basic sink made in Python using SSL.
+#
+# Create a sink SSL cert and a auth SSL cert and sign them with the same CA
+# and the will accept each other. 
+
 
 import ssl
 from socket import socket, AF_INET, SOCK_STREAM

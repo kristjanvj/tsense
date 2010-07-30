@@ -4,6 +4,9 @@
 # Benedikt Kristinsson, 2010
 # Simple AUTH server for the TSesne project that
 # communicates with a Sink server over a SSL tunnel.
+#
+# Create a sink SSL cert and a auth SSL cert and sign them with the same CA
+# and the will accept each other. 
 
 import ssl
 from socket import socket
