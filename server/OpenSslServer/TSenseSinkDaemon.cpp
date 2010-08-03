@@ -9,24 +9,24 @@
 #include <stdexcept>
 #include <string>
 #include "BDaemon.h"
-#include "TlsServer.h"
+#include "TlsSinkServer.h"
 
 using namespace std;
 
-class TSenseDaemon: public BDaemon{
+class TSenseSinkDaemon: public BDaemon{
 	public:
-		TSenseDaemon(const char *daemonName, const char* lockDir, int daemonFlags);
+		TSenseSinkDaemon(const char *daemonName, const char* lockDir, int daemonFlags);
 	protected:
 		void work();
 };
 
-TSenseDaemon::TSenseDaemon(const char *daemonName, 
+TSenseSinkDaemon::TSenseSinkDaemon(const char *daemonName, 
 					   const char* lockDir, 
 					   int daemonFlags) 
 : BDaemon(daemonName, lockDir, daemonFlags){} 
 
-void TSenseDaemon::work(){
-	TlsServer tlss(5556);
+void TSenseSinkDaemon::work(){
+	TlsSinkServer tlss(5556);
 	tlss.serverMain();
 }
 
@@ -34,8 +34,8 @@ int main()
 {
 
 	try{
-		//TSenseDaemon arDaemon("tsensed", "/tmp/", SINGLETON);
-		TSenseDaemon arDaemon("tsensed", "/tmp/", SINGLETON|NO_DTTY);
+		//TSenseSinkDaemon arDaemon("tsensed", "/tmp/", SINGLETON);
+		TSenseSinkDaemon arDaemon("tsensed", "/tmp/", SINGLETON|NO_DTTY);
 
 		arDaemon.run();
 	}

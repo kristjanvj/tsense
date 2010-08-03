@@ -1,5 +1,5 @@
 /*
-   File name: TlsServer.h
+   File name: TlsSinkServer.h
    Date:      2010-06-21 11:28
    Author:    Kristján Rúnarsson
 */
@@ -37,7 +37,7 @@
 
 using namespace std;
 
-class TlsServer {
+class TlsSinkServer {
     private:
 		void handleError(const char* msg);
 		void initOpenSSL();
@@ -47,7 +47,7 @@ class TlsServer {
 		int _listenPort;
 
     public:
-		TlsServer(int listenPort);
+		TlsSinkServer(int listenPort);
 		void serverMain();
 };
 

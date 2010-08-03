@@ -7,14 +7,14 @@
 /* This is a sample TLS 1.0 echo server, for anonymous authentication only.
  */
 
-#include "TlsServer.h"
+#include "TlsSinkServer.h"
 
 
 using namespace std;
 
-TlsServer::TlsServer(int listenPort) : _listenPort(listenPort) {}
+TlsSinkServer::TlsSinkServer(int listenPort) : _listenPort(listenPort) {}
 
-void TlsServer::handleError(const char* msg) {
+void TlsSinkServer::handleError(const char* msg) {
     syslog(LOG_ERR, "%s", msg);
     exit(-1);
 }
@@ -22,7 +22,7 @@ void TlsServer::handleError(const char* msg) {
 /* Register available algorithms and digests. Must be called before
  * any other action takes place. 
  */
-void TlsServer::initOpenSSL() {
+void TlsSinkServer::initOpenSSL() {
     if (!SSL_library_init())
         handleError("OpenSSL initialization failed");
     SSL_load_error_strings();
@@ -36,7 +36,7 @@ void TlsServer::initOpenSSL() {
  *  - http://en.wikipedia.org/wiki/Diffie-Hellman_key_exchange
  *  - http://en.wikipedia.org/wiki/Symmetric_key
  */
-DH* TlsServer::setupDiffeHelleman() {
+DH* TlsSinkServer::setupDiffeHelleman() {
     DH* dh = DH_new();
     if (!dh)
         handleError("DH_new failed");
@@ -59,7 +59,7 @@ DH* TlsServer::setupDiffeHelleman() {
  * context structure. The structure is used by the server to determine
  * default values for the connection.
  */
-SSL_CTX* TlsServer::setupCtx() {
+SSL_CTX* TlsSinkServer::setupCtx() {
     SSL_CTX* ctx;
 
 	/* Specify a connection that only understands the TLS V.1 protocol.
@@ -85,7 +85,7 @@ SSL_CTX* TlsServer::setupCtx() {
 }
 
 
-void TlsServer::serverMain() {
+void TlsSinkServer::serverMain() {
     initOpenSSL();
 
     BIO *acc, *client;
@@ -185,7 +185,7 @@ void TlsServer::serverMain() {
 
 /*
 int main() {
-	TlsServer FooBar(5556);
+	TlsSinkServer FooBar(5556);
 	FooBar.serverMain();
     return 0;
 } // end main()
