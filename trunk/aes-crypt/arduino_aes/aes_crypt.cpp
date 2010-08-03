@@ -133,7 +133,7 @@ void KeyExpansion(const void *key, void *keys)
 		// here by their inlined equivalents. The algorithm is also simplifyed by not supporting 
 		// the longer key lengths. Several steps are combined to be able to compute keys in-place
 		// without temporary variables.
-		if (i % 16 == 0)
+        if (i % 16 == 0)  // Dividable by 16, the first key
 		{
 			// Copy the previous four bytes with rotate. 
 			// Apply the AES Sbox to the four bytes of the key only.
@@ -395,7 +395,7 @@ void InvMixColumns(void *pText)
 
 
 // ntransform -- normal transform macro to help with the loop unrolling
-#define ntransform(text,keys,round) subAndShift(text);mixColumns(text);addRoundKey(text,keys,round);
+#define ntransform(text,keys,round) SubAndShift(text);MixColumns(text);AddRoundKey(text,keys,round);
 
 /**
  *  EncryptBlock
@@ -412,27 +412,27 @@ void InvMixColumns(void *pText)
  *
  *  Note: Only 10 rounds and 128 bit keys are supported in this implementation.
  */
-void EncryptBlock(void *pText, const u_int32_ard *pKeys) {
-
+void EncryptBlock(void *pBlock, const u_int32_ard *pKeys) 
+{
 	// FIXME -- Use non-arduino-specific debug
 	#ifdef verbose_debug
 	Serial.println("\n\nStarting encrypt, plaintext is");
-	printBytes((byte_ard*)pText,16,16);
+	printBytes((byte_ard*)pBlock,16,16);
 	#endif 
   
-    // Add the first round key from the schedule
-	AddRoundKey(pText, pKeys, 0);
+    // XOR the first key to the first state
+	AddRoundKey(pBlock, pKeys, 0);
     
     #if defined(unroll_encrypt_loop)
-    ntransform(pText, pKeys, 1);
-    ntransform(pText, pKeys, 2);
-    ntransform(pText, pKeys, 3);
-    ntransform(pText, pKeys, 4);
-    ntransform(pText, pKeys, 5);
-    ntransform(pText, pKeys, 6);
-    ntransform(pText, pKeys, 7);
-    ntransform(pText, pKeys, 8);
-    ntransform(pText, pKeys, 9);
+    ntransform(pBlock, pKeys, 1);
+    ntransform(pBlock, pKeys, 2);
+    ntransform(pBlock, pKeys, 3);
+    ntransform(pBlock, pKeys, 4);
+    ntransform(pBlock, pKeys, 5);
+    ntransform(pBlock, pKeys, 6);
+    ntransform(pBlock, pKeys, 7);
+    ntransform(pBlock, pKeys, 8);
+    ntransform(pBlock, pKeys, 9);
     #else
 
 	int round;
@@ -444,9 +444,9 @@ void EncryptBlock(void *pText, const u_int32_ard *pKeys) {
 		Serial.println(round);
 		#endif
   
-		SubAndShift(pText); 
-		MixColumns(pText);  
-		AddRoundKey(pText, pKeys, round); 
+		SubAndShift(pBlock); 
+		MixColumns(pBlock);  
+		AddRoundKey(pBlock, pKeys, round); 
 	}
     #endif
 
@@ -456,8 +456,8 @@ void EncryptBlock(void *pText, const u_int32_ard *pKeys) {
 	#endif
 
 	// Now, do the final round of encryption
-	SubAndShift(pText);
-	AddRoundKey(pText, pKeys, 10);  // add the last round key from the schedule
+	SubAndShift(pBlock);
+	AddRoundKey(pBlock, pKeys, 10);  // add the last round key from the schedule
 } //EncryptBlock()
 
 
@@ -469,11 +469,24 @@ void EncryptBlock(void *pText, const u_int32_ard *pKeys) {
 //
 // Follows the references of FIPS-197, Section 5.3 (Inverse Cipher)
 
+// dtransform - help with the loop unrolling
+#define dtransform(cipher,keys,round) InvSubAndShift(cipher);AddRoundKey(cipher,keys,round);InvMixColumns(cipher);
 void DecryptBlock(void* pEncrypted, const u_int32_ard *pKeys)
 {
-  // Add the first round key before starting the rounds
+  // XOR the first key to the first state. 
   AddRoundKey(pEncrypted, pKeys, ROUNDS);
 
+  #if defined(unroll_decrypt_loop)
+  dtransform(pEncrypted, pKeys, 9);
+  dtransform(pEncrypted, pKeys, 8);
+  dtransform(pEncrypted, pKeys, 7);
+  dtransform(pEncrypted, pKeys, 6);
+  dtransform(pEncrypted, pKeys, 5);
+  dtransform(pEncrypted, pKeys, 4);
+  dtransform(pEncrypted, pKeys, 3);
+  dtransform(pEncrypted, pKeys, 2);
+  dtransform(pEncrypted, pKeys, 1);
+  #else
   int round;
   for(round=ROUNDS-1; round>0; round--)
   {
@@ -487,10 +500,111 @@ void DecryptBlock(void* pEncrypted, const u_int32_ard *pKeys)
     AddRoundKey(pEncrypted, pKeys, round);
     InvMixColumns(pEncrypted);
   }
+  #endif
 
-  // The last round is different -- there is no MixColumns.
+  // The last round is different (Round 0) -- there is no MixColumns.
   InvSubAndShift(pEncrypted);
   AddRoundKey(pEncrypted, pKeys, 0);
 
 
 } // DecryptBlock()
+
+// CBCEncrypt()
+// The cipher-block chaining mode of operation
+// http://en.wikipedia.org/wiki/Block_cipher_modes_of_operation#Cipher-block_chaining_.28CBC.29
+// C = Cipherblock, P = Plaintextblock, E = encrypt, K = key, IV = Initialization vector
+// C_0 = IV
+// C_i = E_k(P_i XOR C_{i-1})
+//
+// C_1 = E_k(P_1 XOR C_0) = E_k(P_1 XOR IV)
+// C_2 = E_k(P_2 XOR C_1)
+
+void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length, u_int32_ard padding, 
+                const u_int32_ard *pKeys, const u_int16_ard *pIV)
+{
+  byte_ard *pText = (byte_ard*)pTextIn;
+  byte_ard *cBuffer = (byte_ard*)pBuffer;
+  byte_ard *lastblock = (byte_ard*)pIV;     // C_0 = IV
+  byte_ard currblock[BLOCK_BYTE_SIZE];
+  
+  
+  u_int32_ard blocks = (length + padding) / BLOCK_BYTE_SIZE;
+  
+  // Copy and pad the string.   
+  for (u_int32_ard i = 0; i<(blocks*BLOCK_BYTE_SIZE); i++)
+  {
+    if (i <= length)
+    {
+      // Copy the string
+      cBuffer[i] = pText[i];
+    }
+    else if (i == (length+1))
+    {
+      //cBuffer[i] = 0x80;    // Thats what KR used.
+      cBuffer[i] = 0x31;
+    }
+    else
+    {
+      cBuffer[i] = 0x30;
+    }
+  }
+
+  // C_i = E_k(P_i XOR C_{i-1})
+  for (u_int32_ard i = 0; i < blocks; i++) 
+  {
+    #if defined(unroll_cbc_loop)
+    // Code instead of loop NOT DONE!
+    currblock[0] = cBuffer[(i*BLOCK_BYTE_SIZE)+0] ^ lastblock[0];
+    currblock[1] = cBuffer[(i*BLOCK_BYTE_SIZE)+1] ^ lastblock[1];
+    currblock[2] = cBuffer[(i*BLOCK_BYTE_SIZE)+2] ^ lastblock[2];
+    currblock[3] = cBuffer[(i*BLOCK_BYTE_SIZE)+3] ^ lastblock[3];
+    currblock[4] = cBuffer[(i*BLOCK_BYTE_SIZE)+4] ^ lastblock[4];
+    currblock[5] = cBuffer[(i*BLOCK_BYTE_SIZE)+5] ^ lastblock[5];
+    currblock[6] = cBuffer[(i*BLOCK_BYTE_SIZE)+6] ^ lastblock[6];
+    currblock[7] = cBuffer[(i*BLOCK_BYTE_SIZE)+7] ^ lastblock[7];
+    currblock[8] = cBuffer[(i*BLOCK_BYTE_SIZE)+8] ^ lastblock[8];
+    currblock[9] = cBuffer[(i*BLOCK_BYTE_SIZE)+9] ^ lastblock[9];
+    currblock[10] = cBuffer[(i*BLOCK_BYTE_SIZE)+10] ^ lastblock[10];
+    currblock[11] = cBuffer[(i*BLOCK_BYTE_SIZE)+11] ^ lastblock[11];
+    currblock[12] = cBuffer[(i*BLOCK_BYTE_SIZE)+12] ^ lastblock[12];
+    currblock[13] = cBuffer[(i*BLOCK_BYTE_SIZE)+13] ^ lastblock[13];
+    currblock[14] = cBuffer[(i*BLOCK_BYTE_SIZE)+14] ^ lastblock[14];
+    currblock[15] = cBuffer[(i*BLOCK_BYTE_SIZE)+15] ^ lastblock[15];
+
+    EncryptBlock((void*)currblock, pKeys);
+
+    cBuffer[(i*BLOCK_BYTE_SIZE)+0] = currblock[0];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+1] = currblock[1];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+2] = currblock[2];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+3] = currblock[3];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+4] = currblock[4];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+5] = currblock[5];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+6] = currblock[6];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+7] = currblock[7];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+8] = currblock[8];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+9] = currblock[9];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+10] = currblock[10];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+11] = currblock[11];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+12] = currblock[12];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+13] = currblock[13];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+14] = currblock[14];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+15] = currblock[15];
+    
+    #else
+    for (u_int16_ard j = 0; j < BLOCK_BYTE_SIZE; j++)
+    {
+      currblock[j] = cBuffer[(i*BLOCK_BYTE_SIZE)+j] ^ lastblock[j];
+    }
+    
+    EncryptBlock((void*)currblock, pKeys);
+
+    // Copy the ciphered block into the buffer again. 
+    for (u_int16_ard j = 0; j < BLOCK_BYTE_SIZE; j++)
+    {
+      cBuffer[(i*BLOCK_BYTE_SIZE)+j] = currblock[j];
+    }
+    #endif
+    lastblock = currblock;
+  } // for (blocks)
+} // CBCEncrypt()
+
