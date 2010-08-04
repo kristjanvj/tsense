@@ -519,8 +519,9 @@ void DecryptBlock(void* pEncrypted, const u_int32_ard *pKeys)
 // C_1 = E_k(P_1 XOR C_0) = E_k(P_1 XOR IV)
 // C_2 = E_k(P_2 XOR C_1)
 
-void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length, u_int32_ard padding, 
-                const u_int32_ard *pKeys, const u_int16_ard *pIV)
+void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
+                u_int32_ard padding, const u_int32_ard *pKeys,
+                const u_int16_ard *pIV)
 {
   byte_ard *pText = (byte_ard*)pTextIn;
   byte_ard *cBuffer = (byte_ard*)pBuffer;
@@ -608,3 +609,46 @@ void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length, u_int32_ard pa
   } // for (blocks)
 } // CBCEncrypt()
 
+// CBCDecrypt()
+//
+// C_0 = IV
+// P_i = D_k(C_i) XOR C_{i-1} 
+//
+// Removing the padding probably isnt neccesary, since the CBC
+// leaves the null char intact at the end of the cstring. But what 
+// about binary files and etc?
+void CBCDecrypt(void* pText, void* pBuffer, u_int32_ard blocks,
+                const u_int32_ard *pKeys, const u_int16_ard *pIV)
+{
+  byte_ard *cText = (byte_ard*)pText;
+  byte_ard *cBuffer = (byte_ard*)pBuffer;
+  byte_ard *lastblock = (byte_ard*)pIV;
+  byte_ard tempblock[BLOCK_BYTE_SIZE];
+  byte_ard currblock[BLOCK_BYTE_SIZE];
+
+  for (u_int32_ard i = 0; i < blocks; i++)
+  {
+    #if defined(unroll_cbc_loop) 
+    // This loop unrolled would be really ugly. 
+    #else
+
+    // copy the data to 'currblock', to be deciphered. 
+    for (u_int16_ard j = 0; j < BLOCK_BYTE_SIZE; j++)
+    {
+      currblock[j] = cText[(i*BLOCK_BYTE_SIZE)+j];
+      tempblock[j] = currblock[j];
+    }
+
+    DecryptBlock((void*)currblock, pKeys);
+
+    // xor the decphered block with last latest cipherblock, C_{i-1} 
+    for (u_int16_ard j = 0; j < BLOCK_BYTE_SIZE; j++)
+    {
+      cBuffer[(i*BLOCK_BYTE_SIZE)+j] = currblock[j]  ^ lastblock[j];
+      lastblock[j] = tempblock[j];
+    }
+
+    #endif
+  }
+  
+} // CBCDecrypt()

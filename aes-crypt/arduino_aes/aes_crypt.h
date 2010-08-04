@@ -81,7 +81,11 @@ void InvMixColumns(void *pText);
 void DecryptBlock(void* pEncrypted, const u_int32_ard *pKeys);
 
 // CBC
-void CBCEncrypt(void* pTextIn, void* pBuffer, u_int32_ard length, u_int32_ard padding,
+void CBCEncrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
+                u_int32_ard padding, const u_int32_ard *pKeys,
+                const u_int16_ard *pIV);
+
+void CBCDecrypt(void* pTextIn, void* pBuffer, u_int32_ard blocks,
                 const u_int32_ard *pKeys, const u_int16_ard *pIV);
 
 
