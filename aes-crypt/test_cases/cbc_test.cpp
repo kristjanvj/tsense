@@ -65,7 +65,10 @@ int main()
 
   // cbc_test.cpp:67: error: invalid conversion from ‘const char*’ to ‘byte_ard*’
   const char *tmp;
-  tmp = "Hello, my name is Benedikt and this is a multi-block string";
+  //tmp = "Hello, my name is Benedikt and this is a multi-block string";
+  //tmp = "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 30";
+  //tmp = "Hello, my name is Kristjan and this is a longer multi-block test string with still some more stuff appended";
+  tmp = "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnop";
   
   byte_ard *text = (byte_ard*)tmp;
   
@@ -117,6 +120,7 @@ int main()
   printf("Bytes:\n");
   printBytes2((byte_ard*)decipher_buffer, len(decipher_buffer));
   printf("printf(): \n%s\n\n", (byte_ard*) decipher_buffer);
+  printf("length of deciphered: %d\n", len(decipher_buffer));
   
   
   
