@@ -23,6 +23,15 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 		printf("\n");
 }
 
+int len(byte_ard* str)
+{
+  int i=0;
+  while (str[i] != '\0')
+    i++;
+  return i;
+}
+
+
 int main()
 {
   /*
@@ -50,17 +59,26 @@ int main()
   //const char *text;
   //text = "Helo world!";
 
-  byte_ard text[] = {
+  /*byte_ard text[] = {
       0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21
-  };  // Hello world!
+    };*/  // Hello world!
+
+  // cbc_test.cpp:67: error: invalid conversion from ‘const char*’ to ‘byte_ard*’
+  const char *tmp;
+  tmp = "Hello, my name is Benedikt and this is a multi-block string";
+  
+  byte_ard *text = (byte_ard*)tmp;
+  
   
   u_int32_ard blocks = 0;
   u_int32_ard length = 0;
   u_int32_ard padding = 0;
 
   // Count the string length
-  while (text[length] != '\0')
-    length = length + 1;
+  //while (text[length] != '\0')
+  //  length = length + 1;
+  length = len(text);
+  
 
   // Decide on the padding
   if ((length % BLOCK_BYTE_SIZE) == 0)
@@ -80,17 +98,27 @@ int main()
   printBytes2(Key, BLOCK_BYTE_SIZE);
   printf("\nInitialization vector: \n");
   printBytes2(IV, BLOCK_BYTE_SIZE);
-  printf("\nPlaintext: \n");
-  printBytes2((byte_ard*)text, BLOCK_BYTE_SIZE);
-
-
+  printf("\nPlaintext: \nBytes:");
+  printBytes2((byte_ard*)text, length);
+  printf("printf(): %s", (byte_ard*) text);
 
   CBCEncrypt((void *) text, (void *) buffer, length, padding,  (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
 
-  printf("After CBC: \n");
-  printBytes2((byte_ard*)buffer, BLOCK_BYTE_SIZE);
+  printf("\nAfter CBC: \n");
+  printBytes2((byte_ard*)buffer, blocks*BLOCK_BYTE_SIZE);
+
+  byte_ard decipher_buffer[length];
   
-  //printf("testing: \n%.2x\n", (char)text[198]);
+  // now try to decipher the ciphered buffer.
+  CBCDecrypt((void *) buffer, (void *) decipher_buffer, blocks, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
+  
+
+  printf("\nCBC Decipher: \n");
+  printf("Bytes: ");
+  printBytes2((byte_ard*)decipher_buffer, len(decipher_buffer));
+  printf("printf(): %s\n\n", (byte_ard*) decipher_buffer);
+  
+  
   
   return 0;
 }
