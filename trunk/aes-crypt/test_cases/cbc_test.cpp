@@ -98,9 +98,9 @@ int main()
   printBytes2(Key, BLOCK_BYTE_SIZE);
   printf("\nInitialization vector: \n");
   printBytes2(IV, BLOCK_BYTE_SIZE);
-  printf("\nPlaintext: \nBytes:");
+  printf("\nPlaintext: \nBytes:\n");
   printBytes2((byte_ard*)text, length);
-  printf("printf(): %s", (byte_ard*) text);
+  printf("printf(): \n%s\n", (byte_ard*) text);
 
   CBCEncrypt((void *) text, (void *) buffer, length, padding,  (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
 
@@ -110,13 +110,13 @@ int main()
   byte_ard decipher_buffer[length];
   
   // now try to decipher the ciphered buffer.
-  CBCDecrypt((void *) buffer, (void *) decipher_buffer, blocks, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
+  CBCDecrypt((void *) buffer, (void *) decipher_buffer, len(buffer)/BLOCK_BYTE_SIZE, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
   
 
   printf("\nCBC Decipher: \n");
-  printf("Bytes: ");
+  printf("Bytes:\n");
   printBytes2((byte_ard*)decipher_buffer, len(decipher_buffer));
-  printf("printf(): %s\n\n", (byte_ard*) decipher_buffer);
+  printf("printf(): \n%s\n\n", (byte_ard*) decipher_buffer);
   
   
   
