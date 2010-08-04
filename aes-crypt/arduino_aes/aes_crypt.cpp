@@ -10,9 +10,11 @@
  */
 #include "aes_crypt.h"
 //
-// The xtime macro is used in the mixColumns transformation. It implements the left shift and 
-// conditional XOR operations described in FIPS-197, section 4.2.1. This can be implemented by a
-// procedure and a conditional statement, but the macro is a much more compact form.
+// The xtime macro is used in the mixColumns transformation. It implements the 
+// left shift and conditional XOR operations described in FIPS-197, section 4.2.1. 
+// This can be implemented by a procedure and a conditional statement, but the 
+// macro is a much more compact form.
+// 
 // This macro is similar to one in the PolarSSL library
 // http://www.polarssl.org/?page=show_source&file=aes.
 // The twotimes and threetimes macros are based on the description by Daemen and Rijmen.
@@ -110,7 +112,8 @@ byte_ard Rcon[255] = {
  *  Implements the AES key expansion algorithm.
  *  Note: only supports 128 bit keys and 10 rounds.
  *  See FIPS-197 and http://en.wikipedia.org/wiki/Rijndael_key_schedule on the algorithm.
- *  The Rcon table used in the algorithm copied from (but verified!) the wikipedia article.
+ *  The Rcon table used in the algorithm copied from (but not verified!) the wikipedia
+ *  article.
  *  key is the ecryption key, whereas keys are the derived expansion keys. 
  */
 void KeyExpansion(const void *key, void *keys) 
@@ -129,10 +132,10 @@ void KeyExpansion(const void *key, void *keys)
 	int r=1; // The Rcon counter
 	for(int i=16; i<176; i+=4)
 	{
-		// The SubWord and RotWord methods described in Section 5.2 of FIPS-197 are replaced
-		// here by their inlined equivalents. The algorithm is also simplifyed by not supporting 
-		// the longer key lengths. Several steps are combined to be able to compute keys in-place
-		// without temporary variables.
+		// The SubWord and RotWord methods described in Section 5.2 of FIPS-197 are 
+        // replaced here by their inlined equivalents. The algorithm is also simplifyed
+        // by not supporting the longer key lengths. Several steps are combined to be
+        // able to compute keys in-place without temporary variables.
         if (i % 16 == 0)  // Dividable by 16, the first key
 		{
 			// Copy the previous four bytes with rotate. 
@@ -286,11 +289,13 @@ void InvSubAndShift(void *pText)
 /**
  *  MixColumns
  * 
- * The MixColumns function is the trickiest to implement efficiently since it contains a lot of 
- * expensive operations if implemented literally as stated in FIPS-197.
+ * The MixColumns function is the trickiest to implement efficiently since it 
+ * contains a lot of expensive operations if implemented literally as stated 
+ * in FIPS-197.
  *
- * Considerable experimentation, trial, error and literature search lead to the present form.
- * A fuller discussion and the sources used are cited in the body of the function.
+ * Considerable experimentation, trial, error and literature search lead to 
+ * the present form. A fuller discussion and the sources used are cited in the 
+ * body of the function.
  *
  */
 void MixColumns(void *pText)
@@ -400,13 +405,14 @@ void InvMixColumns(void *pText)
 /**
  *  EncryptBlock
  *
- *  Encrypt a single block, stored in the buffer text. The buffer MUST be 16 bytes in length!
+ *  Encrypt a single block, stored in the buffer text. The buffer MUST be 16 
+ *  bytes in length!
  *  pKeys stores a complete key schedule for the round.
- *  The algorithm, call order and function names, follows the reference of FIPS-197, section 5.1.
+ *  The algorithm, call order and function names, follows the reference of 
+ *  FIPS-197, section 5.1.
  *
- *  The encryption loop can be unrolled or left as is by using the unroll_encrypt_loop define.
- *  t-box transforms or regular (textbook) algorithm can be selected by the proper defines
- *  as can be seen in the code.
+ *  The encryption loop can be unrolled or left as is by using the 
+ *  unroll_encrypt_loop define.
  *
  *  The encrypted data is returned in the text buffer.
  *
@@ -554,7 +560,6 @@ void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
   for (u_int32_ard i = 0; i < blocks; i++) 
   {
     #if defined(unroll_cbc_loop)
-    // Code instead of loop NOT DONE!
     currblock[0] = cBuffer[(i*BLOCK_BYTE_SIZE)+0] ^ lastblock[0];
     currblock[1] = cBuffer[(i*BLOCK_BYTE_SIZE)+1] ^ lastblock[1];
     currblock[2] = cBuffer[(i*BLOCK_BYTE_SIZE)+2] ^ lastblock[2];
