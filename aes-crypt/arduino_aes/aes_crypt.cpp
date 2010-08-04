@@ -3,9 +3,24 @@
  * Kristjan Valur Jonsson
  * Benedikt Kristinsson
  *
- * AES Encryption Implementation. Ported quick-and-dirty to the Arduino 
- * from the aes Intel platform implementation
+ * AES Encryption Implementation. Ported to the Arduino 
+ * from the aes Intel platform implementation. The code compiles on
+ * both the Arduino platform and Intel i386/amd64
+ * 
+ *    This file is part of the Trusted Sensors Research Project (TSense).
  *
+ *  TSense is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  TSense is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with the TSense code.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
 #include "aes_crypt.h"
@@ -515,16 +530,26 @@ void DecryptBlock(void* pEncrypted, const u_int32_ard *pKeys)
 
 } // DecryptBlock()
 
-// CBCEncrypt()
-// The cipher-block chaining mode of operation
-// http://en.wikipedia.org/wiki/Block_cipher_modes_of_operation#Cipher-block_chaining_.28CBC.29
-// C = Cipherblock, P = Plaintextblock, E = encrypt, K = key, IV = Initialization vector
-// C_0 = IV
-// C_i = E_k(P_i XOR C_{i-1})
-//
-// C_1 = E_k(P_1 XOR C_0) = E_k(P_1 XOR IV)
-// C_2 = E_k(P_2 XOR C_1)
+ /**
+  *  CBC - The cipher-block chaining mode of operation
+  *  Mode of operation
+  *  http://en.wikipedia.org/wiki/Block_cipher_modes_of_operation
+  *       C_0 = IV
+  *       C_i = E_k(P_i XOR C_{i-1})
+  *       C_1 = E_k(P_1 XOR C_0) = E_k(P_1 XOR IV)
+  *       C_2 = E_k(P_2 XOR C_1) 
+  *
+  * In order to use the CBC Mode of Operation the following has to be declared
+  *  - A unsigned char (byte_ard) array containing the cleartext/ciphertext.
+  *  - A buffer of length (blocks*BLOCK_BYTE_SIZE) for post-CBC data.
+  *  - The length of the char array. (Decryption: must be mod 16 == 0)
+  *  - The number of chars needed to 'pad' the array. (Encryption only)
+  *  - Initialization vector
+  *  - Rijandel Key schedule
+  */
 
+
+// CBCEncrypt()
 void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
                 u_int32_ard padding, const u_int32_ard *pKeys,
                 const u_int16_ard *pIV)
@@ -622,7 +647,7 @@ void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
 // Removing the padding probably isnt neccesary, since the CBC
 // leaves the null char intact at the end of the cstring. But what 
 // about binary files and etc?
-void CBCDecrypt(void* pText, void* pBuffer, u_int32_ard blocks,
+void CBCDecrypt(void* pText, void* pBuffer, u_int32_ard length,
                 const u_int32_ard *pKeys, const u_int16_ard *pIV)
 {
   byte_ard *cText = (byte_ard*)pText;
@@ -630,7 +655,10 @@ void CBCDecrypt(void* pText, void* pBuffer, u_int32_ard blocks,
   byte_ard *lastblock = (byte_ard*)pIV;
   byte_ard tempblock[BLOCK_BYTE_SIZE];
   byte_ard currblock[BLOCK_BYTE_SIZE];
+  u_int32_ard blocks = length/BLOCK_BYTE_SIZE;
 
+  
+  
   for (u_int32_ard i = 0; i < blocks; i++)
   {
     #if defined(unroll_cbc_loop) 

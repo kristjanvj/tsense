@@ -1,10 +1,26 @@
-/*
- * Kristjan Valur Jonsson,
+/**
+ *
+ * Kristjan Valur Jonsson
  * Benedikt Kristinsson
  *
- * AES Encryption Implementation. Ported quick-and-dirty to the Arduino 
- * from the aes Intel platform implementation
+ * AES Encryption Implementation. Ported to the Arduino 
+ * from the aes Intel platform implementation. The code compiles on
+ * both the Arduino platform and Intel i386/amd64
+ * 
+ *    This file is part of the Trusted Sensors Research Project (TSense).
  *
+ *  TSense is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  TSense is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with the TSense code.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
  
@@ -85,7 +101,7 @@ void CBCEncrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
                 u_int32_ard padding, const u_int32_ard *pKeys,
                 const u_int16_ard *pIV);
 
-void CBCDecrypt(void* pTextIn, void* pBuffer, u_int32_ard blocks,
+void CBCDecrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
                 const u_int32_ard *pKeys, const u_int16_ard *pIV);
 
 

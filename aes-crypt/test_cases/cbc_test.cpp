@@ -110,7 +110,7 @@ int main()
   byte_ard decipher_buffer[length];
   
   // now try to decipher the ciphered buffer.
-  CBCDecrypt((void *) buffer, (void *) decipher_buffer, len(buffer)/BLOCK_BYTE_SIZE, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
+  CBCDecrypt((void *) buffer, (void *) decipher_buffer, len(buffer), (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
   
 
   printf("\nCBC Decipher: \n");
