@@ -64,11 +64,18 @@ int main()
     };*/  // Hello world!
 
   // cbc_test.cpp:67: error: invalid conversion from ‘const char*’ to ‘byte_ard*’
-  const char *tmp;
+  //const char *tmp;
   //tmp = "Hello, my name is Benedikt and this is a multi-block string";
   //tmp = "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 30";
   //tmp = "Hello, my name is Kristjan and this is a longer multi-block test string with still some more stuff appended";
-  tmp = "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnop";
+  //tmp = "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnop";
+
+  byte_ard tmp[1024];
+  for( int i=0; i<1024; i++)
+  {
+    tmp[i] = 2+(i*19) % 254;  
+  }
+  printf("Length of plaintext (bytes): %d\n", len(tmp));
   
   byte_ard *text = (byte_ard*)tmp;
   
@@ -80,9 +87,8 @@ int main()
   // Count the string length
   //while (text[length] != '\0')
   //  length = length + 1;
-  length = len(text);
+  length = 1024; // len(text);
   
-
   // Decide on the padding
   if ((length % BLOCK_BYTE_SIZE) == 0)
     padding = 0;
@@ -103,12 +109,13 @@ int main()
   printBytes2(IV, BLOCK_BYTE_SIZE);
   printf("\nPlaintext: \nBytes:\n");
   printBytes2((byte_ard*)text, length);
-  printf("printf(): \n%s\n", (byte_ard*) text);
+//  printf("printf(): \n%s\n", (byte_ard*) text);
 
   CBCEncrypt((void *) text, (void *) buffer, length, padding,  (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
 
   printf("\nAfter CBC: \n");
   printBytes2((byte_ard*)buffer, blocks*BLOCK_BYTE_SIZE);
+  printf("length of enciphered: %d. Blocks: %d\n\n", len(buffer),(len(buffer)/BLOCK_BYTE_SIZE));
 
   byte_ard decipher_buffer[length];
   
@@ -119,8 +126,13 @@ int main()
   printf("\nCBC Decipher: \n");
   printf("Bytes:\n");
   printBytes2((byte_ard*)decipher_buffer, len(decipher_buffer));
-  printf("printf(): \n%s\n\n", (byte_ard*) decipher_buffer);
-  printf("length of deciphered: %d\n", len(decipher_buffer));
+//  printf("printf(): \n%s\n\n", (byte_ard*) decipher_buffer);
+  printf("length of deciphered: %d. Blocks: %d\n\n", len(decipher_buffer),(len(decipher_buffer)/BLOCK_BYTE_SIZE));
+
+  if ( strcmp((const char *)buffer,(const char *)decipher_buffer)==0 )
+    printf("Checks out\n");
+  else
+    printf("Problems!\n");
   
   
   
