@@ -70,12 +70,12 @@ int main()
   //tmp = "Hello, my name is Kristjan and this is a longer multi-block test string with still some more stuff appended";
   //tmp = "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnop";
 
-  byte_ard tmp[1024];
-  for( int i=0; i<1024; i++)
+  int testBufLen=1024;
+  byte_ard tmp[testBufLen];
+  for( int i=0; i<testBufLen; i++)
   {
-    tmp[i] = 2+(i*19) % 254;  
+    tmp[i] = (i*19) % 254;  
   }
-  printf("Length of plaintext (bytes): %d\n", len(tmp));
   
   byte_ard *text = (byte_ard*)tmp;
   
@@ -87,7 +87,7 @@ int main()
   // Count the string length
   //while (text[length] != '\0')
   //  length = length + 1;
-  length = 1024; // len(text);
+  length = testBufLen; // len(text);
   
   // Decide on the padding
   if ((length % BLOCK_BYTE_SIZE) == 0)
@@ -115,21 +115,30 @@ int main()
 
   printf("\nAfter CBC: \n");
   printBytes2((byte_ard*)buffer, blocks*BLOCK_BYTE_SIZE);
-  printf("length of enciphered: %d. Blocks: %d\n\n", len(buffer),(len(buffer)/BLOCK_BYTE_SIZE));
+//  printf("length of enciphered: %d. Blocks: %d\n\n", len(buffer),(len(buffer)/BLOCK_BYTE_SIZE));
 
   byte_ard decipher_buffer[length];
   
   // now try to decipher the ciphered buffer.
-  CBCDecrypt((void *) buffer, (void *) decipher_buffer, len(buffer), (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
+  CBCDecrypt((void *) buffer, (void *) decipher_buffer, testBufLen /*len(buffer)*/, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
   
 
   printf("\nCBC Decipher: \n");
   printf("Bytes:\n");
-  printBytes2((byte_ard*)decipher_buffer, len(decipher_buffer));
+  printBytes2((byte_ard*)decipher_buffer, testBufLen /*len(decipher_buffer)*/);
 //  printf("printf(): \n%s\n\n", (byte_ard*) decipher_buffer);
-  printf("length of deciphered: %d. Blocks: %d\n\n", len(decipher_buffer),(len(decipher_buffer)/BLOCK_BYTE_SIZE));
+//  printf("length of deciphered: %d. Blocks: %d\n\n", len(decipher_buffer),(len(decipher_buffer)/BLOCK_BYTE_SIZE));
 
-  if ( strcmp((const char *)buffer,(const char *)decipher_buffer)==0 )
+  bool success=true;
+  for(int i=0; i<testBufLen; i++)
+  {
+    if (text[i]!=decipher_buffer[i])
+    {
+      success=false;
+      break;
+    }
+  }
+  if ( success )
     printf("Checks out\n");
   else
     printf("Problems!\n");
