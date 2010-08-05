@@ -558,28 +558,23 @@ void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
   byte_ard *cBuffer = (byte_ard*)pBuffer;
   byte_ard *lastblock = (byte_ard*)pIV;     // C_0 = IV
   byte_ard currblock[BLOCK_BYTE_SIZE];
-  
-  
   u_int32_ard blocks = (length + padding) / BLOCK_BYTE_SIZE;
   
-  // Copy and pad the string.   
-  for (u_int32_ard i = 0; i<(blocks*BLOCK_BYTE_SIZE); i++)
+  // Copy and pad the 
+  for (u_int32_ard i = 0; i<(length + padding); i++)
   {
-    if (i <= length)
+    if (i < length)
     {
       // Copy the string
       cBuffer[i] = pText[i];
     }
-    else if (i == (length+1))
-    {
-      //cBuffer[i] = 0x80;    // Thats what KR used.
-      cBuffer[i] = 0x31;
-    }
     else
     {
-      cBuffer[i] = 0x30;
+      cBuffer[i] = 0x80;
     }
+     
   }
+  
 
   // C_i = E_k(P_i XOR C_{i-1})
   for (u_int32_ard i = 0; i < blocks; i++) 
