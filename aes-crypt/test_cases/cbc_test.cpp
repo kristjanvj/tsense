@@ -28,7 +28,9 @@ int len(byte_ard* str)
   int i=0;
   while (str[i] != '\0')
     i++;
-  return i;
+  return i+1;   // Count the null char
+  //return i;
+  
 }
 
 
@@ -56,92 +58,47 @@ int main()
   byte_ard Keys[KEY_BYTES*12];
   KeyExpansion(Key, Keys);
 
-  //const char *text;
-  //text = "Helo world!";
-
-  /*byte_ard text[] = {
-      0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21
-    };*/  // Hello world!
-
-  // cbc_test.cpp:67: error: invalid conversion from ‘const char*’ to ‘byte_ard*’
   //const char *tmp;
-  //tmp = "Hello, my name is Benedikt and this is a multi-block string";
-  //tmp = "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 30";
-  //tmp = "Hello, my name is Kristjan and this is a longer multi-block test string with still some more stuff appended";
-  //tmp = "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnop";
-
-  int testBufLen=1024;
-  byte_ard tmp[testBufLen];
-  for( int i=0; i<testBufLen; i++)
-  {
-    tmp[i] = (i*19) % 254;  
-  }
-  
-  byte_ard *text = (byte_ard*)tmp;
-  
-  
-  u_int32_ard blocks = 0;
-  u_int32_ard length = 0;
   u_int32_ard padding = 0;
 
-  // Count the string length
-  //while (text[length] != '\0')
-  //  length = length + 1;
-  length = testBufLen; // len(text);
   
+  //int blocks = 1;
+  // tmp = "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmno";
+  tmp = "12345678901234568";
+
+  byte_ard *text = (byte_ard*)tmp;
+
+  u_int32_ard length = len(text);
+
   // Decide on the padding
   if ((length % BLOCK_BYTE_SIZE) == 0)
     padding = 0;
   else
-    padding = BLOCK_BYTE_SIZE - (length % BLOCK_BYTE_SIZE);
+    padding = BLOCK_BYTE_SIZE - (length % BLOCK_BYTE_SIZE);  
 
-  // Each block is 4 bytes. BLOCK_BYTE_SIZE
-  blocks = (length + padding) / BLOCK_BYTE_SIZE;
-
-  // Allocate memory
-  byte_ard buffer[blocks * BLOCK_BYTE_SIZE];
+  u_int32_ard needed_length  = length + padding;
   
-  printf("length: %d\npadding: %d \nblocks:%d blocks \n\n", length, padding, blocks);
+  printf("length: %d\npadding: %d\nneeded_length: %d\n\n", length, padding, needed_length);
 
-  printf("\nKey: \n");
-  printBytes2(Key, BLOCK_BYTE_SIZE);
-  printf("\nInitialization vector: \n");
-  printBytes2(IV, BLOCK_BYTE_SIZE);
-  printf("\nPlaintext: \nBytes:\n");
+  byte_ard buffer[needed_length];
+  byte_ard decipher_buffer[needed_length];
+
+  printf("\nPlaintext : \n");
   printBytes2((byte_ard*)text, length);
-//  printf("printf(): \n%s\n", (byte_ard*) text);
 
   CBCEncrypt((void *) text, (void *) buffer, length, padding,  (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
 
   printf("\nAfter CBC: \n");
-  printBytes2((byte_ard*)buffer, blocks*BLOCK_BYTE_SIZE);
-//  printf("length of enciphered: %d. Blocks: %d\n\n", len(buffer),(len(buffer)/BLOCK_BYTE_SIZE));
-
-  byte_ard decipher_buffer[length];
+  printBytes2((byte_ard*)buffer, needed_length);
   
   // now try to decipher the ciphered buffer.
-  CBCDecrypt((void *) buffer, (void *) decipher_buffer, testBufLen /*len(buffer)*/, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
+  CBCDecrypt((void *) buffer, (void *) decipher_buffer, needed_length, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
+  
+  printf("buffer: %d", len(buffer));
   
 
   printf("\nCBC Decipher: \n");
-  printf("Bytes:\n");
-  printBytes2((byte_ard*)decipher_buffer, testBufLen /*len(decipher_buffer)*/);
-//  printf("printf(): \n%s\n\n", (byte_ard*) decipher_buffer);
-//  printf("length of deciphered: %d. Blocks: %d\n\n", len(decipher_buffer),(len(decipher_buffer)/BLOCK_BYTE_SIZE));
-
-  bool success=true;
-  for(int i=0; i<testBufLen; i++)
-  {
-    if (text[i]!=decipher_buffer[i])
-    {
-      success=false;
-      break;
-    }
-  }
-  if ( success )
-    printf("Checks out\n");
-  else
-    printf("Problems!\n");
+  printBytes2((byte_ard*)decipher_buffer, needed_length);
   
   
   
