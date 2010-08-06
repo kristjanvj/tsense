@@ -64,7 +64,7 @@ int main()
   
   //int blocks = 1;
   // tmp = "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmno";
-  tmp = "12345678901234568";
+  const char *tmp = "12345678901234568";
 
   byte_ard *text = (byte_ard*)tmp;
 
