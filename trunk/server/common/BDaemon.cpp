@@ -246,3 +246,10 @@ string BDaemon::getLockFilePath(){
 	return _lockFilePath;
 }
 
+string BDaemon::getWorkDir(){
+	return _daemonWorkDir;
+}
+
+void BDaemon::setWorkDir(string wdir){
+	_daemonWorkDir = wdir;
+}
