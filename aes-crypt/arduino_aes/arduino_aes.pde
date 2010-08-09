@@ -14,6 +14,9 @@
 
 int counter = 0;
 
+byte_ard pKey[] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 
+                    0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+
 /**
  *  printBytes
  */
@@ -39,6 +42,8 @@ void setup(void)
   Serial.begin(9600);  
  
   delay(1000);
+  
+  byte_ard pKeys[KEY_BYTES * 12];
   
   // Test code to print the version def'd in the envrionment.h file
   Serial.print("\n\nVersion:");
@@ -80,7 +85,7 @@ void doCount(void) {
   Serial.print((char*)pText);
   Serial.print("\n");
   
-  encryptBlock((void*)pText,(u_int32_ard *)pKeys);  
+  EncryptBlock((void*)pText,(u_int32_ard *)pKeys);  
 
   Serial.print("printBytes(counter): ");
   printBytes((unsigned char*)counter,16,16);
@@ -96,19 +101,18 @@ void doCount(void) {
 void doFips197Test(void) { 
   char pStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,
   				 0xe0,0x37,0x07,0x34}; // FIPS test vector
+
+  byte_ard pKeys[KEY_BYTES * 12];
+  
+  KeyExpansion(pKey, pKeys);
+  
   unsigned char pText[128];
   strncpy((char*)pText,pStr,16);
-  encryptBlock((void*)pText,(u_int32_ard *)pKeys);  
+  EncryptBlock((void*)pText,(u_int32_ard *)pKeys);  
   printBytes((unsigned char*)pStr,16,16);
   printBytes(pText,16,16); // Print to serial in more or less readable format
   Serial.print("\n\n");
   delay(10000);
-}
-
-void loop(void) {
-  doRfc4493test(); 
-  //doFips197Test();
-  //doCount();  
 }
 
 int doRfc4493test() {
@@ -149,25 +153,35 @@ int doRfc4493test() {
   byte_ard CMAC[] =
     {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
      0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
-
-  aesCMac(K, M, 0,  CMAC);
+  
+  byte_ard pKeys[KEY_BYTES * 12];
+  
+  KeyExpansion(pKey, pKeys);
+  
+  aesCMac((u_int32_ard *)pKeys, M, 0,  CMAC);
   Serial.print("CMAC   0: "); printBytes((byte_ard*)CMAC0, 16);
   Serial.print("CMAC'  0: "); printBytes((byte_ard*)CMAC, 16);
 
-  aesCMac(K, M, 16,  CMAC);
+  aesCMac((u_int32_ard *)pKeys, M, 16,  CMAC);
   Serial.print("CMAC  16: "); printBytes((byte_ard*)CMAC16, 16);
   Serial.print("CMAC' 16: "); printBytes((byte_ard*)CMAC, 16);
 
-  aesCMac(K, M, 40,  CMAC);
+  aesCMac((u_int32_ard *)pKeys, M, 40,  CMAC);
   Serial.print("CMAC  40: "); printBytes((byte_ard*)CMAC40, 16);
   Serial.print("CMAC' 40: "); printBytes((byte_ard*)CMAC, 16);
 	
-  aesCMac(K, M, 64,  CMAC);
+  aesCMac((u_int32_ard *)pKeys, M, 64,  CMAC);
   Serial.print("CMAC  64: "); printBytes((byte_ard*)CMAC64, 16);
   Serial.print("CMAC' 64: "); printBytes((byte_ard*)CMAC, 16);
 	
 
   Serial.print("Verify (expected: 1): "); Serial.println(verifyAesCMac(K, M, 64,  CMAC));
   Serial.print("Verify (expected: 0): "); Serial.println(verifyAesCMac(K, M, 64,  CMAC40));
+}
+
+void loop(void) {
+  //doRfc4493test(); 
+  doFips197Test();
+  //doCount();  
 }
 
