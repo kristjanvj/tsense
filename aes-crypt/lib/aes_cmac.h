@@ -7,7 +7,6 @@
  
 #include <string.h>
 #include <math.h>
-#include "aes_common.h"
 #include "aes_crypt.h"
 
 #ifndef __AES_CMAC_H__
@@ -24,7 +23,7 @@ void leftShiftKey(byte_ard *orig, byte_ard *shifted);
 void xorToLength(byte_ard *p, byte_ard *q, byte_ard *r);
 void initBlockZero(byte_ard *block);
 void expandMacKey(byte_ard *origKey, byte_ard *newKey);
-void aesCMac(byte_ard *K, byte_ard *M, long length, byte_ard *cmac);
+void aesCMac(const u_int32_ard* KS, byte_ard *M, long length, byte_ard *cmac);
 int verifyAesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard* MACm);
 
 
