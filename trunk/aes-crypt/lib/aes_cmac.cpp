@@ -50,7 +50,7 @@ void expandMacKey(byte_ard *origKey, byte_ard *newKey){
 void padding ( byte_ard *lastb, byte_ard *pad, int length ) {
     int i;
 
-    for (i=0; i<16; i++) {
+    for (i=0; i<BLOCK_BYTE_SIZE; i++) {
         if (i < length) {
             pad[i] = lastb[i];
         } else if (i == length) {
@@ -76,7 +76,7 @@ void initBlockZero(byte_ard *block){
  * +                   Algorithm AES-CMAC                              +
  * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * +                                                                   +
- * +   Input    : K,        AES encryption key                         +
+ * +   Input    : KS        Rijandel key schedule                      +
  * +            : M,        Message that key will be generated from.   +
  * +            : M_length, Message length in bytes (len in the RFC)   +
  * +   Output   : CMAC,     The resulting cMAC authentication          +
@@ -84,7 +84,7 @@ void initBlockZero(byte_ard *block){
  * +                                                                   +
  * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  */
-void aesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard *CMAC){
+void aesCMac(const u_int32_ard* KS, byte_ard *M, long M_length, byte_ard *CMAC){
 
     byte_ard K1[BLOCK_BYTE_SIZE], K2[BLOCK_BYTE_SIZE],
              L[BLOCK_BYTE_SIZE], M_last[BLOCK_BYTE_SIZE];
@@ -96,11 +96,13 @@ void aesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard *CMAC){
 
     bool isComplete = true;
 
-    byte_ard pKeys[KEY_BYTES * 12];
-    KeyExpansion(pKey, pKeys);
+    /*byte_ard pKeys[KEY_BYTES * 12];
+      KeyExpansion(pKey, pKeys);*/
 
     // Step 1.
-    encryptBlock((char*)L, (const u_int32_ard*) pKeys);
+    //EncryptBlock((char*)L, (const u_int32_ard*) pKeys);
+    EncryptBlock((void*)L, KS);
+
     expandMacKey(L, K1);
     expandMacKey(K1, K2);
 
@@ -143,7 +145,8 @@ void aesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard *CMAC){
         xorToLength(X, &M[BLOCK_BYTE_SIZE * i], Y);
 
         //AES-128(K,Y);
-        encryptBlock((char*) Y, (const u_int32_ard*) pKeys);
+        //EncryptBlock((char*) Y, (const u_int32_ard*) KS);
+        EncryptBlock((void*) Y, KS);
 
         // X:= AES-128(K,Y); Necessary because encryptBlock does not copy the
         // encrypted text into a new target vector.
@@ -154,7 +157,8 @@ void aesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard *CMAC){
 
     // XOR and encrypt the last block of M to produce the CMAC.
     xorToLength(X, M_last, Y);
-    encryptBlock((char*) Y, (const u_int32_ard*) pKeys);
+    //EncryptBlock((char*) Y, (const u_int32_ard*) K);
+    EncryptBlock((void*) Y, KS);
 
     // Step 7. T := AES-128(K,Y); where in our case T == CMAC
     for(i = 0; i < BLOCK_BYTE_SIZE; i++){
@@ -180,8 +184,11 @@ void aesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard *CMAC){
 
 int verifyAesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard* CMACm){
     byte_ard CMAC[BLOCK_BYTE_SIZE];
+    byte_ard keys[BLOCK_BYTE_SIZE*11];
 
-    aesCMac(K, M, M_length, CMAC);
+    KeyExpansion(K, keys);
+
+    aesCMac((const u_int32_ard*)keys, M, M_length, CMAC);
 
     int i;
     for(i = 0; i<BLOCK_BYTE_SIZE; i++){
