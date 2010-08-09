@@ -1,5 +1,5 @@
 /*
- * File name: amsd.cpp
+ * File name: TSenseAuthDaemon.cpp
  * Date:	  2006-08-08 16:05
  * Author:	Kristjan Runarsson
  */
@@ -9,38 +9,39 @@
 #include <stdexcept>
 #include <string>
 #include "BDaemon.h"
-#include "TlsSinkServer.h"
+#include "TlsAuthServer.h"
 
 using namespace std;
 
-class TSenseSinkDaemon: public BDaemon{
+class TSenseAuthDaemon: public BDaemon{
 	public:
-		TSenseSinkDaemon(const char *daemonName, const char* lockDir, int daemonFlags);
+		TSenseAuthDaemon(const char *daemonName, const char* lockDir, int daemonFlags);
 	protected:
 		void work();
 };
 
-TSenseSinkDaemon::TSenseSinkDaemon(const char *daemonName, 
+TSenseAuthDaemon::TSenseAuthDaemon(const char *daemonName, 
 					   const char* lockDir, 
 					   int daemonFlags) 
 : BDaemon(daemonName, lockDir, daemonFlags){} 
 
-void TSenseSinkDaemon::work(){
-	TlsSinkServer tlss("localhost", "6001", "localhost", "6002");
-	tlss.serverMain();
+void TSenseAuthDaemon::work(){
+	TlsAuthServer tlsa("localhost", "6001");
+	syslog(LOG_ERR, getWorkDir().c_str());
+	tlsa.serverMain();
 }
 
 int main()
 {
 
 	try{
-		//TSenseSinkDaemon arDaemon("tsensed", "/tmp/", SINGLETON);
-		TSenseSinkDaemon sinkDaemon("tsensesinkd", "/tmp/", SINGLETON|NO_DTTY);
-		sinkDaemon.setWorkDir(
+		//TSenseAuthDaemon authDaemon("tsensed", "/tmp/", SINGLETON);
+		TSenseAuthDaemon authDaemon("tsenseauthd", "/tmp/", SINGLETON|NO_DTTY);
+		authDaemon.setWorkDir(
 			"/Users/kristjanr/Desktop/Arduino/tsense/server/OpenSslServer");
 
-
-		sinkDaemon.run();
+		cout << "Running daemon" << endl;
+		authDaemon.run();
 	}
 
 	catch(DaemonException e){

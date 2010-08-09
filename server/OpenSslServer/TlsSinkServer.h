@@ -7,48 +7,37 @@
 #ifndef __TLSSERVER_H__
 #define __TLSSERVER_H__
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
-#include <iostream>
-#include <sstream>
-#include <string>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <unistd.h>
-
-#include <syslog.h>
-#include <errno.h>
-#include <gnutls/gnutls.h>
-#include <string.h>
-
-#include <openssl/ssl.h> /* Ubuntu/Debian: libssl-dev */
-#include <openssl/err.h>
-
-
-/* This is a sample TLS 1.0 echo server, for anonymous authentication only.
- */
+#include "TlsBaseServer.h"
+#include <stdexcept>
 
 using namespace std;
 
-class TlsSinkServer {
+class TlsSinkServer : public TlsBaseServer{
     private:
-		void handleError(const char* msg);
-		void initOpenSSL();
-		SSL_CTX* setupCtx();
-		DH* setupDiffeHelleman();
+		const char *_authServerAddr, *_authServerPort;
 
-		int _listenPort;
+        //int sendEcho(SSL *ssl);
+        //void serverFork(void *arg);
+
+        int sendEcho(SSL *ssl, char* readBuf, char* writeBuf);
+        void serverFork(BIO *proxyClientReplyBio, void *arg, 
+						char* readBuf, char* writeBuf);
+
+		void acceptProxyClientListenBio();
+
+		int writeToAuth(SSL *ssl, char* writeBuf, int len);
+		int readFromAuth(SSL *ssl, char* readBuf, int len);
+
+		int readFromProxyClient(BIO *clientReplyBio, char *readBuf);
+		int writeToProxyClient(BIO *clientReplyBio, char *writeBuf);
 
     public:
-		TlsSinkServer(int listenPort);
-		void serverMain();
+        //TlsSinkServer(const char *hostName, const char *listenPort);
+		TlsSinkServer(const char *authServerAddr, // Auths serv. IP/FQDN
+					  const char *authServerPort, 
+					  const char *serverAddr,	 // Own IP/FQDN
+					  const char *serverListenPort);
+        void serverMain();
 };
 
 
