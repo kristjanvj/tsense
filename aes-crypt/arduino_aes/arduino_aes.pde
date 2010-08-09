@@ -180,8 +180,8 @@ int doRfc4493test() {
 }
 
 void loop(void) {
-  //doRfc4493test(); 
-  doFips197Test();
+  doRfc4493test(); 
+  //doFips197Test();
   //doCount();  
 }
 
