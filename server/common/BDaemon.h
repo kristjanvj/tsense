@@ -65,7 +65,7 @@ public:
 	/** The working logic of the daemon should be implemented in this method.*/
 	virtual void work();
 
-	/** Checks the working directory using the getwd() function form the standard
+	/** Checks the working directory using the getwd() function fromm the standard
 	 * C-library rather than just retruning the value of '_daemonWorkDir'.*/
 	void checkWorkDir(string& sWorkDir);
 	
@@ -80,6 +80,8 @@ public:
 	string getLockFilePath();
 	/**Accessor.*/
 	string getWorkDir();
+	/**Accessor.*/
+	void setWorkDir(string wdir);
 	
 private:
 
