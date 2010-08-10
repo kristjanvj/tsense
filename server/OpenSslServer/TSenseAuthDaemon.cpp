@@ -26,8 +26,9 @@ TSenseAuthDaemon::TSenseAuthDaemon(const char *daemonName,
 : BDaemon(daemonName, lockDir, daemonFlags){} 
 
 void TSenseAuthDaemon::work(){
-	TlsAuthServer tlsa("localhost", "6001");
-	syslog(LOG_ERR, getWorkDir().c_str());
+	//TlsAuthServer tlsa("localhost", "6001");
+	TlsAuthServer tlsa("auth.tsense.sudo.is", "6001");
+	syslog(LOG_ERR, "%s", getWorkDir().c_str());
 	tlsa.serverMain();
 }
 
