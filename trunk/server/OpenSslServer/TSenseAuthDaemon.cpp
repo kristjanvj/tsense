@@ -40,6 +40,8 @@ int main()
 		TSenseAuthDaemon authDaemon("tsenseauthd", "/tmp/", SINGLETON|NO_DTTY);
 		//authDaemon.setWorkDir(
 		//	"/Users/kristjanr/Desktop/Arduino/tsense/server/OpenSslServer");
+		authDaemon.setWorkDir(
+			"/home/kr/tsense/server/OpenSslServer");
 
 		cout << "Running daemon" << endl;
 		authDaemon.run();
