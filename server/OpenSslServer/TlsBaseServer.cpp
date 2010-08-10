@@ -187,6 +187,7 @@ err_occured:
 SSL_CTX *TlsBaseServer::setupServerCtx(int mode){
 
     SSL_CTX *ctx;
+	const char *certFile;
 
 	// Set verification filter callback function:
 	//
@@ -204,10 +205,12 @@ SSL_CTX *TlsBaseServer::setupServerCtx(int mode){
 	//		client. Failure to validate the certificate will of course also 
 	//      cause the SSL handshake to terminate.
 	if(mode == SERVER_MODE){
+		certFile = "server.pem";
 		ctx = SSL_CTX_new(TLSv1_server_method());
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
 						   verify_callback);
 	} else if (mode == CLIENT_MODE) {
+		certFile="client.pem";
 		ctx=SSL_CTX_new(TLSv1_client_method());
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify_callback);
 	} else {
@@ -228,11 +231,12 @@ SSL_CTX *TlsBaseServer::setupServerCtx(int mode){
         log_err_exit("Errod loading default CA file and/or directory.");
     }
 
-    if(SSL_CTX_use_certificate_chain_file(ctx, CERTFILE) != 1){
+
+    if(SSL_CTX_use_certificate_chain_file(ctx, certFile) != 1){
         log_err_exit("Error loading certificate from file.");
     }
 
-    if(SSL_CTX_use_PrivateKey_file(ctx, CERTFILE, SSL_FILETYPE_PEM) != 1){
+    if(SSL_CTX_use_PrivateKey_file(ctx, certFile, SSL_FILETYPE_PEM) != 1){
         log_err_exit("Error loading private key from file.");
     }
 
