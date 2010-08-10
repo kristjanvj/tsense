@@ -160,7 +160,7 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
         data[255] = 0;
 
 
-        syslog(LOG_NOTICE, "value --------------------",j);
+        syslog(LOG_NOTICE, "value --------------------");
         syslog(LOG_NOTICE, "Host      : %s", host);
         syslog(LOG_NOTICE, "Subj. Name: %s", data);
 
@@ -168,7 +168,7 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
             goto err_occured;
         }
     }
-	syslog(LOG_NOTICE, "value --------------------",j);
+	syslog(LOG_NOTICE, "value --------------------");
 
 
 	X509_free(cert);
