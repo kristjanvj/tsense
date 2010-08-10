@@ -89,7 +89,7 @@ void TlsSinkServer::serverFork(BIO *proxyClientReqestBio, void *arg,
 	//  - Compare url,name,address  of originator with same in certificate.
 	//  - Checks revocation status.
 	//  - Chekcs usage fields in certificate.
-    doVerify(ssl);
+    doVerify(ssl, _authServerAddr);
 
     syslog(LOG_NOTICE, "SSL Connection opened.");
 

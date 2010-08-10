@@ -26,7 +26,7 @@ TSenseSinkDaemon::TSenseSinkDaemon(const char *daemonName,
 : BDaemon(daemonName, lockDir, daemonFlags){} 
 
 void TSenseSinkDaemon::work(){
-	//TlsSinkServer tlss("localhost", "6001", "localhost", "6002");
+	//                 My peer...                     Me...                  My port.
 	TlsSinkServer tlss("auth.tsense.sudo.is", "6001", "sink.tsense.sudo.is", "6002");
 	tlss.serverMain();
 }
