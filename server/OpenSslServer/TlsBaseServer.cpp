@@ -21,7 +21,7 @@ using namespace std;
 
 int verify_callback(int ok, X509_STORE_CTX *store){
 
-    printf("verify_callback\n");
+    syslog(LOG_NOTICE, "%s", "verify_callback");
 
     char data[256];
 
@@ -31,12 +31,13 @@ int verify_callback(int ok, X509_STORE_CTX *store){
         int depth = X509_STORE_CTX_get_error_depth(store);
         int err = X509_STORE_CTX_get_error(store);
 
-        fprintf(stderr, "Error with certificate at depth: %d\n", depth);
+        syslog(LOG_NOTICE, "Error with certificate at depth: %d", depth);
         X509_NAME_oneline(X509_get_issuer_name(cert), data, 256);
-        fprintf(stderr, " issuer  = %s\n", data);
+        syslog(LOG_NOTICE, " issuer  = %s", data);
         X509_NAME_oneline(X509_get_subject_name(cert), data, 256);
-        fprintf(stderr, " subject = %s\n", data);
-        fprintf(stderr, " err: %d:%s\n", err, X509_verify_cert_error_string(err));
+        syslog(LOG_NOTICE, " subject = %s", data);
+        syslog(LOG_NOTICE, " err: %d:%s", err, 
+						X509_verify_cert_error_string(err));
     }
 }
 
@@ -50,14 +51,14 @@ TlsBaseServer::TlsBaseServer(const char *serverAddr, const char *serverListenPor
 void TlsBaseServer::doVerify(SSL *ssl){
     long err;
     if((err = postConnectionValidations(ssl, (char*)_serverAddr)) != X509_V_OK){
-        fprintf(stderr, "-Error: peer certificate: %s\n",
+        syslog(LOG_NOTICE, "-Error: peer certificate: %s",
             X509_verify_cert_error_string(err));
         log_err_exit("Error checking SSL object after connection");
     }
 }
 
 void TlsBaseServer::handleError(const char *file, int lineno, const char * msg){
-    syslog(LOG_ERR, "** %s:%i %s\n", file, lineno, msg);
+    syslog(LOG_ERR, "** %s:%i %s", file, lineno, msg);
 	char buf [10000];
 	ERR_error_string_n(ERR_peek_last_error(), buf, 10000);
 	syslog(LOG_ERR,"%s",buf);
@@ -66,7 +67,7 @@ void TlsBaseServer::handleError(const char *file, int lineno, const char * msg){
 
 void TlsBaseServer::initOpenSsl(void) {
     if(!SSL_library_init()){
-		fprintf(stderr, "** OpenSSL initialization failed!\n");
+		syslog(LOG_NOTICE, "%s", "** OpenSSL initialization failed!");
 		exit(-1);
 	}
 	SSL_load_error_strings();
@@ -83,7 +84,7 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
     int         extcount;
     int         ok = 0;
 
-    printf("post_connection_check\n");
+    syslog(LOG_NOTICE, "%s", "post_connection_check");
 
     if(!(cert = SSL_get_peer_certificate(ssl)) || !host){
         goto err_occured;
@@ -134,10 +135,10 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
                 for(j = 0; j < sk_CONF_VALUE_num(val); j++){
                     nval = sk_CONF_VALUE_value(val, j);
 
-                    printf("value[%d] ----------------\n",j);
-                    printf("Host      : %s\n", host);
-                    printf("Conf Name : %s\n", nval->name);
-                    printf("Conf Value: %s\n", nval->value);
+                    syslog(LOG_NOTICE, "value[%d] ----------------",j);
+                    syslog(LOG_NOTICE, "Host      : %s", host);
+                    syslog(LOG_NOTICE, "Conf Name : %s", nval->name);
+                    syslog(LOG_NOTICE, "Conf Value: %s", nval->value);
 
                     if(!strcmp(nval->name, "DNS") && !strcmp(nval->value, host)){
                         ok = 1;
@@ -158,8 +159,8 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
         data[255] = 0;
 
 
-        printf("Host      : %s\n", host);
-        printf("Subj. Name: %s\n", data);
+        syslog(LOG_NOTICE, "Host      : %s", host);
+        syslog(LOG_NOTICE, "Subj. Name: %s", data);
 
         if(strcasecmp(data, host) != 0){
             goto err_occured;
