@@ -31,12 +31,12 @@ int verify_callback(int ok, X509_STORE_CTX *store){
         int depth = X509_STORE_CTX_get_error_depth(store);
         int err = X509_STORE_CTX_get_error(store);
 
-        syslog(LOG_NOTICE, "Error with certificate at depth: %d", depth);
+        syslog(LOG_ERR, "Error with certificate at depth: %d", depth);
         X509_NAME_oneline(X509_get_issuer_name(cert), data, 256);
-        syslog(LOG_NOTICE, " issuer  = %s", data);
+        syslog(LOG_ERR, " issuer  = %s", data);
         X509_NAME_oneline(X509_get_subject_name(cert), data, 256);
-        syslog(LOG_NOTICE, " subject = %s", data);
-        syslog(LOG_NOTICE, " err: %d:%s", err, 
+        syslog(LOG_ERR, " subject = %s", data);
+        syslog(LOG_ERR, " err: %d:%s", err, 
 						X509_verify_cert_error_string(err));
     }
 }
@@ -51,7 +51,7 @@ TlsBaseServer::TlsBaseServer(const char *serverAddr, const char *serverListenPor
 void TlsBaseServer::doVerify(SSL *ssl){
     long err;
     if((err = postConnectionValidations(ssl, (char*)_serverAddr)) != X509_V_OK){
-        syslog(LOG_NOTICE, "-Error: peer certificate: %s",
+        syslog(LOG_ERR, "-Error: peer certificate: %s",
             X509_verify_cert_error_string(err));
         log_err_exit("Error checking SSL object after connection");
     }
@@ -141,6 +141,7 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
                     syslog(LOG_NOTICE, "Conf Value: %s", nval->value);
 
                     if(!strcmp(nval->name, "DNS") && !strcmp(nval->value, host)){
+                    	syslog(LOG_NOTICE, "%s", "Breaking...");
                         ok = 1;
                         break;
                     }
@@ -159,6 +160,7 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
         data[255] = 0;
 
 
+        syslog(LOG_NOTICE, "value --------------------",j);
         syslog(LOG_NOTICE, "Host      : %s", host);
         syslog(LOG_NOTICE, "Subj. Name: %s", data);
 
@@ -166,6 +168,9 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
             goto err_occured;
         }
     }
+	syslog(LOG_NOTICE, "value --------------------",j);
+
+
 	X509_free(cert);
     return SSL_get_verify_result(ssl);
 
