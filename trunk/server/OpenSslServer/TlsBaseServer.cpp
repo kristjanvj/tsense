@@ -48,15 +48,6 @@ TlsBaseServer::TlsBaseServer(const char *serverAddr, const char *serverListenPor
 	seedPrng();
 }
 
-void TlsBaseServer::doVerify(SSL *ssl){
-    long err;
-    if((err = postConnectionValidations(ssl, (char*)_serverAddr)) != X509_V_OK){
-        syslog(LOG_ERR, "-Error: peer certificate: %s",
-            X509_verify_cert_error_string(err));
-        log_err_exit("Error checking SSL object after connection");
-    }
-}
-
 void TlsBaseServer::handleError(const char *file, int lineno, const char * msg){
     syslog(LOG_ERR, "** %s:%i %s", file, lineno, msg);
 	char buf [10000];
@@ -77,7 +68,22 @@ void TlsBaseServer::seedPrng(void) {
   RAND_load_file("/dev/urandom", 1024);
 }
 
-long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
+/* Verify an X509 certifed peer. The peer parameter is the FQDN of the party
+ * being connected to. Post connection verification, does things like:
+ *    - Compare url,name,address  of originator with same in certificate.
+ *    - Checks revocation status.
+ *    - Chekcs usage fields in certificate.
+ */
+void TlsBaseServer::doVerify(SSL *ssl, const char* peer){
+    long err;
+    if((err = postConnectionValidations(ssl, peer)) != X509_V_OK){
+        syslog(LOG_ERR, "-Error: peer certificate: %s",
+            X509_verify_cert_error_string(err));
+        log_err_exit("Error checking SSL object after connection");
+    }
+}
+
+long TlsBaseServer::postConnectionValidations(SSL *ssl, const char *peer) {
     X509        *cert;
     X509_NAME   *subject;
     char        data[256];
@@ -86,7 +92,7 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
 
     syslog(LOG_NOTICE, "%s", "post_connection_check");
 
-    if(!(cert = SSL_get_peer_certificate(ssl)) || !host){
+    if(!(cert = SSL_get_peer_certificate(ssl)) || !peer){
         goto err_occured;
     }
 
@@ -136,11 +142,11 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
                     nval = sk_CONF_VALUE_value(val, j);
 
                     syslog(LOG_NOTICE, "value[%d] ----------------",j);
-                    syslog(LOG_NOTICE, "Host      : %s", host);
+                    syslog(LOG_NOTICE, "Host      : %s", peer);
                     syslog(LOG_NOTICE, "Conf Name : %s", nval->name);
                     syslog(LOG_NOTICE, "Conf Value: %s", nval->value);
 
-                    if(!strcmp(nval->name, "DNS") && !strcmp(nval->value, host)){
+                    if(!strcmp(nval->name, "DNS") && !strcmp(nval->value, peer)){
                     	syslog(LOG_NOTICE, "%s", "Breaking...");
                         ok = 1;
                         break;
@@ -161,10 +167,10 @@ long TlsBaseServer::postConnectionValidations(SSL *ssl, char *host) {
 
 
         syslog(LOG_NOTICE, "value --------------------");
-        syslog(LOG_NOTICE, "Host      : %s", host);
+        syslog(LOG_NOTICE, "Host      : %s", peer);
         syslog(LOG_NOTICE, "Subj. Name: %s", data);
 
-        if(strcasecmp(data, host) != 0){
+        if(strcasecmp(data, peer) != 0){
             goto err_occured;
         }
     }

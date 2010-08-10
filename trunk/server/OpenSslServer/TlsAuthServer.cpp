@@ -10,8 +10,9 @@
 
 using namespace std;
 
-TlsAuthServer::TlsAuthServer(const char *serverAddr, const char *serverListenPort) : 
+TlsAuthServer::TlsAuthServer(const char* sinkServerAddr, const char *serverAddr, const char *serverListenPort) : 
 							TlsBaseServer(serverAddr, serverListenPort) {
+	_sinkServerAddr = sinkServerAddr;
 }
 
 int TlsAuthServer::doEcho(SSL *ssl){
@@ -70,7 +71,7 @@ void TlsAuthServer::serverFork(void *arg){
 	//  - Compare url,name,address  of originator with same in certificate.
 	//  - Checks revocation status.
 	//  - Chekcs usage fields in certificate.
-	doVerify(ssl);
+	doVerify(ssl, _sinkServerAddr);
 
 	syslog(LOG_NOTICE, "SSL Connection opened.\n");
 

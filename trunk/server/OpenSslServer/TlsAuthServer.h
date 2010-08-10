@@ -14,6 +14,7 @@ using namespace std;
 
 class TlsAuthServer : public TlsBaseServer{
 	private:
+		const char *_sinkServerAddr;
 		int doEcho(SSL *ssl);
 		void serverFork(void *arg);
 
@@ -21,7 +22,7 @@ class TlsAuthServer : public TlsBaseServer{
 		int readFromSink(SSL *ssl, char* readBuf, int len);
 
     public:
-		TlsAuthServer(const char *hostName, const char *listenPort);
+		TlsAuthServer(const char* sinkServerAddr, const char *hostName, const char *listenPort);
 		void serverMain();
 };
 

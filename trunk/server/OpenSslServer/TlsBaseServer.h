@@ -34,12 +34,12 @@ class TlsBaseServer {
 		const char *_serverListenPort;
 		const char *_serverAddr;
 
-		void doVerify(SSL *ssl);
 		void handleError(const char *file, int lineno, const char * msg);
 		void initOpenSsl(void);
 		void seedPrng(void);
 		SSL_CTX *setupServerCtx(int mode);
-		long postConnectionValidations(SSL *ssl, char *host);
+		void doVerify(SSL *ssl, const char* peer);
+		long postConnectionValidations(SSL *ssl, const char *peer);
 
     public:
 		TlsBaseServer(const char *serverName, const char* listenPort);
