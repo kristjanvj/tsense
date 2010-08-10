@@ -17,8 +17,6 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-
-#define CERTFILE "server.pem"
 #define CADIR NULL
 #define CAFILE "root.pem"
 
