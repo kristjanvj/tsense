@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
              (const u_int16_ard*)IVector);
   aesCMac((const u_int32_ard*)Keys, pre_cmac, IDMSG_CRYPTSIZE, cmac);
   
-  printf("\nidresponse\n");
+  printf("idresponse: ");
   //printf("ID: %s, Nounce: %d\n", idmsg.pID, recv_id.nounce);
   // 0 == match.
   if (strcmp((char*)recv_id.pID, (char*)recv_id.pCipherID) == 0)
@@ -110,7 +110,14 @@ int main(int argc, char* argv[])
       {
         if(strncmp((char*)recv_id.cmac, (char*)cmac, BLOCK_BYTE_SIZE) == 0)
         {
-          printf("Checks out!\n");
+          if (recv_id.msgtype == 0x10)
+          {
+            printf("Checks out!\n");
+          }
+          else
+          {
+            printf("Failed: msgtype.\n");
+          }
         }
         else
         {
@@ -124,12 +131,12 @@ int main(int argc, char* argv[])
     }
     else
     {
-      printf("Failed: recv_id.CipherID does not match idmsg.pID");
+      printf("Failed: recv_id.CipherID does not match idmsg.pID\n");
     }
   }
   else
   {
-    printf("Failed: the plaintext id does not match the ciphered ID");
+    printf("Failed: the plaintext id does not match the ciphered ID\n");
   }
   
   return 0;

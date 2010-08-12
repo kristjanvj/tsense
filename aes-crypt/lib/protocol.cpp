@@ -10,23 +10,13 @@
 
 #include "protocol.h"
 
-#include <stdlib.h>
-#include <string.h>
 
 byte_ard IV[] = {
   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,  0x30, 0x30 
 };
 
-//const u_int16_ard* pIV = (byte_ard*) IV;
-
-/*
-  Sensor-side methods.
- */
-
 void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
 {
-  //u_int32_ard pad = padding(ID_SIZE+NOUNCE_SIZE);
-  //u_int32_ard cipherlen = ID_SIZE + NOUNCE_SIZE + pad;
   byte_ard crypt_buff[IDMSG_CRYPTSIZE];
   byte_ard cmac_buff[IDMSG_CRYPTSIZE];
   byte_ard temp[ID_SIZE + NOUNCE_SIZE];
@@ -54,7 +44,8 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
   byte_ard* cBuffer = (byte_ard*)pBuffer;
   
   // First byte is the msg type. If longer than one byte, add loop.
-  cBuffer[0] = msg->msgtype;
+  //cBuffer[0] = msg->msgtype;
+  cBuffer[0] = 0x10;
 
   // This will strip off the null char wich isn't crypted.
   for (u_int16_ard i = 0; i < ID_SIZE; i++)
@@ -129,6 +120,8 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
     msg->cmac[i] = cStream[MSGTYPE_SIZE + ID_SIZE + IDMSG_CRYPTSIZE + i];
   }
 }
+
+
 
  /* TODO: Move to tsense_common or similar.  */
 u_int16_ard neededblocks(u_int32_ard len)
