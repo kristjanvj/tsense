@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <string>
+#include <stdio.h>
 #include "aes_crypt.h"
 #include "aes_cmac.h"
 
@@ -14,6 +15,23 @@
 #define BUFFER_BLOCK_SIZE PAGES*PAGE_SIZE
 
 using namespace std;
+
+// printBytes2 KVJ
+void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth =16) {
+    int bytecount=0;
+    for(unsigned long i=0;i<dLength;i++) {
+      printf ("%.2x ",pBytes[i]);
+        if ( ++bytecount == textWidth ) {
+            printf("\n");
+            bytecount=0;
+        }
+    }
+
+    if ( bytecount != 0 ){
+        printf("\n");
+    }
+}
+
 
 byte_ard CMAC0[] =
 	{0xbb, 0x1d, 0x69, 0x29, 0xe9, 0x59, 0x37, 0x28,
@@ -28,7 +46,7 @@ byte_ard CMAC64[] =
 	{0x51, 0xf0, 0xbe, 0xbf, 0x7e, 0x3b, 0x9d, 0x92,
 	 0xfc, 0x49, 0x74, 0x17, 0x79, 0x36, 0x3c, 0xfe};
 
-byte_ard K[] = 
+byte_ard Key[] = 
 	{0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,
 	 0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c};
 
@@ -42,22 +60,6 @@ byte_ard M[] = {
 	  0xf6, 0x9f, 0x24, 0x45, 0xdf, 0x4f, 0x9b, 0x17,
 	  0xad, 0x2b, 0x41, 0x7b, 0xe6, 0x6c, 0x37, 0x10};
 
-void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth =16) {
-    int bytecount=0;
-    for(unsigned long i=0;i<dLength;i++) {
-        printf("%.2x ",pBytes[i]);
-        if ( ++bytecount == textWidth ) {
-            printf("\n");
-            bytecount=0;
-        }
-    }
-
-    if ( bytecount != 0 ){
-        printf("\n");
-    }
-}
-
-
 int main() {
 	cout << "----------------------------------------" << endl;
 	cout << "RFC-4494 test cases for cmac generation:" << endl;
@@ -67,25 +69,27 @@ int main() {
         {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
          0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
 
-	aesCMac(K, M, 0,  CMAC);
+    byte_ard KS[BLOCK_BYTE_SIZE*11];
+    KeyExpansion(Key,KS);
+	aesCMac((const u_int32_ard*)KS, M, 0,  CMAC);
 	printf("CMAC   0: "); printBytes2((byte_ard*)CMAC0, 16);
 	printf("CMAC'  0: "); printBytes2((byte_ard*)CMAC, 16);
 
-	aesCMac(K, M, 16,  CMAC);
+	aesCMac((const u_int32_ard*)KS, M, 16,  CMAC);
 	printf("CMAC  16: "); printBytes2((byte_ard*)CMAC16, 16);
 	printf("CMAC' 16: "); printBytes2((byte_ard*)CMAC, 16);
 
-	aesCMac(K, M, 40,  CMAC);
+	aesCMac((const u_int32_ard*)KS, M, 40,  CMAC);
 	printf("CMAC  40: "); printBytes2((byte_ard*)CMAC40, 16);
 	printf("CMAC' 40: "); printBytes2((byte_ard*)CMAC, 16);
 	
-	aesCMac(K, M, 64,  CMAC);
+	aesCMac((const u_int32_ard*)KS, M, 64,  CMAC);
 	printf("CMAC  64: "); printBytes2((byte_ard*)CMAC64, 16);
 	printf("CMAC' 64: "); printBytes2((byte_ard*)CMAC, 16);
 	
 
-	printf("Verify (expected: 1): %d\n", verifyAesCMac(K, M, 64,  CMAC));
-	printf("Verify (expected: 0): %d\n", verifyAesCMac(K, M, 64,  CMAC40));
+	printf("Verify (expected: 1): %d\n", verifyAesCMac(Key, M, 64,  CMAC));
+	printf("Verify (expected: 0): %d\n", verifyAesCMac(Key, M, 64,  CMAC40));
 
     return 0;
 } // end main()
