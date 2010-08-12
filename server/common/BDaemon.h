@@ -37,6 +37,8 @@
 #define NO_CFDSC  0x10	// Disable closing of file descriptors
 #define NO_FTNULL 0x20	// Disable attachment of FDs 0,1,2 to /dev/null
 
+
+//        0644  =  0400    0200    00040   00004
 #define LOCKMODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
 
 using namespace std;
@@ -134,11 +136,11 @@ protected:
 	void lockDaemon();
 	
 	/** Obtain a write/read lock on a file dsecriptor.*/
-	int lockFile(int lockFd);
+	//int lockFile(int lockFd);
 
 	/** Does the lock file exist and is it locked. If it is locked print 
 	 * message to console.*/
-	void checkLocked();
+	//void checkLocked();
 
 }; // end class BDaemon
 
