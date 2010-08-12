@@ -196,23 +196,17 @@ void BDaemon::lockDaemon(){
 */
 
 void BDaemon::lockDaemon(){
+	syslog(LOG_NOTICE, "%s", "lockDaemon(new)");
+
     int fd;
     struct flock fl;
 
-	// Try to open lockfile and create it if it does not exist
     fd = open(_lockFilePath.c_str(), O_RDWR|O_CREAT, 0644);
+    //fd = open(_lockFilePath.c_str(), O_RDWR);
 
-	char buf[80];
     if(fd == -1) {
-		// Perhaps the file exists, so we try to open it.
-    	fd = open(_lockFilePath.c_str(), O_RDONLY);
-		
-		syslog(LOG_ERR, "%s", "Second open.");
-
-		if(fd == -1) {
-			syslog(LOG_ERR, "%s", "Could not open lockfile.");
-			exit(1);
-		}
+        syslog(LOG_NOTICE, "%s", "failed to open file");
+		exit(1);
     }
 
     fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
@@ -221,44 +215,37 @@ void BDaemon::lockDaemon(){
     fl.l_len    = 0;        /* length, 0 = to EOF           */
     fl.l_pid    = getpid(); /* our PID                      */
 
-
-	syslog(LOG_NOTICE, "getpid = %d", getpid());
-	syslog(LOG_NOTICE, "fl.l_pid #1 = %d", getpid());
-
-
-    // Try to create a file lock.
+    // Try to create a file lock, to test whether the lock file is 
+	// already locked.
     if( fcntl(fd, F_SETLK, &fl) == -1) {    /* F_GETLK, F_SETLK, F_SETLKW */
-		syslog(LOG_NOTICE, "fl.l_pid #2 = %d", getpid());
 
-		char lockFilePid[80];
-
-		int pidLen = read(fd, lockFilePid, 80);
-
-		syslog(LOG_NOTICE, "%d", pidLen);
-
-		lockFilePid[pidLen] = 0x0;
-
-    	// Failed to create a file lock, meaning the lockfile is already locked.
+		// We failed to create a file lock which means the file is indeed 
+		// already locked.
         if( errno == EACCES || errno == EAGAIN) {
-            syslog(LOG_ERR, 
-				"A running process with pid %s already has a lock on lockfile '%s'",
-				lockFilePid, _lockFilePath.c_str());
+
+			string lockFilePid;
+			ifstream inLockFile(_lockFilePath.c_str());
+			inLockFile >> lockFilePid;
+
+            syslog(LOG_NOTICE, "Lockfile already locked by %s", lockFilePid.c_str());
 			exit(1);
         }
     }
 
-	// Truncate the file to get rid of the old pid.
-	ftruncate(fd, 0);
+	// Write our own pid into the lockfile.
+	ofstream fout(_lockFilePath.c_str());
+	fout << getpid();
+	fout << flush;
+	fout.close();
 
-	// Now that we have opened the pid file and obtained a lock we
-	// should be the only running process so we can write our pid
-	// into the lockfile.
-	stringstream pid;
-	pid << "blah " << _daemonPid;
+    // The above seems to break the lock so we relock.
+    if( fcntl(fd, F_SETLK, &fl) == -1) {    /* F_GETLK, F_SETLK, F_SETLKW */
 
-	syslog(LOG_NOTICE, " --> %s", pid.str().c_str());
-
-	write(fd, pid.str().c_str(), strlen(pid.str().c_str()));
+        if( errno == EACCES || errno == EAGAIN) {
+            syslog(LOG_NOTICE, "Failed to obtain file lock on lockfile. ");
+			exit(1);
+        }
+    }
 }
 
 /*
