@@ -36,10 +36,14 @@ int main()
 {
 
 	try{
-		//TSenseAuthDaemon authDaemon("tsensed", "/tmp/", SINGLETON);
+		//TSenseAuthDaemon authDaemon("tsenseauthd", 
+		//	"/home/kr/tsense/server/OpenSslServer/", SINGLETON);
+
+		//TSenseAuthDaemon authDaemon("tsenseauthd", "/tmp/", SINGLETON);
 		TSenseAuthDaemon authDaemon("tsenseauthd", "/tmp/", SINGLETON|NO_DTTY);
 		//authDaemon.setWorkDir(
 		//	"/Users/kristjanr/Desktop/Arduino/tsense/server/OpenSslServer");
+
 		authDaemon.setWorkDir(
 			"/home/kr/tsense/server/OpenSslServer");
 

@@ -223,6 +223,8 @@ SSL_CTX *TlsBaseServer::setupServerCtx(int mode){
 		log_err_exit("Unsupported mode.");
 	}
 
+        syslog(LOG_NOTICE, "pem file: %s", certFile);
+
 	// Limit how far up the certificate chain do we go to look for a trusted
 	// CA certificate. If we reach the end of the cain without finding
 	// one or the chain is longer than 4 verification will fail.
