@@ -33,7 +33,7 @@ BDaemon::~BDaemon(){}
 
 void BDaemon::run(){
 
-	checkLocked();
+	//checkLocked();
 	daemonize();
 	work();
 }
@@ -164,6 +164,7 @@ void BDaemon::initSyslog(){
 	openlog(getDaemonName().c_str(),LOG_PID|LOG_CONS,LOG_DAEMON); 
 }
 
+/*
 void BDaemon::lockDaemon(){
 	int lockFd;
 	char buf[16];
@@ -192,7 +193,75 @@ void BDaemon::lockDaemon(){
 	pid << _daemonPid << endl;
 	write(lockFd, pid.str().c_str(), strlen(pid.str().c_str())+1);
 }
+*/
 
+void BDaemon::lockDaemon(){
+    int fd;
+    struct flock fl;
+
+	// Try to open lockfile and create it if it does not exist
+    fd = open(_lockFilePath.c_str(), O_RDWR|O_CREAT, 0644);
+
+	char buf[80];
+    if(fd == -1) {
+		// Perhaps the file exists, so we try to open it.
+    	fd = open(_lockFilePath.c_str(), O_RDONLY);
+		
+		syslog(LOG_ERR, "%s", "Second open.");
+
+		if(fd == -1) {
+			syslog(LOG_ERR, "%s", "Could not open lockfile.");
+			exit(1);
+		}
+    }
+
+    fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
+    fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
+    fl.l_start  = 0;        /* Offset from l_whence         */
+    fl.l_len    = 0;        /* length, 0 = to EOF           */
+    fl.l_pid    = getpid(); /* our PID                      */
+
+
+	syslog(LOG_NOTICE, "getpid = %d", getpid());
+	syslog(LOG_NOTICE, "fl.l_pid #1 = %d", getpid());
+
+
+    // Try to create a file lock.
+    if( fcntl(fd, F_SETLK, &fl) == -1) {    /* F_GETLK, F_SETLK, F_SETLKW */
+		syslog(LOG_NOTICE, "fl.l_pid #2 = %d", getpid());
+
+		char lockFilePid[80];
+
+		int pidLen = read(fd, lockFilePid, 80);
+
+		syslog(LOG_NOTICE, "%d", pidLen);
+
+		lockFilePid[pidLen] = 0x0;
+
+    	// Failed to create a file lock, meaning the lockfile is already locked.
+        if( errno == EACCES || errno == EAGAIN) {
+            syslog(LOG_ERR, 
+				"A running process with pid %s already has a lock on lockfile '%s'",
+				lockFilePid, _lockFilePath.c_str());
+			exit(1);
+        }
+    }
+
+	// Truncate the file to get rid of the old pid.
+	ftruncate(fd, 0);
+
+	// Now that we have opened the pid file and obtained a lock we
+	// should be the only running process so we can write our pid
+	// into the lockfile.
+	stringstream pid;
+	pid << "blah " << _daemonPid;
+
+	syslog(LOG_NOTICE, " --> %s", pid.str().c_str());
+
+	write(fd, pid.str().c_str(), strlen(pid.str().c_str()));
+}
+
+/*
 int BDaemon::lockFile(int lockFd){
 	struct flock fl;
 
@@ -200,6 +269,7 @@ int BDaemon::lockFile(int lockFd){
 	fl.l_start = 0;
 	fl.l_whence = SEEK_SET;
 	fl.l_len = 0;
+	fl.l_pid = getpid();
 
 	return fcntl(lockFd, F_SETLK, &fl);
 }
@@ -217,6 +287,7 @@ void  BDaemon::checkLocked(){
 		lock.l_start = 0;
 		lock.l_whence = SEEK_SET;
 		lock.l_len = 0;
+		lock.l_pid = getpid();
 
 		if(fcntl(lockFd, F_GETLK, &lock) < 0){
 			syslog(LOG_ERR,"Got fcntl error.");
@@ -233,6 +304,7 @@ void  BDaemon::checkLocked(){
 		close(lockFd);
 	}
 }
+*/
 
 string BDaemon::getDaemonName(){
 	return _daemonName;
