@@ -1,0 +1,2 @@
+TSensor Arduino source directory.
+Run the make_links.sh script to create the necessary symlinks to libraries.
