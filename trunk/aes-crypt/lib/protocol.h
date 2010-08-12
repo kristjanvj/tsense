@@ -13,6 +13,8 @@
 
 #include "aes_crypt.h"
 #include "aes_cmac.h"
+#include <stdlib.h>
+#include <string.h>
 
 /* Some defines - Please take care if you change them. */
 #define ID_SIZE 6
