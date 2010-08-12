@@ -24,8 +24,7 @@
  *
  */
  
-#include <string.h>
-//#include <math.h> // ?
+#include <string.h>      // memcpy()
 
 #ifndef __AES_CRYPT_H__
 #define __AES_CRYPT_H__
@@ -33,13 +32,13 @@
 // Assume Arduino Duemilanove if we are compiling without the -D flag. 
 #if !(defined(_INTEL_32) || defined(_INTEL_64))
 // Defines for the arduino platform
-#define _ARDUINO_DUEMILANOVE         
-#define unroll_encrypt_loop
-#define unroll_decrupt_loop
-#define unroll_cbc_loop
+  #define _ARDUINO_DUEMILANOVE         
+  #define unroll_encrypt_loop
+  #define unroll_decrupt_loop
+  #define unroll_cbc_loop
 #endif
 
-#define unroll_encrypt_loop 
+//#define unroll_encrypt_loop 
 //#define verbose_debug
 
 // typedef's depending on platform
@@ -49,6 +48,7 @@ typedef int                 int16_ard;
 typedef unsigned int        u_int16_ard;
 typedef long                int32_ard;
 typedef unsigned long       u_int32_ard;
+typedef float               float32_ard;
 #endif
 #ifdef  _INTEL_32
 typedef unsigned char       byte_ard;
@@ -58,6 +58,7 @@ typedef int                 int32_ard;
 typedef unsigned int        u_int32_ard;
 typedef long long           int64_ard;
 typedef unsigned long long  u_int64_ard;
+typedef float               float32_ard;
 #endif
 #ifdef  _INTEL_64
 typedef unsigned char       byte_ard;
@@ -67,6 +68,7 @@ typedef int                 int32_ard;
 typedef unsigned int        u_int32_ard;
 typedef long                int64_ard;
 typedef unsigned long       u_int64_ard;
+typedef float               float32_ard;
 #endif
 
 // Some defines to aid code readability

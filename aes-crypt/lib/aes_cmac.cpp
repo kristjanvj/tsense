@@ -13,7 +13,7 @@
 void leftShiftKey(byte_ard *orig, byte_ard *shifted){
     byte_ard overFlow =  0x0;
 
-    int i;
+    int32_ard i;
     for(i = BLOCK_BYTE_SIZE - 1; i >= 0; i--){
         shifted[i] = (orig[i] << 1);
         shifted[i] = shifted[i] | overFlow;
@@ -24,7 +24,7 @@ void leftShiftKey(byte_ard *orig, byte_ard *shifted){
 // Performs (p XOR q) on every element of an array of length BLOCK_BYTE_SIZE
 // and copies the result into r.
 void xorToLength(byte_ard *p, byte_ard *q, byte_ard *r){
-    int i;
+    int32_ard i;
     for(i = 0; i < BLOCK_BYTE_SIZE; i++){
         r[i] = p[i] ^ q[i];
     }
@@ -47,8 +47,8 @@ void expandMacKey(byte_ard *origKey, byte_ard *newKey){
 
 // Pads a message with a single '1' followed by the minimum number
 // of '0' such that the string's total lenght is 128 bits.
-void padding ( byte_ard *lastb, byte_ard *pad, int length ) {
-    int i;
+void padding ( byte_ard *lastb, byte_ard *pad, u_int32_ard length ) {
+    u_int32_ard i;
 
     for (i=0; i<BLOCK_BYTE_SIZE; i++) {
         if (i < length) {
@@ -63,7 +63,7 @@ void padding ( byte_ard *lastb, byte_ard *pad, int length ) {
 
 // Initialize an AES block with zeros.
 void initBlockZero(byte_ard *block){
-    int i;
+    int32_ard i;
     for(i=0; i < BLOCK_BYTE_SIZE; i++){
         block[i] = 0x0;
     }
@@ -84,7 +84,7 @@ void initBlockZero(byte_ard *block){
  * +                                                                   +
  * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  */
-void aesCMac(const u_int32_ard* KS, byte_ard *M, long M_length, byte_ard *CMAC){
+void aesCMac(const u_int32_ard* KS, byte_ard *M, u_int32_ard M_length, byte_ard *CMAC){
 
     byte_ard K1[BLOCK_BYTE_SIZE], K2[BLOCK_BYTE_SIZE],
              L[BLOCK_BYTE_SIZE], M_last[BLOCK_BYTE_SIZE];
@@ -92,7 +92,7 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, long M_length, byte_ard *CMAC){
     initBlockZero(K1); initBlockZero(K2);
     initBlockZero(L); initBlockZero(M_last);
 
-    int blockCount = 0;
+    u_int32_ard blockCount = 0;
 
     bool isComplete = true;
 
@@ -107,7 +107,10 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, long M_length, byte_ard *CMAC){
     expandMacKey(K1, K2);
 
     // Step 2. determine the needed number of blocks of lenght BLOCK_BYTE_SIZE.
-    blockCount = ceil((double) M_length/(double) BLOCK_BYTE_SIZE);
+    //blockCount = (u_int32_ard)ceil((double) M_length/(double) BLOCK_BYTE_SIZE);
+    //blockCount = neededblocks(M_length);
+    blockCount = ceilf((float32_ard) M_length / (float32_ard)BLOCK_BYTE_SIZE);
+    //blockCount = 1;
 
     // Step 3. Check whether M needs padding or not.
     if(blockCount == 0){
@@ -129,7 +132,8 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, long M_length, byte_ard *CMAC){
         xorToLength(&M[BLOCK_BYTE_SIZE * (blockCount - 1)], K1, M_last);
     } else { // No padding needed.
         initBlockZero(M_lastPad);
-        padding(&M[BLOCK_BYTE_SIZE * (blockCount - 1)], M_lastPad, M_length % 16);
+        padding(&M[BLOCK_BYTE_SIZE * (blockCount - 1)], M_lastPad,
+                (M_length % BLOCK_BYTE_SIZE));
         xorToLength(M_lastPad, K2, M_last);
     }
 
@@ -139,7 +143,7 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, long M_length, byte_ard *CMAC){
     initBlockZero(Y);
 
     // Step 6.
-    int i, j;
+    u_int32_ard i, j;
     for(i = 0; i < blockCount-1; i++){
         //Y := X XOR M_i;
         xorToLength(X, &M[BLOCK_BYTE_SIZE * i], Y);
@@ -182,7 +186,8 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, long M_length, byte_ard *CMAC){
  * +-------------------------------------------------------------------+
  */
 
-int verifyAesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard* CMACm){
+int32_ard verifyAesCMac(byte_ard *K, byte_ard *M, u_int32_ard M_length,
+                          byte_ard* CMACm){
     byte_ard CMAC[BLOCK_BYTE_SIZE];
     byte_ard keys[BLOCK_BYTE_SIZE*11];
 
@@ -190,7 +195,7 @@ int verifyAesCMac(byte_ard *K, byte_ard *M, long M_length, byte_ard* CMACm){
 
     aesCMac((const u_int32_ard*)keys, M, M_length, CMAC);
 
-    int i;
+    int32_ard i;
     for(i = 0; i<BLOCK_BYTE_SIZE; i++){
         if(CMAC[i] != CMACm[i]){
             return 0;
