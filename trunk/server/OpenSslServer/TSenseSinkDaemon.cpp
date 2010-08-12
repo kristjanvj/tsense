@@ -39,6 +39,8 @@ int main()
 		TSenseSinkDaemon sinkDaemon("tsensesinkd", "/tmp/", SINGLETON|NO_DTTY);
 		//sinkDaemon.setWorkDir(
 		//	"/Users/kristjanr/Desktop/Arduino/tsense/server/OpenSslServer");
+
+
 		sinkDaemon.setWorkDir(
 			"/home/kr/tsense/server/OpenSslServer");
 
