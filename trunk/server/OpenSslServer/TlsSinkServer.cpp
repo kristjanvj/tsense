@@ -20,12 +20,12 @@ using namespace std;
  *  - serverListenPort, The port this server listens for connections
  *                      from the proxy client.
  */
-TlsSinkServer::TlsSinkServer(const char *authServerAddr,
-							 const char *authServerPort, 
-							 const char *serverAddr,
-							 const char *serverListenPort) :
-						TlsBaseServer(serverAddr, serverListenPort) {
-							
+TlsSinkServer::TlsSinkServer(	const char *authServerAddr,
+								const char *authServerPort, 
+					 			const char *serverAddr,
+								const char *serverListenPort) :
+						TlsBaseServer(CLIENT_MODE, serverAddr, serverListenPort)
+{
 	_authServerAddr = authServerAddr;
 	_authServerPort = authServerPort;
 
