@@ -62,7 +62,7 @@ certclean:
 	$(RM) -f clientkey.pem clientreq.pem clientcert.pem
 
 pemclean:
-	server.pem root.pem client.pem
+	$(RM) -f server.pem root.pem client.pem
 
 clean:
-	$(RM) -i $(AUTHDNAME) $(SINKDNAME)
+	$(RM) -f $(AUTHDNAME) $(SINKDNAME)
