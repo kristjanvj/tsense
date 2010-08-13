@@ -33,6 +33,7 @@ class TlsBaseServer {
 	protected:
 		const char *_serverListenPort;
 		const char *_serverAddr;
+		SSL_CTX *ctx;
 
 		void handleError(const char *file, int lineno, const char * msg);
 		void initOpenSsl(void);

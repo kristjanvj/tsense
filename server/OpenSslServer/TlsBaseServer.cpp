@@ -46,6 +46,7 @@ TlsBaseServer::TlsBaseServer(const char *serverAddr, const char *serverListenPor
 											_serverListenPort(serverListenPort){
 	initOpenSsl();
 	seedPrng();
+	ctx = setupServerCtx(SERVER_MODE);
 }
 
 void TlsBaseServer::handleError(const char *file, int lineno, const char * msg){
@@ -223,6 +224,8 @@ SSL_CTX *TlsBaseServer::setupServerCtx(int mode){
 		log_err_exit("Unsupported mode.");
 	}
 
+    syslog(LOG_NOTICE, "%s", "Got here 1");
+
     syslog(LOG_NOTICE, "pem file: %s", certFile);
 
 	// Limit how far up the certificate chain do we go to look for a trusted
@@ -230,23 +233,31 @@ SSL_CTX *TlsBaseServer::setupServerCtx(int mode){
 	// one or the chain is longer than 4 verification will fail.
 	SSL_CTX_set_verify_depth(ctx,4);
 
+    syslog(LOG_NOTICE, "%s", "Got here 2");
 
     if(SSL_CTX_load_verify_locations(ctx, CAFILE, CADIR) !=1){
         log_err_exit("Error loading CA file and/or directory.");
     }
 
+    syslog(LOG_NOTICE, "%s", "Got here 3");
+
     if(SSL_CTX_set_default_verify_paths(ctx) != 1){
         log_err_exit("Errod loading default CA file and/or directory.");
     }
 
+    syslog(LOG_NOTICE, "%s", "Got here 4");
 
     if(SSL_CTX_use_certificate_chain_file(ctx, certFile) != 1){
         log_err_exit("Error loading certificate from file.");
     }
 
+    syslog(LOG_NOTICE, "%s", "Got here 5");
+
     if(SSL_CTX_use_PrivateKey_file(ctx, certFile, SSL_FILETYPE_PEM) != 1){
         log_err_exit("Error loading private key from file.");
     }
+
+    syslog(LOG_NOTICE, "%s", "Got here 6");
 
     return ctx;
 }
