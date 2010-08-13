@@ -43,7 +43,9 @@ class TlsBaseServer {
 		long postConnectionValidations(SSL *ssl, const char *peer);
 
     public:
-		TlsBaseServer(const char *serverName, const char* listenPort);
+		TlsBaseServer(int sslServerMode,		// CLIENT/SERVER mode
+					  const char *serverName, 
+					  const char* listenPort);
 		virtual void serverMain() = 0;
 
 };
