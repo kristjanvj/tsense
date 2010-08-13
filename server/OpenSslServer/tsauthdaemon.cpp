@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include "BDaemon.h"
-#include "TlsAuthServer.h"
+#include "tls_authserver.h"
 
 using namespace std;
 

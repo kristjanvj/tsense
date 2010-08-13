@@ -7,7 +7,7 @@
 #ifndef __TLSSERVER_H__
 #define __TLSSERVER_H__
 
-#include "TlsBaseServer.h"
+#include "tls_baseserver.h"
 #include <stdexcept>
 
 using namespace std;
