@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include "BDaemon.h"
-#include "TlsSinkServer.h"
+#include "tls_sinkserver.h"
 
 using namespace std;
 

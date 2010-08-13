@@ -4,7 +4,7 @@
  * Author:    Kristjan Runarsson
  */
 
-#include "TlsAuthServer.h"
+#include "tls_authserver.h"
 #include <syslog.h>
 #include <string.h>
 

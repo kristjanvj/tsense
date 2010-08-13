@@ -4,11 +4,10 @@
  * Author:    Kristján Rúnarsson
  */
 
-#include "TlsSinkServer.h"
 #include <syslog.h>
 #include <string.h>
 
-#include "TlsSinkServer.h"
+#include "tls_sinkserver.h"
 
 
 using namespace std;
