@@ -7,6 +7,8 @@ RM = /bin/rm
 CAT = /bin/cat
 OPENSSL = /usr/bin/openssl
 
+all: servers certs
+
 servers: auth sink
 
 AUTHDNAME = tsauthd
@@ -54,7 +56,9 @@ client.pem:
 	-CAcreateserial -out clientcert.pem
 	$(CAT) clientcert.pem clientkey.pem rootcert.pem > client.pem
 
-certclean:
+certclean: genclean pemclean
+
+genclean:
 	$(RM) -f rootkey.pem rootreq.pem rootcert.pem root.srl
 	$(RM) -f serverCAkey.pem serverCAreq.pem serverCAcert.pem serverCA.pem \
 	serverCA.srl
