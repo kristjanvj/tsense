@@ -107,12 +107,12 @@ void TlsAuthServer::serverFork(void *arg){
 void TlsAuthServer::serverMain(){
     BIO *sinkServerAcceptBio, *sinkServerRequestBio;
 	SSL *ssl;
-	SSL_CTX *ctx;
+	//SSL_CTX *ctx;
 
 	// Creates a BIO object and returns it as an accept BIO object.
 	sinkServerAcceptBio = BIO_new_accept((char*) _serverListenPort);
 
-	ctx = setupServerCtx(SERVER_MODE);
+	//ctx = setupServerCtx(SERVER_MODE);
 	
 	if(!sinkServerAcceptBio){
 		log_err_exit("Error creating server socket.");

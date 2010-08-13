@@ -18,32 +18,30 @@ class TSenseAuthDaemon: public BDaemon{
 		TSenseAuthDaemon(const char *daemonName, const char* lockDir, int daemonFlags);
 	protected:
 		void work();
+
+	private:
+		TlsAuthServer *tlsa;
 };
 
 TSenseAuthDaemon::TSenseAuthDaemon(const char *daemonName, 
 					   const char* lockDir, 
 					   int daemonFlags) 
-: BDaemon(daemonName, lockDir, daemonFlags){} 
+				: BDaemon(daemonName, lockDir, daemonFlags){
+
+	tlsa = new TlsAuthServer("sink.tsense.sudo.is"				// Peer.,
+							 "auth.tsense.sudo.is", "6001");	// Me.
+} 
 
 void TSenseAuthDaemon::work(){
-	//                 My peer...             Me...                  My port.
-	TlsAuthServer tlsa("sink.tsense.sudo.is", "auth.tsense.sudo.is", "6001");
 	syslog(LOG_ERR, "%s", getWorkDir().c_str());
-	tlsa.serverMain();
+	tlsa->serverMain();
 }
 
 int main()
 {
-
 	try{
 		TSenseAuthDaemon authDaemon("tsenseauthd", 
 			"/home/kr/tsense/server/OpenSslServer/", SINGLETON);
-
-		//TSenseAuthDaemon authDaemon("tsenseauthd", "/tmp/", SINGLETON);
-		//TSenseAuthDaemon authDaemon("tsenseauthd", "/tmp/", SINGLETON|NO_DTTY);
-		//authDaemon.setWorkDir(
-		//	"/Users/kristjanr/Desktop/Arduino/tsense/server/OpenSslServer");
-
 		authDaemon.setWorkDir(
 			"/home/kr/tsense/server/OpenSslServer");
 

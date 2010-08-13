@@ -157,10 +157,10 @@ int TlsSinkServer::writeToProxyClient(BIO *proxyClientReqestBio, char *writeBuf)
 void TlsSinkServer::serverMain(){
     BIO *authServerBio, *proxyClientAcceptBio, *proxyClientReqestBio;
     SSL *ssl;
-    SSL_CTX *ctx;
+    //SSL_CTX *ctx;
 
 	// Set up the the SSL context for connecting to the auth-server.
-    ctx = setupServerCtx(CLIENT_MODE);
+    //ctx = setupServerCtx(CLIENT_MODE);
 
 	// Connection string to connect to auth-server.
 	string hostPort = _authServerAddr;
