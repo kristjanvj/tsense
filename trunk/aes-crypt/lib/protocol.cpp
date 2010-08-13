@@ -10,7 +10,6 @@
 
 #include "protocol.h"
 
-
 byte_ard IV[] = {
   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,  0x30, 0x30 
 };
@@ -22,16 +21,13 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
   byte_ard temp[ID_SIZE + NOUNCE_SIZE];
   byte_ard* pNounce = (byte_ard*)&msg->nounce;
   
-  for (u_int32_ard i = 0; i < (ID_SIZE + NOUNCE_SIZE); i++)
+  for (u_int32_ard i = 0; i < ID_SIZE; i++)
   {
-    if (i < ID_SIZE) 
-    {
-      temp[i] = msg->pID[i];
-    }
-    else if (i >= ID_SIZE)
-    {
-      temp[i] = pNounce[i-ID_SIZE];
-    }
+    temp[i] = msg->pID[i];
+  }
+  for(u_int32_ard i = 0; i < NOUNCE_SIZE; i++)
+  {
+    temp[ID_SIZE + i] = pNounce[i];
   }
 
   // Encrypt-then-MAC (Bellare and Namprempre)
@@ -46,6 +42,7 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
   // First byte is the msg type. If longer than one byte, add loop.
   //cBuffer[0] = msg->msgtype;
   cBuffer[0] = 0x10;
+  msg->msgtype = 0x10;
 
   // This will strip off the null char wich isn't crypted.
   for (u_int16_ard i = 0; i < ID_SIZE; i++)
@@ -63,7 +60,6 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
   {
     cBuffer[MSGTYPE_SIZE + ID_SIZE + IDMSG_CRYPTSIZE + j] = cmac_buff[j];
   }
-  
 }
 void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
                        struct message* msg)
@@ -121,38 +117,98 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   }
 }
 
-
-
- /* TODO: Move to tsense_common or similar.  */
-u_int16_ard neededblocks(u_int32_ard len)
+void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
 {
-  /*u_int32_ard count = 0;
-  while (pText[count] != '\0')
-    count++;
-  */
-  
-  u_int32_ard i = 0;
-  while ( i >= 0 )
+  byte_ard* cBuffer = (byte_ard*)pBuffer;
+  msg->msgtype = 0x11;
+  cBuffer[0] = 0x11;
+
+  // Place the key in the "plaintext" to the sink. (SSLed)
+  for (u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    if (len <= (i*BLOCK_BYTE_SIZE))
-    {
-      break;
-    }
-    else
-    {
-      i++;
-    }
+    cBuffer[MSGTYPE_SIZE+i] = msg->key[i];
   }
-  return i;
+
+  // t_ST, expiration time. u_int32
+  byte_ard* pTimer = (byte_ard*)&msg->timer;
+  for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE+KEY_BYTES+i] = pTimer[i];
+  }
+
+  // Create the buffer that is to be ciphered
+  byte_ard temp[NOUNCE_SIZE+KEY_BYTES+TIMER_SIZE];
+  byte_ard cipher_buff[KEYTOSINK_CRYPTSIZE];
+
+  byte_ard* pNounce = (byte_ard*)&msg->nounce;
+  // N_T
+  for (u_int16_ard i = 0; i < NOUNCE_SIZE; i++)
+  {
+    temp[i] = pNounce[i];
+  }
+  // Key
+  for (u_int16_ard i = 0; i < KEY_BYTES; i++)
+  {
+    temp[NOUNCE_SIZE+i] = msg->key[i];
+  }
+  //Timer (pointer declartion above)
+  for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
+  {
+    temp[NOUNCE_SIZE+KEY_BYTES+i] = pTimer[i];
+  }
+
+
+  // Cipher
+  CBCEncrypt((void*)temp, (void*)cipher_buff, (NOUNCE_SIZE + KEY_BYTES + TIMER_SIZE),
+             KEYTOSINK_PADLEN, pKeys, (const u_int16_ard*)IV);
+  aesCMac(pKeys, cipher_buff, KEYTOSINK_CRYPTSIZE, msg->cmac);
+
+  // Put the cipherstuff into the buffer
+  for (u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + i] = cipher_buff[i];
+  }
+
+  // Hash
+  for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE+KEY_BYTES+TIMER_SIZE+KEYTOSINK_CRYPTSIZE+i] = msg->cmac[i];
+  }
 }
 
-u_int32_ard padding(u_int32_ard strlen)
+void unpack_keytosink(void *pStream, struct message* msg)
 {
-  // Decide on the padding
-  if ((strlen % BLOCK_BYTE_SIZE) == 0)
-    return 0;
-  else
-    return  BLOCK_BYTE_SIZE - (strlen % BLOCK_BYTE_SIZE);  
+  byte_ard* cStream = (byte_ard*)pStream;
+  // Assumes one byte for msgtype
+  msg->msgtype = cStream[0];
 
+  // Key
+  for (u_int16_ard i = 0; i < KEY_BYTES; i++)
+  {
+    msg->key[i] = cStream[MSGTYPE_SIZE+i];
+  }
+
+  // Timer
+  byte_ard* temp = (byte_ard*)malloc(TIMER_SIZE);
+  for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
+  {
+    temp[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + i];
+  }
+  msg->timer = (u_int32_ard)*temp;
+  free(temp);
+
+  // Since this method unpacks the stream on the Sink, it cannot decipher
+  // the ciphertext. (Thus, it is missing the pKey pointer) The Ciphertext
+  // will be stored in the struct and will be forwarded to the client and
+  // sensor. The Hash is also useless for the sink and is forwarded.
+
+  for(u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
+  {
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + i];
+  }
+  for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + KEYTOSINK_CRYPTSIZE + i];
+  }
+  
 }
-
