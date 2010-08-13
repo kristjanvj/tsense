@@ -28,7 +28,7 @@ TSenseAuthDaemon::TSenseAuthDaemon(const char *daemonName,
 					   int daemonFlags) 
 				: BDaemon(daemonName, lockDir, daemonFlags){
 
-	tlsa = new TlsAuthServer("sink.tsense.sudo.is"				// Peer.,
+	tlsa = new TlsAuthServer("sink.tsense.sudo.is",				// Peer.,
 							 "auth.tsense.sudo.is", "6001");	// Me.
 } 
 

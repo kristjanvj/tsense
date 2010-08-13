@@ -10,8 +10,11 @@
 
 using namespace std;
 
-TlsAuthServer::TlsAuthServer(const char* sinkServerAddr, const char *serverAddr, const char *serverListenPort) : 
-							TlsBaseServer(serverAddr, serverListenPort) {
+TlsAuthServer::TlsAuthServer(	const char* sinkServerAddr,
+								const char *serverAddr,
+								const char *serverListenPort) : 
+							TlsBaseServer(SERVER_MODE,serverAddr, serverListenPort)
+{
 	_sinkServerAddr = sinkServerAddr;
 }
 

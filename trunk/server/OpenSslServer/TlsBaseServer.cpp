@@ -41,12 +41,15 @@ int verify_callback(int ok, X509_STORE_CTX *store){
     }
 }
 
-TlsBaseServer::TlsBaseServer(const char *serverAddr, const char *serverListenPort) : 
-										 	_serverAddr(serverAddr),
-											_serverListenPort(serverListenPort){
+TlsBaseServer::TlsBaseServer(	int sslMode,
+								const char *serverAddr,
+								const char *serverListenPort) : 
+										_serverAddr(serverAddr),
+										_serverListenPort(serverListenPort)
+{
 	initOpenSsl();
 	seedPrng();
-	ctx = setupServerCtx(SERVER_MODE);
+	ctx = setupServerCtx(sslMode);
 }
 
 void TlsBaseServer::handleError(const char *file, int lineno, const char * msg){
