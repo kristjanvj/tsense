@@ -65,7 +65,7 @@ public:
 	void  run();
 	
 	/** The working logic of the daemon should be implemented in this method.*/
-	virtual void work();
+	virtual void work() = 0;
 
 	/** Checks the working directory using the getwd() function fromm the standard
 	 * C-library rather than just retruning the value of '_daemonWorkDir'.*/
@@ -133,14 +133,11 @@ protected:
 	void initSyslog();
 
 	/** Create lock file to ensure the daemon is a singleton.*/
-	void lockDaemon();
+	void singleton();
 	
-	/** Obtain a write/read lock on a file dsecriptor.*/
-	//int lockFile(int lockFd);
-
 	/** Does the lock file exist and is it locked. If it is locked print 
 	 * message to console.*/
-	//void checkLocked();
+	void checkLocked();
 
 }; // end class BDaemon
 
