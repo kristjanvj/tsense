@@ -24,30 +24,7 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 		printf("\n");
 }
 
-
-
-/* strncpy borrowed from the OpenBSD project */
-
-byte_ard* strncpy2(byte_ard* dst, const byte_ard* src, u_int32_ard n)
-{
-  if (n != 0) {
-    byte_ard* d = dst;
-    const byte_ard* s = src;
-
-    do {
-      if ((*d++ = *s++) == 0) {
-        /* NUL pad the remaining n-1 bytes */
-        while (--n != 0)
-          *d++ = 0;
-        break;
-      }
-    } while (--n != 0);
-  }
-  return (dst);
-}
-
-
- byte_ard Keys[BLOCK_BYTE_SIZE*11];
+byte_ard Keys[BLOCK_BYTE_SIZE*11];
 
  
 int idmsgtest(byte_ard* id, unsigned int n)
@@ -211,7 +188,7 @@ h
     {
       if (recvmsg.timer == t)
       {
-        printf("Checks out! (Timer: %d)\n", recvmsg.timer);
+        printf("Checks out! (Timer : %d)\n", recvmsg.timer);
         retval = 0;
       }
       else
@@ -237,6 +214,87 @@ h
   return retval;
 }
 
+int keytosensetest(unsigned int n, unsigned int t, byte_ard* id) 
+{
+  // Because pack_keytosens() is designed to forward the ciphertext from
+  // keytosink, we will first create the keytosink package.
+
+  int retval = 1;
+
+  byte_ard newkey[] = {
+    0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+    0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36
+  };
+
+  struct message sendmsg;
+  sendmsg.pID = id;
+  sendmsg.timer = t;
+  sendmsg.nounce = n;
+  sendmsg.key = (byte_ard*)newkey;
+
+  byte_ard sinkbuff[KEYTOSINK_FULLSIZE];
+
+  pack_keytosink(&sendmsg, (const u_int32_ard*)Keys, sinkbuff);
+
+  // Now we will unpack that message in order to grab the ciphertext. The appropiate
+  // memeory still has to be allocated to prevent buffer overflows.
+  struct message sink_recv;
+  sink_recv.key = (byte_ard*)malloc(KEY_BYTES);
+  sink_recv.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
+  // the cmac memory is staticly allocated. Maybe that was a stupid move that leads
+  // only to inconsistency?
+
+  unpack_keytosink((void*)sinkbuff, &sink_recv);
+
+
+  // sink_recv now contains the packet that the sink recieves and can only partly read.
+  // Now recvmsg.ciphertext and recvmsg.cmac contains the values we are interested in.
+
+  // Allocate memory for the buffer, conating the ciphered part and a mac
+  byte_ard tosensebuffer[KEYTOSINK_CRYPTSIZE+BLOCK_BYTE_SIZE];
+
+  // Pack the data recived in unpack_keytosink
+  pack_keytosens(&sink_recv, tosensebuffer);
+  
+  free (sink_recv.ciphertext);
+  free (sink_recv.key);
+
+
+  // Now read the message packed by pack_keytosense
+  struct message senserecv;
+  senserecv.key = (byte_ard*)malloc(KEY_BYTES);
+  senserecv.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
+
+  unpack_keytosens((void*)tosensebuffer, (const u_int32_ard*)Keys, &senserecv);
+
+  printf("keytosense: ");
+  if (senserecv.nounce == n)
+  {
+    if (senserecv.timer == t)
+    {
+      if (strncmp((const char*)newkey, (const char*)senserecv.key, KEY_BYTES) == 0)
+      {
+        printf("Checks out! (Nounce: %d)\n", senserecv.nounce);
+        retval = 0;
+      }
+      else
+      {
+        printf("Failed: the key doesnt match!\n");
+      }
+    }
+    else
+    {
+      printf("Failed: timer doesnt match!\n");
+    }
+  }
+  else
+  {
+    printf("Failed: nounce!\n");
+  }
+
+  free (senserecv.key);
+  return retval;
+}
 int main(int argc, char* argv[])
 {
 
@@ -253,8 +311,10 @@ int main(int argc, char* argv[])
   
   int test1 = idmsgtest((byte_ard*)id, 3);
   int test2 = keytosinktest(5, 18, (byte_ard*)id);
+  int test3 = keytosensetest(1, 2, (byte_ard*)id);
+  //int test3 = 1;
 
-  if ((test1+test2) == 0) // SUM
+  if ((test1+test2+test3) == 0) // SUM
   {
     printf("\nAll OK!\n");
   }

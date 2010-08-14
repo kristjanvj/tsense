@@ -32,7 +32,7 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
 
   // Encrypt-then-MAC (Bellare and Namprempre)
   CBCEncrypt((void*)temp, (void*) crypt_buff, (ID_SIZE+NOUNCE_SIZE),
-             IDMSG_PADLEN,pKeys, (const u_int16_ard*)IV);
+             AUTOPAD, pKeys, (const u_int16_ard*)IV);
 
   // CMac the crypted ID and Nounce. 
   aesCMac(pKeys, crypt_buff, IDMSG_CRYPTSIZE, cmac_buff);
@@ -146,6 +146,7 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer
   {
     temp[i] = pNounce[i];
   }
+  
   // Key
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
@@ -156,7 +157,6 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer
   {
     temp[NOUNCE_SIZE+KEY_BYTES+i] = pTimer[i];
   }
-
 
   // Cipher
   CBCEncrypt((void*)temp, (void*)cipher_buff, (NOUNCE_SIZE + KEY_BYTES + TIMER_SIZE),
@@ -211,4 +211,67 @@ void unpack_keytosink(void *pStream, struct message* msg)
     msg->cmac[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + KEYTOSINK_CRYPTSIZE + i];
   }
   
+}
+
+void pack_keytosens(struct message* msg, void *pBuffer)
+{
+  byte_ard* cBuffer = (byte_ard*)pBuffer;
+  cBuffer[0] = 0x11;
+  msg->msgtype = 0x11;
+
+  // The ciphertext containing the Nounce, key and Timer. 
+  for (u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + i] = msg->ciphertext[i];
+  }
+  // The hash
+  for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + KEYTOSINK_CRYPTSIZE + i] = msg->cmac[i];
+  }
+}
+
+void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* msg)
+{
+  byte_ard* cStream = (byte_ard*)pStream;
+  msg->msgtype = cStream[0];
+
+  // Extract the ciphertext
+  for (u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
+  {
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + i];
+  }
+  byte_ard plainbuff[KEYTOSINK_CRYPTSIZE];
+    
+  CBCDecrypt((void*)msg->ciphertext, plainbuff, KEYTOSINK_CRYPTSIZE,
+             pKeys, (const u_int16_ard*)IV);
+
+  // 1 - nounce
+  byte_ard nouncetemp[NOUNCE_SIZE];
+  for (u_int16_ard i = 0; i < NOUNCE_SIZE; i++)
+  {
+    nouncetemp[i] = plainbuff[i];
+  }
+  msg->nounce = (u_int32_ard)*nouncetemp;
+
+  // 2 - key
+  for (u_int16_ard i = 0; i < KEY_BYTES; i++)
+  {
+    msg->key[i] = plainbuff[NOUNCE_SIZE + i];
+  }
+  
+  // 3 - timer
+  byte_ard timertemp[TIMER_SIZE];
+  for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
+  {
+    timertemp[i] = plainbuff[NOUNCE_SIZE + KEY_BYTES + i];
+  }
+  msg->timer = (u_int32_ard)*timertemp;
+
+  //Extract the hash
+  for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + (NOUNCE_SIZE + KEY_BYTES + TIMER_SIZE) + i];
+  }
+
 }

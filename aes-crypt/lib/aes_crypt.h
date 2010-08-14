@@ -24,7 +24,7 @@
  *
  */
  
-#include <string.h>
+#include <string.h>      // memcpy()
 
 #ifndef __AES_CRYPT_H__
 #define __AES_CRYPT_H__
@@ -40,11 +40,6 @@
 
 //#define unroll_encrypt_loop 
 //#define verbose_debug
-
-#ifdef _ARDUINO_DUEMILANOVE
-#include <avr/pgmspace.h> // Needed for use of PROGMEM on Arduino
-#include "WProgram.h" // For Serial.print debugging
-#endif
 
 // typedef's depending on platform
 #ifdef _ARDUINO_DUEMILANOVE
@@ -82,9 +77,14 @@ typedef float               float32_ard;
 #define ROUNDS 10   // Nr
 #define BLOCK_BYTE_SIZE 16 
 #define BLOCK_SIZE 16
+#define AUTOPAD 17
+
+// Allocated memory for keys
+extern unsigned char pKey[]; // The secret encryption key
+extern unsigned char pKeys[KEY_BYTES*12];
 
 // Common
-void KeyExpansion(const byte_ard *key, byte_ard *keys);
+void KeyExpansion(const void *key, void *keys);
 void AddRoundKey(void *pText, const u_int32_ard *pKeys, int round);
 
 // Encryption
@@ -107,9 +107,5 @@ void CBCEncrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
 void CBCDecrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
                 const u_int32_ard *pKeys, const u_int16_ard *pIV);
 
-// Getters for lookup tables
-byte_ard getRconByte(int index);
-byte_ard getSboxByte(int index);
-byte_ard getISboxByte(int index);
 
 #endif  //__AES_CRYPT_H__
