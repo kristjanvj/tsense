@@ -43,6 +43,7 @@
 #define KEYTOSINK_CRYPTSIZE (NOUNCE_SIZE + KEY_BYTES + TIMER_SIZE + KEYTOSINK_PADLEN)
 #define KEYTOSINK_FULLSIZE MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + KEYTOSINK_CRYPTSIZE + BLOCK_BYTE_SIZE
 
+#define KEYTOSENS_FULLSIZE MSGTYPE_SIZE + KEYTOSINK_CRYPTSIZE + BLOCK_BYTE_SIZE
 /* Struct */
 struct message
 {
@@ -53,7 +54,6 @@ struct message
   byte_ard cmac[BLOCK_BYTE_SIZE];
   byte_ard* key;
   byte_ard* ciphertext;
-  byte_ard* temp;
   u_int32_ard timer;
 };
 
@@ -62,6 +62,9 @@ void unpack_idresponse(void *pStream, const u_int32_ard* pKeys, struct message* 
 
 void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer);
 void unpack_keytosink(void *pStream, struct message* msg);
+
+void pack_keytosens(struct message* msg, void *pBuffer);
+void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* msg);
 
 /* Cannot define IV here for some reason. Investigate */
 
