@@ -17,3 +17,8 @@ the same machine the daemon is running on. Other than building the certs on
 a separate machine from the two where you are running the servers it also 
 seems to work to swap swap teh root certificates. In effect copy the root 
 certificate created on the auth server to the sink server and vice versa.
+
+
+The certificates that come with the build:
+------------------------------------------
+The pass phrases for all of them is 'pass'.
