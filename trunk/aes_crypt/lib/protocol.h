@@ -47,14 +47,14 @@
 /* Struct */
 struct message
 {
-  byte_ard msgtype;
-  byte_ard* pID;
-  byte_ard* pCipherID;
-  u_int32_ard nounce;
-  byte_ard cmac[BLOCK_BYTE_SIZE];
-  byte_ard* key;
-  byte_ard* ciphertext;
-  u_int32_ard timer;
+  byte_ard msgtype;               // The hex code declaring what type of message (see wiki)
+  byte_ard* pID;                  // Pointer to the ID sent in plaintext
+  byte_ard* pCipherID;            // Pointer to the ID sent in ciphertext
+  u_int32_ard nounce;             // The nounce
+  byte_ard cmac[BLOCK_BYTE_SIZE]; // The hash of the ciphertext
+  byte_ard* key;                  // The key sent in key exchange and re-keying
+  byte_ard* ciphertext;           // When forwarding ciphertext
+  u_int32_ard timer;              // re-keying timer
 };
 
 void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffer);
