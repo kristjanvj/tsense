@@ -11,7 +11,7 @@
 #include "protocol.h"
 
 byte_ard IV[] = {
-  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,  0x30, 0x30 
+  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30 
 };
 
 void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
@@ -241,6 +241,11 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
   {
     msg->ciphertext[i] = cStream[MSGTYPE_SIZE + i];
   }
+  //Extract the hash
+  for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + (KEYTOSINK_CRYPTSIZE) + i];
+  }
   byte_ard plainbuff[KEYTOSINK_CRYPTSIZE];
     
   CBCDecrypt((void*)msg->ciphertext, plainbuff, KEYTOSINK_CRYPTSIZE,
@@ -268,10 +273,5 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
   }
   msg->timer = (u_int32_ard)*timertemp;
 
-  //Extract the hash
-  for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
-  {
-    msg->cmac[i] = cStream[MSGTYPE_SIZE + (NOUNCE_SIZE + KEY_BYTES + TIMER_SIZE) + i];
-  }
 
 }

@@ -205,11 +205,14 @@ h
   {
     printf("Failed: msgtype\n");
   }
-  
+
+  //byte_ard* pNewkey = recvmsg.key;
+  //printBytes2(pNewkey, KEY_BYTES);
 
   //free(recvmsg.pCipherID);
   free(recvmsg.key);
   free(recvmsg.ciphertext);
+
 
   return retval;
 }
@@ -245,17 +248,16 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
   // only to inconsistency?
 
   unpack_keytosink((void*)sinkbuff, &sink_recv);
-
-
+  
   // sink_recv now contains the packet that the sink recieves and can only partly read.
   // Now recvmsg.ciphertext and recvmsg.cmac contains the values we are interested in.
 
-  // Allocate memory for the buffer, conating the ciphered part and a mac
-  byte_ard tosensebuffer[KEYTOSINK_CRYPTSIZE+BLOCK_BYTE_SIZE];
+  // Allocate memory for the buffer, conating msgtype, the ciphered part and the hash
+  byte_ard tosensebuffer[KEYTOSENS_FULLSIZE];
 
   // Pack the data recived in unpack_keytosink
   pack_keytosens(&sink_recv, tosensebuffer);
-  
+
   free (sink_recv.ciphertext);
   free (sink_recv.key);
 
@@ -267,6 +269,9 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
 
   unpack_keytosens((void*)tosensebuffer, (const u_int32_ard*)Keys, &senserecv);
 
+  byte_ard cmac_buff[BLOCK_BYTE_SIZE];
+  aesCMac((const u_int32_ard*)Keys, senserecv.ciphertext, 32, cmac_buff);
+
   printf("keytosense: ");
   if (senserecv.nounce == n)
   {
@@ -274,8 +279,21 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
     {
       if (strncmp((const char*)newkey, (const char*)senserecv.key, KEY_BYTES) == 0)
       {
-        printf("Checks out! (Nounce: %d)\n", senserecv.nounce);
-        retval = 0;
+        if (strncmp((const char*)senserecv.cmac, (const char*)cmac_buff, BLOCK_BYTE_SIZE) == 0)
+        {
+          printf("Checks out! (Nounce: %d)\n", senserecv.nounce);
+          retval = 0;
+        }
+        else
+        {
+          printf("Failed: the hash doesn't match!\n");
+          printf("  Cmac from stream:      ");
+          printBytes2(senserecv.cmac, BLOCK_BYTE_SIZE);
+          printf("  Ciphertext on stream:  ");
+          printBytes2(senserecv.ciphertext, BLOCK_BYTE_SIZE);
+          printf("  Hashed in test:        ");
+          printBytes2(cmac_buff, BLOCK_BYTE_SIZE);
+        }
       }
       else
       {
@@ -293,6 +311,7 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
   }
 
   free (senserecv.key);
+  free (senserecv.ciphertext);
   return retval;
 }
 int main(int argc, char* argv[])
@@ -308,7 +327,10 @@ int main(int argc, char* argv[])
 
   // Sample id: 000:001 (including null char)
   byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
-  
+
+  printf("TSense protocol tests\n");
+  printf("\n  The values in paranthesis are read from the ciphertext and are printed to \n  make it easier for humans to make sure garbage isn't being read and compared\n\n");
+
   int test1 = idmsgtest((byte_ard*)id, 3);
   int test2 = keytosinktest(5, 18, (byte_ard*)id);
   int test3 = keytosensetest(1, 2, (byte_ard*)id);
@@ -317,6 +339,5 @@ int main(int argc, char* argv[])
   if ((test1+test2+test3) == 0) // SUM
   {
     printf("\nAll OK!\n");
-  }
-  
+  }  
 }
