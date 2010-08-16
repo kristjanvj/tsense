@@ -184,7 +184,8 @@ h
 
   if (recvmsg.msgtype == 0x11)
   {
-    if (strcmp((const char*)recvmsg.key, (const char*)newkey) == 0)
+
+    if (strncmp((const char*)recvmsg.key, (const char*)newkey , KEY_BYTES) == 0)
     {
       if (recvmsg.timer == t)
       {
