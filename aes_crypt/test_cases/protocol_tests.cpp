@@ -27,18 +27,18 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 byte_ard Keys[BLOCK_BYTE_SIZE*11];
 
  
-int idmsgtest(byte_ard* id, unsigned int n)
+int idmsgtest(byte_ard* id, u_int16_ard n)
 {
 
   // Create the buffer to write the packet into.
-  // Needs to hold, MSGTYPE, IDSIZE, E(IDSIZE + NOUNCE) + MAC
+  // Needs to hold, MSGTYPE, IDSIZE, E(IDSIZE + NONCE) + MAC
   byte_ard buff[IDMSG_FULLSIZE];
   
   // Construct the packet
   struct message idmsg;
   idmsg.msgtype = 0x10;
   idmsg.pID = id;
-  idmsg.nounce = n;
+  idmsg.nonce = n;
 
   
   pack_idresponse(&idmsg, (const u_int32_ard*)Keys, (void*)buff);
@@ -49,38 +49,38 @@ int idmsgtest(byte_ard* id, unsigned int n)
   recv_id.pID = (byte_ard*)malloc(ID_SIZE+1);
   recv_id.pCipherID = (byte_ard*)malloc(ID_SIZE+1);
   byte_ard cmac[IDMSG_CRYPTSIZE];
-  byte_ard idandnounce[ID_SIZE+NOUNCE_SIZE];
+  byte_ard idandnonce[ID_SIZE+NONCE_SIZE];
   byte_ard pre_cmac[IDMSG_CRYPTSIZE];
   unpack_idresponse((void*)buff, (const u_int32_ard*)Keys, &recv_id);
 
-  // fill the buffer with ID and Nounce to find the cmac
-  byte_ard* pNounceUnPack = (byte_ard*)&recv_id.nounce;
+  // fill the buffer with ID and Nonce to find the cmac
+  byte_ard* pNonceUnPack = (byte_ard*)&recv_id.nonce;
   for (u_int16_ard i = 0; i < ID_SIZE; i++)
   {
-    idandnounce[i] = idmsg.pID[i];
+    idandnonce[i] = idmsg.pID[i];
   }
-  for (u_int16_ard i = 0; i < NOUNCE_SIZE; i++)
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
-    idandnounce[ID_SIZE+i] = pNounceUnPack[i];
+    idandnonce[ID_SIZE+i] = pNonceUnPack[i];
   }
   byte_ard IVector[] = {
   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,  0x30, 0x30 
   };
 
-  CBCEncrypt((void*)idandnounce, (void*)pre_cmac, (ID_SIZE+NOUNCE_SIZE),
+  CBCEncrypt((void*)idandnonce, (void*)pre_cmac, (ID_SIZE+NONCE_SIZE),
              IDMSG_PADLEN, (const u_int32_ard*)Keys,
              (const u_int16_ard*)IVector);
   aesCMac((const u_int32_ard*)Keys, pre_cmac, IDMSG_CRYPTSIZE, cmac);
   
   printf("idresponse: ");
-  //printf("ID: %s, Nounce: %d\n", idmsg.pID, recv_id.nounce);
+  //printf("ID: %s, Nonce: %d\n", idmsg.pID, recv_id.nonce);
   // 0 == match.
   int retval = 1;
   if (strcmp((char*)recv_id.pID, (char*)recv_id.pCipherID) == 0)
   {
     if (strcmp((char*)recv_id.pCipherID, (char*)idmsg.pID) == 0)
     {
-      if((n + recv_id.nounce) == (n + idmsg.nounce))
+      if((n + recv_id.nonce) == (n + idmsg.nonce))
       {
         if(strncmp((char*)recv_id.cmac, (char*)cmac, BLOCK_BYTE_SIZE) == 0)
         {
@@ -101,7 +101,7 @@ int idmsgtest(byte_ard* id, unsigned int n)
       }
       else
       {
-        printf("Failed: nounce\n");
+        printf("Failed: nonce\n");
       }
     }
     else
@@ -119,7 +119,7 @@ int idmsgtest(byte_ard* id, unsigned int n)
   return retval;
 }
 
-int keytosinktest(unsigned int n, unsigned int t, byte_ard* id)
+int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
 {
   printf("keytosink: ");
   int retval = 1;
@@ -131,7 +131,7 @@ int keytosinktest(unsigned int n, unsigned int t, byte_ard* id)
   struct message sendmsg;
   sendmsg.pID = id;
   sendmsg.timer = t;
-  sendmsg.nounce = n;
+  sendmsg.nonce = n;
   sendmsg.key = (byte_ard*)newkey;
   
   byte_ard buff[KEYTOSINK_FULLSIZE];
@@ -147,23 +147,23 @@ int keytosinktest(unsigned int n, unsigned int t, byte_ard* id)
   /*
   // To verify the ciphered stream (that the Sink is unable to decipher, and
   // that is why unpack_keytosink() doesnt take in the pointer to the key schedule.
-  byte_ard temp[NOUNCE_SIZE + KEY_BYTES + TIMER_SIZE];
+  byte_ard temp[NONCE_SIZE + KEY_BYTES + TIMER_SIZE];
   byte_ard ctext[KEYTOSINK_CRYPTSIZE];
 
-  byte_ard* pNounce = (byte_ard*)&n; // recvmsg doesnt contain the nounce because its
+  byte_ard* pNonce = (byte_ard*)&n; // recvmsg doesnt contain the nonce because its
                                      // only sent ciphered
   byte_ard* pTimer = (byte_ard*)&recvmsg.timer;
-  for (u_int16_ard i = 0; i < NOUNCE_SIZE; i++)
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp[i] = pNounce[i];
+    temp[i] = pNonce[i];
   }
   for(u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    temp[NOUNCE_SIZE + i] = recvmsg.key[i];
+    temp[NONCE_SIZE + i] = recvmsg.key[i];
   }
   for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
-    temp[NOUNCE_SIZE + KEY_BYTES + i] = pTimer[i];
+    temp[NONCE_SIZE + KEY_BYTES + i] = pTimer[i];
   }
 
   byte_ard IV[] = {
@@ -184,8 +184,7 @@ h
 
   if (recvmsg.msgtype == 0x11)
   {
-
-    if (strncmp((const char*)recvmsg.key, (const char*)newkey , KEY_BYTES) == 0)
+    if (strncmp((const char*)recvmsg.key, (const char*)newkey, KEY_BYTES) == 0)
     {
       if (recvmsg.timer == t)
       {
@@ -218,7 +217,7 @@ h
   return retval;
 }
 
-int keytosensetest(unsigned int n, unsigned int t, byte_ard* id) 
+int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id) 
 {
   // Because pack_keytosens() is designed to forward the ciphertext from
   // keytosink, we will first create the keytosink package.
@@ -233,7 +232,7 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
   struct message sendmsg;
   sendmsg.pID = id;
   sendmsg.timer = t;
-  sendmsg.nounce = n;
+  sendmsg.nonce = n;
   sendmsg.key = (byte_ard*)newkey;
 
   byte_ard sinkbuff[KEYTOSINK_FULLSIZE];
@@ -274,7 +273,7 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
   aesCMac((const u_int32_ard*)Keys, senserecv.ciphertext, 32, cmac_buff);
 
   printf("keytosense: ");
-  if (senserecv.nounce == n)
+  if (senserecv.nonce == n)
   {
     if (senserecv.timer == t)
     {
@@ -282,7 +281,7 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
       {
         if (strncmp((const char*)senserecv.cmac, (const char*)cmac_buff, BLOCK_BYTE_SIZE) == 0)
         {
-          printf("Checks out! (Nounce: %d)\n", senserecv.nounce);
+          printf("Checks out! (Nonce: %d)\n", senserecv.nonce);
           retval = 0;
         }
         else
@@ -308,7 +307,7 @@ int keytosensetest(unsigned int n, unsigned int t, byte_ard* id)
   }
   else
   {
-    printf("Failed: nounce!\n");
+    printf("Failed: nonce!\n");
   }
 
   free (senserecv.key);
