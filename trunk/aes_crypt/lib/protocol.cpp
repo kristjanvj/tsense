@@ -14,27 +14,30 @@ byte_ard IV[] = {
   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30 
 };
 
+/*
+  Authentication
+ */
 void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
 {
   byte_ard crypt_buff[IDMSG_CRYPTSIZE];
   byte_ard cmac_buff[IDMSG_CRYPTSIZE];
-  byte_ard temp[ID_SIZE + NOUNCE_SIZE];
-  byte_ard* pNounce = (byte_ard*)&msg->nounce;
+  byte_ard temp[ID_SIZE + NONCE_SIZE];
+  byte_ard* pNonce = (byte_ard*)&msg->nonce;
   
   for (u_int32_ard i = 0; i < ID_SIZE; i++)
   {
     temp[i] = msg->pID[i];
   }
-  for(u_int32_ard i = 0; i < NOUNCE_SIZE; i++)
+  for(u_int32_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp[ID_SIZE + i] = pNounce[i];
+    temp[ID_SIZE + i] = pNonce[i];
   }
 
   // Encrypt-then-MAC (Bellare and Namprempre)
-  CBCEncrypt((void*)temp, (void*) crypt_buff, (ID_SIZE+NOUNCE_SIZE),
+  CBCEncrypt((void*)temp, (void*) crypt_buff, (ID_SIZE+NONCE_SIZE),
              AUTOPAD, pKeys, (const u_int16_ard*)IV);
 
-  // CMac the crypted ID and Nounce. 
+  // CMac the crypted ID and Nonce. 
   aesCMac(pKeys, crypt_buff, IDMSG_CRYPTSIZE, cmac_buff);
 
   byte_ard* cBuffer = (byte_ard*)pBuffer;
@@ -55,7 +58,7 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
     cBuffer[MSGTYPE_SIZE + ID_SIZE + i] = crypt_buff[i];
   }
 
-  // Add the CMac behind the msgtype, plaintext id and E(Public ID, Nounce)
+  // Add the CMac behind the msgtype, plaintext id and E(Public ID, Nonce)
   for (u_int32_ard j = 0; j < IDMSG_CRYPTSIZE; j++)
   {
     cBuffer[MSGTYPE_SIZE + ID_SIZE + IDMSG_CRYPTSIZE + j] = cmac_buff[j];
@@ -100,22 +103,26 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   }
   msg->pCipherID[ID_SIZE] = '\0';
 
-  // Get the nounce into the struct, cast to int again. 
-  byte_ard* temp = (byte_ard*)malloc(NOUNCE_SIZE);
-  for (u_int16_ard i = 0; i < NOUNCE_SIZE; i++)
+  // Get the nonce into the struct, cast to int again. 
+  byte_ard* temp = (byte_ard*)malloc(NONCE_SIZE);
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
     temp[i] = plain_buff[ID_SIZE+i];
   }
-  msg->nounce = (u_int32_ard)*temp;
+  msg->nonce = (u_int16_ard)*temp;
   free(temp);
 
   // Get the cmac into the struct.
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
-    //msg->cmac[i] = plain_buff[ID_SIZE+NOUNCE_SIZE+i];
+    //msg->cmac[i] = plain_buff[ID_SIZE+NONCE_SIZE+i];
     msg->cmac[i] = cStream[MSGTYPE_SIZE + ID_SIZE + IDMSG_CRYPTSIZE + i];
   }
 }
+
+/*
+  Key exchange
+ */
 
 void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
 {
@@ -137,29 +144,29 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer
   }
 
   // Create the buffer that is to be ciphered
-  byte_ard temp[NOUNCE_SIZE+KEY_BYTES+TIMER_SIZE];
+  byte_ard temp[NONCE_SIZE+KEY_BYTES+TIMER_SIZE];
   byte_ard cipher_buff[KEYTOSINK_CRYPTSIZE];
 
-  byte_ard* pNounce = (byte_ard*)&msg->nounce;
+  byte_ard* pNonce = (byte_ard*)&msg->nonce;
   // N_T
-  for (u_int16_ard i = 0; i < NOUNCE_SIZE; i++)
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp[i] = pNounce[i];
+    temp[i] = pNonce[i];
   }
   
   // Key
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    temp[NOUNCE_SIZE+i] = msg->key[i];
+    temp[NONCE_SIZE+i] = msg->key[i];
   }
   //Timer (pointer declartion above)
   for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
-    temp[NOUNCE_SIZE+KEY_BYTES+i] = pTimer[i];
+    temp[NONCE_SIZE+KEY_BYTES+i] = pTimer[i];
   }
 
   // Cipher
-  CBCEncrypt((void*)temp, (void*)cipher_buff, (NOUNCE_SIZE + KEY_BYTES + TIMER_SIZE),
+  CBCEncrypt((void*)temp, (void*)cipher_buff, (NONCE_SIZE + KEY_BYTES + TIMER_SIZE),
              KEYTOSINK_PADLEN, pKeys, (const u_int16_ard*)IV);
   aesCMac(pKeys, cipher_buff, KEYTOSINK_CRYPTSIZE, msg->cmac);
 
@@ -219,7 +226,7 @@ void pack_keytosens(struct message* msg, void *pBuffer)
   cBuffer[0] = 0x11;
   msg->msgtype = 0x11;
 
-  // The ciphertext containing the Nounce, key and Timer. 
+  // The ciphertext containing the Nonce, key and Timer. 
   for (u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
   {
     cBuffer[MSGTYPE_SIZE + i] = msg->ciphertext[i];
@@ -251,25 +258,25 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
   CBCDecrypt((void*)msg->ciphertext, plainbuff, KEYTOSINK_CRYPTSIZE,
              pKeys, (const u_int16_ard*)IV);
 
-  // 1 - nounce
-  byte_ard nouncetemp[NOUNCE_SIZE];
-  for (u_int16_ard i = 0; i < NOUNCE_SIZE; i++)
+  // 1 - nonce
+  byte_ard noncetemp[NONCE_SIZE];
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
-    nouncetemp[i] = plainbuff[i];
+    noncetemp[i] = plainbuff[i];
   }
-  msg->nounce = (u_int32_ard)*nouncetemp;
+  msg->nonce = (u_int16_ard)*noncetemp;
 
   // 2 - key
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    msg->key[i] = plainbuff[NOUNCE_SIZE + i];
+    msg->key[i] = plainbuff[NONCE_SIZE + i];
   }
   
   // 3 - timer
   byte_ard timertemp[TIMER_SIZE];
   for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
-    timertemp[i] = plainbuff[NOUNCE_SIZE + KEY_BYTES + i];
+    timertemp[i] = plainbuff[NONCE_SIZE + KEY_BYTES + i];
   }
   msg->timer = (u_int32_ard)*timertemp;
 
