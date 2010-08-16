@@ -33,8 +33,8 @@ $(CLISSL):
 ARCH=
 
 MSG=" Please either set the ARCH variable to INTEL32/INTEL64 in the\n"\
-	"make file or pass it to the makefile:\n"\
-	"     make <target> [ARCH=INTEL32 | INTEL64]"
+    "make file or pass it to the makefile:\n"\
+    "     make <target> [ARCH=INTEL32 | INTEL64]"
 
 $(CLIPROT):
 ifeq ($(ARCH), $(or $(ARCH),INTEL32,INTEL64))
