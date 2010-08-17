@@ -59,10 +59,10 @@ void do_client_loop(BIO *conn){
 							// set the proper msgtype. It can be useful for 
 							// verification purposes to declare it.
 	idmsg.pID = (byte_ard*)id;
-	idmsg.nounce = 3;
+	idmsg.nonce = 3;
 
 	printf("idmsg.msgtype:          %x\n", idmsg.msgtype);
-	printf("idmsg.nounce:           %x\n", idmsg.nounce);
+	printf("idmsg.nonce:           %x\n", idmsg.nonce);
 	printf("\n");
 
 	pack_idresponse(&idmsg, (const u_int32_ard*)Keys, (void*)packetBuff);
@@ -97,7 +97,7 @@ void do_client_loop(BIO *conn){
     printf("Done unpacking encrypted packet:\n");
 
 	printf("recv_id.msgtype:          %x\n", recv_id.msgtype);
-	printf("recv_id.nounce:           %x\n", recv_id.nounce);
+	printf("recv_id.nonce:           %x\n", recv_id.nonce);
 	printf("recv_id.public id:        %x\n", (unsigned int) *recv_id.pID);
 	printf("recv_id.public cypher id: %x\n", (unsigned int) *recv_id.pCipherID);
 	//printf("public cmac:      %x\n", (unsigned int) *recv_id.cmac);
