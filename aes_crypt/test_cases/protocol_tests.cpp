@@ -50,27 +50,9 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   recv_id.pCipherID = (byte_ard*)malloc(ID_SIZE+1);
   recv_id.ciphertext = (byte_ard*)malloc(IDMSG_CRYPTSIZE);
   byte_ard cmac[IDMSG_CRYPTSIZE];
-  byte_ard idandnonce[ID_SIZE+NONCE_SIZE];
-  byte_ard pre_cmac[IDMSG_CRYPTSIZE];
+
   unpack_idresponse((void*)buff, (const u_int32_ard*)Keys, &recv_id);
 
-  // fill the buffer with ID and Nonce to find the cmac
-  byte_ard* pNonceUnPack = (byte_ard*)&recv_id.nonce;
-  for (u_int16_ard i = 0; i < ID_SIZE; i++)
-  {
-    idandnonce[i] = idmsg.pID[i];
-  }
-  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
-  {
-    idandnonce[ID_SIZE+i] = pNonceUnPack[i];
-  }
-  byte_ard IVector[] = {
-  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,  0x30, 0x30 
-  };
-
-  CBCEncrypt((void*)idandnonce, (void*)pre_cmac, (ID_SIZE+NONCE_SIZE),
-             IDMSG_PADLEN, (const u_int32_ard*)Keys,
-             (const u_int16_ard*)IVector);
   aesCMac((const u_int32_ard*)Keys, recv_id.ciphertext, IDMSG_CRYPTSIZE, cmac);
   
   printf("idresponse: ");
@@ -348,6 +330,7 @@ int rekeytest(u_int16_ard n, byte_ard* id)
       if (strncmp((const char*) recvmsg.pID, (const char*)id, ID_SIZE) == 0)
       {
         printf("Checks out! (Public ID: %s)\n", recvmsg.pID);
+        retval = 0;
       }
       else
       {
