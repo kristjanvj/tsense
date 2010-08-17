@@ -82,18 +82,18 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
 
   // blocks_count * BLOCK_BYTE_SIZE bytes of encrypted block.
 
-  byte_ard crypt_buff[IDMSG_CRYPTSIZE];
+  //byte_ard crypt_buff[IDMSG_CRYPTSIZE];
   byte_ard plain_buff[IDMSG_CRYPTSIZE];
   // ↑ Needed because CBC Decrypt doesnt de-pad. 
 
   // Get the ciphertext. 
   for(u_int16_ard i = 0; i < IDMSG_CRYPTSIZE; i++)
   {
-    crypt_buff[i] = cStream[MSGTYPE_SIZE + ID_SIZE + i];
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + ID_SIZE + i];
   }
 
   // Decipher
-  CBCDecrypt((void*)crypt_buff, (void*)plain_buff, IDMSG_CRYPTSIZE, pKeys,
+  CBCDecrypt((void*)msg->ciphertext, (void*)plain_buff, IDMSG_CRYPTSIZE, pKeys,
              (const u_int16_ard*)IV);
 
   // Get the ciphered public id (now deciphered) into the stuct and append \0
@@ -279,6 +279,94 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
     timertemp[i] = plainbuff[NONCE_SIZE + KEY_BYTES + i];
   }
   msg->timer = (u_int32_ard)*timertemp;
+}
 
+/*
+  Re-keying
+ */
+void pack_rekey(struct message* msg, const u_int32_ard* pKeys, void* pBuffer)
+{
+  byte_ard* cBuffer = (byte_ard*) pBuffer;
+  // MSGTYPE
+  cBuffer[0] = 0x30;
+  msg->msgtype = 0x30;
+  
+  // T (Public ID)
+  for (u_int16_ard i = 0; i < ID_SIZE; i ++)
+  {
+    cBuffer[MSGTYPE_SIZE + i] = msg->pID[i];
+  }
 
+  // Create the ciphered packet
+  // ID
+  byte_ard temp[ID_SIZE + NONCE_SIZE];
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    temp[i] = msg->pID[i];
+  }
+  // Nonce
+  byte_ard* pNonce = (byte_ard*)&msg->nonce;
+  for(u_int16_ard i = 0; i < NONCE_SIZE; i++)
+  {
+    temp[ID_SIZE + i] = pNonce[i];
+  }
+  byte_ard cipher_buff[REKEY_CRYPTSIZE];
+
+  // Cipher
+  CBCEncrypt((void*)temp, (void*)cipher_buff, (ID_SIZE + NONCE_SIZE), AUTOPAD,
+             pKeys, (const u_int16_ard*)IV);
+
+  // Stick it in the buffer
+  for (u_int16_ard i = 0; i < REKEY_CRYPTSIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + ID_SIZE + i] = cipher_buff[i];
+  }
+
+  // CMac
+  aesCMac(pKeys, cipher_buff, REKEY_CRYPTSIZE, msg->cmac);
+  // Stick it in the buffer
+  for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + ID_SIZE + REKEY_CRYPTSIZE + i] = msg->cmac[i];
+  }
+  
+}
+void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
+{
+  byte_ard* cStream = (byte_ard*)pStream;
+  msg->msgtype = cStream[0];
+
+  // The ID is only extacted from the ciphertext
+
+  // Extract the ciphertext
+  for (u_int16_ard i = 0; i < REKEY_CRYPTSIZE; i ++)
+  {
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + ID_SIZE + i];
+  }
+  // Extract the cmac
+  for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + ID_SIZE + REKEY_CRYPTSIZE + i];
+  }
+
+  // Decipher
+  byte_ard plainbuff[REKEY_CRYPTSIZE];
+  CBCDecrypt((void*)msg->ciphertext, plainbuff, REKEY_CRYPTSIZE,
+             pKeys, (const u_int16_ard*)IV);
+
+  // Extract the ID for the ciphertext
+  for (u_int16_ard i = 0; i < ID_SIZE; i ++)
+  {
+    msg->pID[i] = plainbuff[i];
+  }
+  msg->pID[ID_SIZE] = '\0';
+
+  // Extract the Nonce from the ciphertext
+  byte_ard* temp_nonce = (byte_ard*)malloc(NONCE_SIZE);
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    temp_nonce[i] = plainbuff[ID_SIZE + i];
+  }
+  msg->nonce = (u_int16_ard)*temp_nonce;
+  free(temp_nonce);
 }
