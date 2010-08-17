@@ -18,6 +18,11 @@ servers: auth sink
 
 AUTHDNAME = tsauthd
 
+MSG=" Please pass the ARCH variable to make like this:\n"\
+	"     make <target> ARCH=INTEL_32|INTEL_64\n"\
+	"DO NOT set the ARCH variable in the makefile it self.\n"\
+	"Doing so can lead to hard-to-debug compiler errors."
+
 ARCH=
 
 auth:
