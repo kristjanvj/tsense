@@ -48,6 +48,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   // Allocate memory for the ID
   recv_id.pID = (byte_ard*)malloc(ID_SIZE+1);
   recv_id.pCipherID = (byte_ard*)malloc(ID_SIZE+1);
+  recv_id.ciphertext = (byte_ard*)malloc(IDMSG_CRYPTSIZE);
   byte_ard cmac[IDMSG_CRYPTSIZE];
   byte_ard idandnonce[ID_SIZE+NONCE_SIZE];
   byte_ard pre_cmac[IDMSG_CRYPTSIZE];
@@ -70,7 +71,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   CBCEncrypt((void*)idandnonce, (void*)pre_cmac, (ID_SIZE+NONCE_SIZE),
              IDMSG_PADLEN, (const u_int32_ard*)Keys,
              (const u_int16_ard*)IVector);
-  aesCMac((const u_int32_ard*)Keys, pre_cmac, IDMSG_CRYPTSIZE, cmac);
+  aesCMac((const u_int32_ard*)Keys, recv_id.ciphertext, IDMSG_CRYPTSIZE, cmac);
   
   printf("idresponse: ");
   //printf("ID: %s, Nonce: %d\n", idmsg.pID, recv_id.nonce);
@@ -96,7 +97,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
         }
         else
         {
-          printf("Failed: The hash doesn't match!\n");
+          printf("Failed: The cmac doesn't match!\n");
         }
       }
       else
@@ -116,6 +117,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
 
   free(recv_id.pID);
   free(recv_id.pCipherID);
+  free(recv_id.ciphertext);
   return retval;
 }
 
@@ -252,7 +254,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
   // sink_recv now contains the packet that the sink recieves and can only partly read.
   // Now recvmsg.ciphertext and recvmsg.cmac contains the values we are interested in.
 
-  // Allocate memory for the buffer, conating msgtype, the ciphered part and the hash
+  // Allocate memory for the buffer, conating msgtype, the ciphered part and the cmac
   byte_ard tosensebuffer[KEYTOSENS_FULLSIZE];
 
   // Pack the data recived in unpack_keytosink
@@ -271,7 +273,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
 
   byte_ard cmac_buff[BLOCK_BYTE_SIZE];
   aesCMac((const u_int32_ard*)Keys, senserecv.ciphertext, 32, cmac_buff);
-
+  
   printf("keytosense: ");
   if (senserecv.nonce == n)
   {
@@ -286,12 +288,12 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
         }
         else
         {
-          printf("Failed: the hash doesn't match!\n");
+          printf("Failed: the cmac doesn't match!\n");
           printf("  Cmac from stream:      ");
           printBytes2(senserecv.cmac, BLOCK_BYTE_SIZE);
           printf("  Ciphertext on stream:  ");
           printBytes2(senserecv.ciphertext, BLOCK_BYTE_SIZE);
-          printf("  Hashed in test:        ");
+          printf("  Cmaced in test:        ");
           printBytes2(cmac_buff, BLOCK_BYTE_SIZE);
         }
       }
@@ -309,11 +311,61 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
   {
     printf("Failed: nonce!\n");
   }
-
+  
   free (senserecv.key);
   free (senserecv.ciphertext);
   return retval;
+} 
+
+int rekeytest(u_int16_ard n, byte_ard* id)
+{
+  int retval = 1;
+
+  printf("rekey: ");
+
+  struct message sendmsg;
+  sendmsg.pID = (byte_ard*)malloc(ID_SIZE);
+  sendmsg.pID = id;
+  sendmsg.nonce = n;
+
+  byte_ard buffer[REKEY_FULLSIZE];
+  pack_rekey(&sendmsg, (const u_int32_ard*)Keys, buffer);
+
+  struct message recvmsg;
+  recvmsg.pID = (byte_ard*)malloc(ID_SIZE+1);  // Null term.
+  recvmsg.ciphertext = (byte_ard*)malloc(REKEY_CRYPTSIZE);
+
+  unpack_rekey(buffer, (const u_int32_ard*)Keys, &recvmsg);
+
+  // Get a new cmac for verification purposes
+  byte_ard cmac_buff[BLOCK_BYTE_SIZE];
+  aesCMac((const u_int32_ard*)Keys, recvmsg.ciphertext, REKEY_CRYPTSIZE, cmac_buff);
+  
+  if (recvmsg.nonce == n)
+  {
+    if (strncmp((const char*)recvmsg.cmac, (const char*)cmac_buff, BLOCK_BYTE_SIZE) == 0)
+    {
+      if (strncmp((const char*) recvmsg.pID, (const char*)id, ID_SIZE) == 0)
+      {
+        printf("Checks out! (Public ID: %s)\n", recvmsg.pID);
+      }
+      else
+      {
+        printf("Failed: ID.\n");
+      }
+    }
+    else
+    {
+      printf("Failed: Cmac.\n");
+    }
+  }
+  else 
+  {
+    printf("Failed: nounce.\n");
+  }
+  return retval;
 }
+
 int main(int argc, char* argv[])
 {
 
@@ -322,7 +374,7 @@ int main(int argc, char* argv[])
     0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c 
   };
   
- KeyExpansion(Key, Keys);
+  KeyExpansion(Key, Keys);
  
 
   // Sample id: 000:001 (including null char)
@@ -334,9 +386,10 @@ int main(int argc, char* argv[])
   int test1 = idmsgtest((byte_ard*)id, 3);
   int test2 = keytosinktest(5, 18, (byte_ard*)id);
   int test3 = keytosensetest(1, 2, (byte_ard*)id);
-  //int test3 = 1;
+  printf("\n");
+  int test4 = rekeytest(9, (byte_ard*)id);
 
-  if ((test1+test2+test3) == 0) // SUM
+  if ((test1+test2+test3+test4) == 0) // SUM
   {
     printf("\nAll OK!\n");
   }  
