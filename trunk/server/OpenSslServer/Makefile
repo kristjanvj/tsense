@@ -23,10 +23,10 @@ MSG=" Please pass the ARCH variable to make like this:\n"\
 	"DO NOT set the ARCH variable in the makefile it self.\n"\
 	"Doing so can lead to hard-to-debug compiler errors."
 
-ARCH=
+ARCH=FOO
 
 auth:
-ifeq ($(ARCH), $(or $(ARCH),INTEL_32,INTEL_64))
+ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
 	@echo "Compiling  auth server:"
 	@echo "-----------------------"
 	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
@@ -46,7 +46,7 @@ endif
 SINKDNAME = tssinkd
 
 sink:
-ifeq ($(ARCH), $(or $(ARCH),INTEL_32,INTEL_64))
+ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
 	@echo "Compiling sink server:"
 	@echo "-----------------------"
 
