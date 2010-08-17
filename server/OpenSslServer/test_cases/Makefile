@@ -2,7 +2,7 @@
 CC = g++
 CFLAGS = 
 LFLAGS = -lssl -lcrypto
-IFLAGS = -I/usr/include/ -I../common/
+IFLAGS = -I/usr/include/ -I../../../aes_crypt/lib/
 RM = /bin/rm
 CAT = /bin/cat
 OPENSSL = /usr/bin/openssl
@@ -41,7 +41,7 @@ $(CLIPROT):
 ifeq ($(ARCH), $(or $(ARCH),INTEL_32,INTEL_64))
 	@echo "Compiling PROT client:"
 	@echo "----------------------"
-	$(CC) -D_$(ARCH) $(LFLAGS) tls_client_prot.cpp common.c \
+	$(CC) -D_$(ARCH) $(LFLAGS) $(IFLAGS) tls_client_prot.cpp common.c \
 	$(PROT_ROOT)protocol.cpp \
 	$(CRYPT_ROOT)aes_cmac.cpp \
 	$(CRYPT_ROOT)aes_crypt.cpp \
