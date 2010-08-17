@@ -7,8 +7,8 @@ RM = /bin/rm
 CAT = /bin/cat
 OPENSSL = /usr/bin/openssl
 
-CRYPT_ROOT=../../../aes_crypt/lib/
-PROT_ROOT=../../../aes_crypt/lib/
+CRYPT_DIR=../../../aes_crypt/lib/
+PROT_DIR=../../../aes_crypt/lib/
 
 CLIBIO=clibio
 CLISSL=clissl
@@ -30,7 +30,7 @@ $(CLISSL):
 	$(CC) $(LFLAGS) tls_client_ssl.cpp common.c -o $(@)
 	@echo
 
-ARCH=
+ARCH=FOO
 
 MSG=" Please pass the ARCH variable to make like this:\n"\
     "     make <target> ARCH=INTEL_32|INTEL_64\n"\
@@ -38,13 +38,13 @@ MSG=" Please pass the ARCH variable to make like this:\n"\
 	"Doing so can lead to hard-to-debug compiler errors."
 
 $(CLIPROT):
-ifeq ($(ARCH), $(or $(ARCH),INTEL_32,INTEL_64))
+ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
 	@echo "Compiling PROT client:"
 	@echo "----------------------"
 	$(CC) -D_$(ARCH) $(LFLAGS) $(IFLAGS) tls_client_prot.cpp common.c \
-	$(PROT_ROOT)protocol.cpp \
-	$(CRYPT_ROOT)aes_cmac.cpp \
-	$(CRYPT_ROOT)aes_crypt.cpp \
+	$(PROT_DIR)protocol.cpp \
+	$(CRYPT_DIR)aes_cmac.cpp \
+	$(CRYPT_DIR)aes_crypt.cpp \
 	-o cliprot
 	@echo
 else
