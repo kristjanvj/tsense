@@ -2,10 +2,15 @@
 CC = g++
 CFLAGS = 
 LFLAGS = -lssl -lcrypto
-IFLAGS = -I/usr/include/ -I../common/
+IFLAGS = -I/usr/include/ -I../common/ -I../../aes_crypt/lib/
 RM = /bin/rm
 CAT = /bin/cat
 OPENSSL = /usr/bin/openssl
+
+CRYPT_DIR=../../aes_crypt/lib/
+PROT_DIR=../../aes_crypt/lib/
+COMM_DIR=../common/
+
 
 all: servers certs
 
@@ -13,15 +18,46 @@ servers: auth sink
 
 AUTHDNAME = tsauthd
 
+ARCH=
+
 auth:
-	$(CC) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp ../common/BDaemon.cpp \
-	tls_baseserver.cpp tls_authserver.cpp -o $(AUTHDNAME)
+ifeq ($(ARCH), $(or $(ARCH),INTEL_32,INTEL_64))
+	@echo "Compiling  auth server:"
+	@echo "-----------------------"
+	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
+	$(COMM_DIR)BDaemon.cpp \
+	tls_baseserver.cpp tls_authserver.cpp \
+	$(CRYPT_DIR)protocol.cpp \
+	$(CRYPT_DIR)aes_cmac.cpp \
+	$(CRYPT_DIR)aes_crypt.cpp \
+	-o $(AUTHDNAME)
+	@echo
+else
+	@echo
+	@echo $(MSG)
+	@echo
+endif
 
 SINKDNAME = tssinkd
 
 sink:
-	$(CC) $(IFLAGS) $(LFLAGS) tssinkdaemon.cpp ../common/BDaemon.cpp \
-	tls_baseserver.cpp tls_sinkserver.cpp -o $(SINKDNAME)
+ifeq ($(ARCH), $(or $(ARCH),INTEL_32,INTEL_64))
+	@echo "Compiling sink server:"
+	@echo "-----------------------"
+
+	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tssinkdaemon.cpp \
+	$(COMM_DIR)BDaemon.cpp \
+	tls_baseserver.cpp tls_sinkserver.cpp \
+	$(CRYPT_DIR)protocol.cpp \
+	$(CRYPT_DIR)aes_cmac.cpp \
+	$(CRYPT_DIR)aes_crypt.cpp \
+	-o $(SINKDNAME)
+	@echo
+else
+	@echo
+	@echo $(MSG)
+	@echo
+endif
 
 certs: root.pem serverCA.pem server.pem client.pem
 
