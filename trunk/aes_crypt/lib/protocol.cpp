@@ -80,11 +80,7 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   // append \0, pack_idresponse() strips it off.
   msg->pID[ID_SIZE] = '\0';
 
-  // blocks_count * BLOCK_BYTE_SIZE bytes of encrypted block.
-
-  //byte_ard crypt_buff[IDMSG_CRYPTSIZE];
   byte_ard plain_buff[IDMSG_CRYPTSIZE];
-  // ↑ Needed because CBC Decrypt doesnt de-pad. 
 
   // Get the ciphertext. 
   for(u_int16_ard i = 0; i < IDMSG_CRYPTSIZE; i++)
