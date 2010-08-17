@@ -28,34 +28,19 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
         printf("\n");
 }
 
-void do_client_loop(BIO *conn){
-    int err;
+byte_ard Key[] = {  0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+					0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
 
-	printf("do_client_loop(0)\n");
+byte_ard Keys[BLOCK_BYTE_SIZE*11];
 
-    byte_ard outBuf[IDMSG_FULLSIZE];
-    byte_ard inBuf[IDMSG_FULLSIZE];
+void get_idresponse_packet(byte_ard *buf) {
 
-	byte_ard Key[] = {	0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 
-						0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
+	// Sample id: 000:001 (including null char)
+	byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
 
-	printf("do_client_loop(1)\n");
-    
-	byte_ard Keys[BLOCK_BYTE_SIZE*11];
-	KeyExpansion(Key, Keys);
-
- 	// Sample id: 000:001 (including null char)
- 	byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
-  
-  	// Create the buffer to write the packet into.
-  	// Needs to hold, MSGTYPE, IDSIZE, E(IDSIZE + NOUNCE) + MAC
-  	byte_ard packetBuff[IDMSG_FULLSIZE];
-
-	printf("IDMSG_FULLSIZE: %d\n", IDMSG_FULLSIZE);
-   
 	// Create the struct, allocate neccesary memory and write sample data.
 	struct message idmsg;
-	idmsg.msgtype = 0x10;	// This line is optional. pack_idresponse() will
+	idmsg.msgtype = 0x10;   // This line is optional. pack_idresponse() will
 							// set the proper msgtype. It can be useful for 
 							// verification purposes to declare it.
 	idmsg.pID = (byte_ard*)id;
@@ -65,18 +50,35 @@ void do_client_loop(BIO *conn){
 	printf("idmsg.nonce:           %x\n", idmsg.nonce);
 	printf("\n");
 
-	pack_idresponse(&idmsg, (const u_int32_ard*)Keys, (void*)packetBuff);
+	pack_idresponse(&idmsg, (const u_int32_ard*)Keys, (void*)buf);
+}
 
-    printf("sending encrypted packet, printing buffer to be written:\n");
+void do_client_loop(BIO *conn){
+    int err;
 
-	printBytes2(packetBuff, IDMSG_FULLSIZE);
+	KeyExpansion(Key, Keys);
+
+	printf("do_client_loop(0)\n");
+
+	// Create the buffer to write the packet into.
+	// Needs to hold, MSGTYPE, IDSIZE, E(IDSIZE + NOUNCE) + MAC
+    byte_ard outBuf[IDMSG_FULLSIZE];
+    byte_ard inBuf[IDMSG_FULLSIZE];
+
+	// id_response packet sent as response to a get ID request from the
+	// proxy client.
+	get_idresponse_packet(outBuf);
+
+	printBytes2(outBuf, IDMSG_FULLSIZE);
 
 	printf("\n");
 
-    err = BIO_write(conn, (void*)packetBuff, IDMSG_FULLSIZE);
+	// Write to sink server
+    err = BIO_write(conn, (void*)outBuf, IDMSG_FULLSIZE);
 
     printf("Done writing encrypted packet\n");
 
+	// Read response from sink server.
     err = BIO_read(conn, (void*)inBuf, IDMSG_FULLSIZE);
 
     inBuf[err] = 0x0;
