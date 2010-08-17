@@ -33,12 +33,12 @@ $(CLISSL):
 ARCH=
 
 MSG=" Please pass the ARCH variable to make like this:\n"\
-    "     make <target> ARCH=INTEL32|INTEL64\n"\
+    "     make <target> ARCH=INTEL_32|INTEL_64\n"\
 	"DO NOT set the ARCH variable in the makefile it self.\n"\
 	"Doing so can lead to hard-to-debug compiler errors."
 
 $(CLIPROT):
-ifeq ($(ARCH), $(or $(ARCH),INTEL32,INTEL64))
+ifeq ($(ARCH), $(or $(ARCH),INTEL_32,INTEL_64))
 	@echo "Compiling PROT client:"
 	@echo "----------------------"
 	$(CC) -D_$(ARCH) $(LFLAGS) tls_client_prot.cpp common.c \
