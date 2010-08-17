@@ -32,9 +32,10 @@ $(CLISSL):
 
 ARCH=
 
-MSG=" Please either set the ARCH variable to INTEL32/INTEL64 in the\n"\
-    "make file or pass it to the makefile:\n"\
-    "     make <target> [ARCH=INTEL32 | INTEL64]"
+MSG=" Please pass the ARCH variable to make like this:\n"\
+    "     make <target> ARCH=INTEL32|INTEL64\n"\
+	"DO NOT set the ARCH variable in the makefile it self.\n"\
+	"Doing so can lead to hard-to-debug compiler errors."
 
 $(CLIPROT):
 ifeq ($(ARCH), $(or $(ARCH),INTEL32,INTEL64))
