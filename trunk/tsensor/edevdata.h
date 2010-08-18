@@ -1,0 +1,46 @@
+
+/**
+ *  File: edevdata.h
+ *
+ *  Definitions for the EEPROM data layout on the Arduino Duemilanove w. ATMega328 CPU
+ */
+
+#ifndef __EDEVDATA_H
+#define __EDEVDATA_H
+
+#define EEPROM_SIZE 1024  // On the ATMega328
+
+#define S_TABLE_START 0
+#define S_TABLE_LEN 256
+#define IS_TABLE_START 256
+#define IS_TABLE_LEN 256
+#define RCON_TABLE_START 512
+#define RCON_TABLE_LEN 16
+
+#define KEY_LEN 16
+#define STR_DATA_LEN 16
+
+#define DEV_DATA_START 768
+
+#define DEV_ID_START 0 // Relative to DEV_DATA_START
+#define DEV_ID_MAN_LEN 2
+#define DEV_ID_DEV_LEN 4
+#define DEV_ID_LEN DEV_ID_MAN_LEN+DEV_ID_DEV_LEN // Device ID -- 6 bytes
+
+#define DEV_KEY_START DEV_ID_START+DEV_ID_LEN
+#define DEV_KEY_LEN KEY_LEN
+
+#define DEV_MAN_NAME_START DEV_KEY_START+DEV_KEY_LEN
+#define DEV_MAN_NAME_LEN STR_DATA_LEN
+
+#define DEV_MODEL_NAME_START DEV_MAN_NAME_START+DEV_MAN_NAME_LEN
+#define DEV_MODEL_NAME_LEN STR_DATA_LEN
+
+#define DEV_SERIAL_NO_START DEV_MODEL_NAME_START+DEV_MODEL_NAME_LEN
+#define DEV_SERIAL_NO_LEN STR_DATA_LEN
+
+#define DEV_MAN_DATE_START DEV_SERIAL_NO_START+DEV_SERIAL_NO_LEN
+#define DEV_MAN_DATE_LEN STR_DATA_LEN
+
+
+#endif /* __EDEVDATA_H */
