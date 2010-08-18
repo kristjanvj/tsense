@@ -30,7 +30,7 @@
 #include "aes_crypt.h"
 #include "protocol.h"
 #include "tstypes.h"
-#include "devinfo.h"  // This is really the protocol info -- TODO: Change eventually
+#include "devinfo.h"  // TODO: REMOVE -- INTEGRATE WITH PROTOCOL INFO AND OTHER HEADERS
 #include "edevdata.h" // The EEPROM data layout
 #include "memoryFree.h"
 
