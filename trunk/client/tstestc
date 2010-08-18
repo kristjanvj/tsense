@@ -1,0 +1,188 @@
+#!/usr/bin/env python
+"""
+
+tstestc
+
+Kristjan V. Jonsson
+2010
+
+tsense test client
+
+Interaction tests with the tsensor Arduino board.
+
+"""
+
+import sys
+import getopt
+import string
+import serial
+import time
+import threading
+
+class Usage(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+class readThread( threading.Thread ):
+	def __init__(self,ser):
+		threading.Thread.__init__(self)
+		self._ser=ser
+		self._stopevent = threading.Event()		
+		self._ser.timeout=1.0
+	def run(self):
+		while not self._stopevent.isSet():
+			if self._ser.inWaiting()>0:
+#				buffer=""
+#				for i in range(1,20):
+#					buffer += self._ser.read(1);
+				buffer = self._ser.readlines(eol="\n")
+				print buffer,"\n\n"
+			self._stopevent.wait(0.1)
+		print "Exiting"
+	def join(self,timeout=None):
+		self._stopevent.set()
+		threading.Thread.join(self,timeout)
+
+def hexstr(buf):
+	respstr=""
+	for c in buf:
+	  respstr += "%.2x " % ord(c)
+	return respstr
+
+def doGetId(ser):
+	cmd=chr(0x40)
+	cmd+="\n"
+	ser.write(cmd)
+
+	buf = ser.read(1)
+	if ord(buf[0]) != 0x10: 
+		print "UNEXPECTED MESSAGE RECEIVED. GOT: 0x%.2x" % ord(buf[0])
+		return
+
+	buf += ser.read(40)
+	print "MSGTYPE: 0x%.2x, length=%d" % (ord(buf[0]),len(buf))
+	print "PUBID: %s" % hexstr(buf[1:7])
+	print "CIPHER: %s" % hexstr(buf[8:24])
+	print "MAC: %s" % hexstr(buf[25:41])
+
+def doGetFreeMem(ser):
+	cmd=chr(0x50)
+	cmd+="\n"
+	ser.write(cmd)
+	resp = ser.read(3);
+	if ord(resp[0]) != 0x51:
+		print "Unexpected message received"
+		return
+	print "CODE: 0x%.2x, len=%d" % (ord(resp[0]),len(resp))
+	mem = ord(resp[1]) + (ord(resp[2])<<8)
+	print "MEM: %d" % mem
+	print "low: %d" % ord(resp[1]);
+	print "high: %d" % ord(resp[2])
+
+def doCryptoTest(ser):
+	print "FIPS crypto test"
+	cmd=chr(0x73)
+	cmd+="\n"
+	ser.write(cmd);
+
+	resp = ser.read(16)
+	print "KEY:\t%s" % hexstr(resp)
+
+	resp = ser.read(16)
+	print "PLAIN:\t%s" % hexstr(resp)
+
+	resp = ser.read(16)
+	print "CIPHER:\t%s" % hexstr(resp)
+
+	resp = ser.read(16)
+	print "DECR:\t%s" % hexstr(resp)
+
+def doGetCurrentState(ser):
+	cmd=chr(0x52)
+	cmd+="\n" # Get state
+	ser.write(cmd);
+	resp = ser.read(3);
+	print "CODE: 0x%.2x, len=%d" % (ord(resp[0]),len(resp));
+	print "State: 0x%.2x" % ord(resp[1]);
+	print "error code: 0x%.2x" % ord(resp[2]);
+
+def doStart(ser):
+	cmd="\2"
+	ser.write(cmd)
+	resp=ser.readline();
+	print "Return for start: %x" % ord(resp[0]);
+#	readThread().start()
+
+def doStop(ser):
+	cmd="\3\n"
+	ser.write(cmd)
+	resp=ser.readline();
+	print "Return from stop: %x" % ord(resp[0]);
+#	readThread().stop()
+
+def getSelection(ser):
+	running=False
+	readthread = None
+
+	while True:
+		sel=raw_input(">:")
+		sel=sel.lower();
+		if sel=="q":
+			print "Quitting"
+			break;
+		if sel=="1":
+			print "get id"
+			doGetId(ser)
+		if sel=="2":
+			print "get free memory"
+			doGetFreeMem(ser)
+		if sel=="3":
+			print "Get current state"
+			doGetCurrentState(ser)
+		if sel=="c":
+			print "crypto test"
+			doCryptoTest(ser)
+		if sel=="r":
+			readthread = readThread(ser)
+			readthread.start()
+			print "run capture"
+			doStart(ser)
+			running=True
+		if sel=="s":
+			print "stop capture"
+			doStop(ser)
+			readthread.join()
+			readthread = None
+			running=False
+#		if running and ser.inWaiting()>0:
+#			doCheckAvailableData(ser)
+
+def main(argv=None):
+	if argv is None:
+		argv = sys.argv
+
+		try:
+			try:
+				opts, args = getopt.getopt(argv[1:], "h", ["help"])
+			except getopt.error, msg:
+				raise Usage(msg)
+		except Usage, err:
+			print >>sys.stderr, err.msg
+			print >>sys.stderr, "for help use --help"
+			return 2
+		for o, a in opts:
+			if o in ("-h", "--help"):
+				print __doc__
+				sys.exit(0)
+
+	print "\n\ntstestc -- tsense test client\n\n"
+
+	ser = serial.Serial('/dev/ttyUSB0', 9600)
+	ser.timeout=5
+	getSelection(ser);  
+
+if __name__ == "__main__":
+	sys.exit(main())
+
+
+
