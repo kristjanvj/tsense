@@ -14,6 +14,11 @@
 #define PAGE_SIZE 4096 // The page size in Intel systems (and some solaris -- some use 8kB pages)
 #define BUFFER_BLOCK_SIZE PAGES*PAGE_SIZE
 
+// The secret encryption key
+byte_ard pKey[] = {0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c};
+byte_ard pKeys[KEY_BYTES*11];
+
+
 using namespace std;
 
 byte_ard constZero[] = 
@@ -62,7 +67,7 @@ int main() {
 	cout << endl;
 
 	byte_ard pKeys[KEY_BYTES*12];
-	KeyExpansion(pKey,pKeys);      // FIXME: NOTE! KEY NOT DEFINED AT THIS POINT
+	KeyExpansion(pKey,pKeys);
 
 	byte_ard L[16] = 
 		{0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
