@@ -43,7 +43,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "aes_crypt.h"
+#include "../lib/aes_crypt.h"
 
 #define PAGES 32 // The number of pages to allocate -- tune this for performance
 #define PAGE_SIZE 4096 // The page size in Intel systems (and some solaris -- some use 8kB pages)
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 		dBlockWords=dTextLen/4;
 		for( i=0; i < dBlockWords; i+=4 ) {
 			printf("before: "); printBytes2((unsigned char*)pText,16);
-			encryptBlock(pText+i, (const u_int32_ard*)pKeys);
+			EncryptBlock(pText+i, (const u_int32_ard*)pKeys);
 			//encryptBlock(pText+i, (unsigned int*)pKeys);
 			printf("after:  "); printBytes2((unsigned char*)pText,16);
 		}
