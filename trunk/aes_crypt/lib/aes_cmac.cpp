@@ -109,7 +109,7 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, u_int32_ard M_length, byte_ard 
     // Step 2. determine the needed number of blocks of lenght BLOCK_BYTE_SIZE.
     //blockCount = (u_int32_ard)ceil((double) M_length/(double) BLOCK_BYTE_SIZE);
     //blockCount = neededblocks(M_length);
-    blockCount = ceilf((float32_ard) M_length / (float32_ard)BLOCK_BYTE_SIZE);
+    blockCount = (u_int32_ard)ceil((float32_ard) M_length / (float32_ard)BLOCK_BYTE_SIZE);
     //blockCount = 1;
 
     // Step 3. Check whether M needs padding or not.
