@@ -62,6 +62,6 @@ typedef unsigned long       u_int64_ard;
 typedef float               float32_ard;
 #endif
 
-#define KEY_BYTES 16
+#define KEY_BYTES 16	
 
 #endif /* __TSTYPES_H */
