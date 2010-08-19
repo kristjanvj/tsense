@@ -29,10 +29,19 @@
 #ifndef __AES_CRYPT_H__
 #define __AES_CRYPT_H__
 
+#include "tstypes.h"
+
 // Assume Arduino Duemilanove if we are compiling without the -D flag. 
+/*
 #if !(defined(_INTEL_32) || defined(_INTEL_64))
 // Defines for the arduino platform
   #define _ARDUINO_DUEMILANOVE         
+  #define unroll_encrypt_loop
+  #define unroll_decrupt_loop
+  #define unroll_cbc_loop
+#endif
+*/
+#ifdef _ARDUINO_DUEMILANOVE
   #define unroll_encrypt_loop
   #define unroll_decrupt_loop
   #define unroll_cbc_loop
@@ -41,6 +50,7 @@
 //#define unroll_encrypt_loop 
 //#define verbose_debug
 
+/*
 // typedef's depending on platform
 #ifdef _ARDUINO_DUEMILANOVE
 typedef unsigned char       byte_ard;
@@ -70,18 +80,20 @@ typedef long                int64_ard;
 typedef unsigned long       u_int64_ard;
 typedef float               float32_ard;
 #endif
+*/
 
 // Some defines to aid code readability
 #define KEY_BYTES 16
 #define KEY_WORDS 4 // Nb
 #define ROUNDS 10   // Nr
 #define BLOCK_BYTE_SIZE 16 
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 16 
 #define AUTOPAD 17
 
+// TODO: DELETE -- ALLOCATE AS NEEDED
 // Allocated memory for keys
-extern unsigned char pKey[]; // The secret encryption key
-extern unsigned char pKeys[KEY_BYTES*12];
+//extern unsigned char pKey[]; // The secret encryption key
+//extern unsigned char pKeys[KEY_BYTES*12];
 
 // Common
 void KeyExpansion(const void *key, void *keys);
@@ -106,6 +118,11 @@ void CBCEncrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
 
 void CBCDecrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
                 const u_int32_ard *pKeys, const u_int16_ard *pIV);
+                
+// Accessors for lookup tables
+byte_ard getSboxValue(int index);
+byte_ard getISboxValue(int index);
+byte_ard getRconValue(int index);
 
 
 #endif  //__AES_CRYPT_H__
