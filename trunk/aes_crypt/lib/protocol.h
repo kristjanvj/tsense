@@ -49,6 +49,17 @@
 #define REKEY_CRYPTSIZE (ID_SIZE + NONCE_SIZE + REKEY_PADLEN)
 #define REKEY_FULLSIZE MSGTYPE_SIZE + ID_SIZE + REKEY_CRYPTSIZE + BLOCK_BYTE_SIZE
 
+//
+// Defines for message identifiers -- TODO: Use in the protocol instead of hardcoded IDs.
+// TODO: BENEDIKT: Fix and clean up
+//
+#define MSG_T_GET_ID_R           0x10  
+#define MSG_T_ID_RESPONSE_ERROR  0x1F
+#define MSG_T_REKEY_REQUEST      0x30
+#define MSG_T_KEY_TO_SENSE       0x31
+#define MSG_T_REKEY_RESPONSE     0x32
+// TODO: NOT CLEAR ON 0x11 and 0x1F from the protocol definition
+
 /*
   Struct
  */
