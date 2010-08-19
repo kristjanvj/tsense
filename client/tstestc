@@ -107,17 +107,17 @@ def doGetCurrentState(ser):
 	print "error code: 0x%.2x" % ord(resp[2]);
 
 def doStart(ser):
-	cmd="\2"
+	cmd=chr(0x71)
+	cmd+="\n"
 	ser.write(cmd)
-	resp=ser.readline();
-	print "Return for start: %x" % ord(resp[0]);
+	print "Return for start: 0x%.2x" % readAck(ser);
 #	readThread().start()
 
 def doStop(ser):
-	cmd="\3\n"
+	cmd=chr(0x72)
+	cmd+="\n"
 	ser.write(cmd)
-	resp=ser.readline();
-	print "Return from stop: %x" % ord(resp[0]);
+	print "Return for stop: 0x%.2x" % readAck(ser);
 #	readThread().stop()
 
 def getSelection(ser):
@@ -156,6 +156,11 @@ def getSelection(ser):
 			running=False
 #		if running and ser.inWaiting()>0:
 #			doCheckAvailableData(ser)
+
+def readAck(ser):
+	res = ser.read(2);
+	if not ord(res[0]) == 0x4F: print "Expected ack, got 0x%.2x" % ord(res[0])
+	return ord(res[1])
 
 def main(argv=None):
 	if argv is None:
