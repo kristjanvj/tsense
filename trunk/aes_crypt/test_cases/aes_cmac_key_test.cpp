@@ -6,8 +6,9 @@
 
 #include <iostream>
 #include <string>
-#include "aes_crypt.h"
-#include "aes_cmac.h"
+#include <stdio.h>
+#include "../lib/aes_crypt.h"
+#include "../lib/aes_cmac.h"
 
 #define PAGES 32 // The number of pages to allocate -- tune this for performance
 #define PAGE_SIZE 4096 // The page size in Intel systems (and some solaris -- some use 8kB pages)
@@ -61,13 +62,13 @@ int main() {
 	cout << endl;
 
 	byte_ard pKeys[KEY_BYTES*12];
-	KeyExpansion(pKey,pKeys);
+	KeyExpansion(pKey,pKeys);      // FIXME: NOTE! KEY NOT DEFINED AT THIS POINT
 
 	byte_ard L[16] = 
 		{0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
 
 	cout << "Generating L, L: <expected>, L': <generated>" << endl;
-	encryptBlock((char*)L, (const u_int32_ard*)pKeys);
+	EncryptBlock((char*)L, (const u_int32_ard*)pKeys);
 
 	printf("CZ  : "); printBytes2((byte_ard*) constZero, 16);
 	printf("L   : "); printBytes2((byte_ard*) macL, 16);
