@@ -561,9 +561,11 @@ void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
 {
   byte_ard *pText = (byte_ard*)pTextIn;
   byte_ard *cBuffer = (byte_ard*)pBuffer;
-  byte_ard *lastblock = (byte_ard*)pIV;     // C_0 = IV
+  byte_ard lastblock[BLOCK_BYTE_SIZE];
   byte_ard currblock[BLOCK_BYTE_SIZE];
   u_int32_ard blocks = (length + padding) / BLOCK_BYTE_SIZE;
+
+  memcpy(lastblock,pIV,BLOCK_BYTE_SIZE);
 
   if (padding == (BLOCK_BYTE_SIZE +1) )
   {
@@ -647,7 +649,8 @@ void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
     }
 
     #endif
-    lastblock = currblock;
+//    lastblock = currblock;
+	memcpy(lastblock,currblock,BLOCK_BYTE_SIZE);
 
   } // for (blocks)
 } // CBCEncrypt()
@@ -665,11 +668,13 @@ void CBCDecrypt(void* pText, void* pBuffer, u_int32_ard length,
 {
   byte_ard *cText = (byte_ard*)pText;
   byte_ard *cBuffer = (byte_ard*)pBuffer;
-  byte_ard *lastblock = (byte_ard*)pIV;
+  byte_ard lastblock[BLOCK_BYTE_SIZE];
   byte_ard tempblock[BLOCK_BYTE_SIZE];
   byte_ard currblock[BLOCK_BYTE_SIZE];
   u_int32_ard blocks = length/BLOCK_BYTE_SIZE;
   
+  memcpy(lastblock,pIV,BLOCK_BYTE_SIZE);
+
   for (u_int32_ard i = 0; i < blocks; i++)
   {
     #if defined(unroll_cbc_loop) 
