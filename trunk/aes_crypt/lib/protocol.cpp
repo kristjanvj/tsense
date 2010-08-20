@@ -10,6 +10,9 @@
 
 #include "protocol.h"
 
+/*
+  TODO: Don't use a hardcoded IV
+ */
 byte_ard IV[] = {
   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30 
 };
@@ -44,8 +47,8 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
   
   // First byte is the msg type. If longer than one byte, add loop.
   //cBuffer[0] = msg->msgtype;
-  cBuffer[0] = 0x10;
-  msg->msgtype = 0x10;
+  cBuffer[0] = MSG_T_GET_ID_R;
+  msg->msgtype = MSG_T_GET_ID_R;
 
   // This will strip off the null char wich isn't crypted.
   for (u_int16_ard i = 0; i < ID_SIZE; i++)
@@ -123,8 +126,8 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
 void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
 {
   byte_ard* cBuffer = (byte_ard*)pBuffer;
-  msg->msgtype = 0x11;
-  cBuffer[0] = 0x11;
+  msg->msgtype = MSG_T_KEY_TO_SINK;
+  cBuffer[0] = MSG_T_KEY_TO_SINK;
 
   // Place the key in the "plaintext" to the sink. (SSLed)
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
@@ -219,8 +222,8 @@ void unpack_keytosink(void *pStream, struct message* msg)
 void pack_keytosens(struct message* msg, void *pBuffer)
 {
   byte_ard* cBuffer = (byte_ard*)pBuffer;
-  cBuffer[0] = 0x11;
-  msg->msgtype = 0x11;
+  cBuffer[0] = MSG_T_KEY_TO_SENSE;
+  msg->msgtype = MSG_T_KEY_TO_SENSE;
 
   // The ciphertext containing the Nonce, key and Timer. 
   for (u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
@@ -284,8 +287,14 @@ void pack_rekey(struct message* msg, const u_int32_ard* pKeys, void* pBuffer)
 {
   byte_ard* cBuffer = (byte_ard*) pBuffer;
   // MSGTYPE
-  cBuffer[0] = 0x30;
-  msg->msgtype = 0x30;
+  if (msg->msgtype == MSG_T_REKEY_HANDSHAKE)
+  {
+    cBuffer[0] = msg->msgtype;
+  }
+  else
+  {
+    msg->msgtype = MSG_T_REKEY_REQUEST;
+  }
   
   // T (Public ID)
   for (u_int16_ard i = 0; i < ID_SIZE; i ++)
@@ -365,4 +374,63 @@ void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
   }
   msg->nonce = (u_int16_ard)*temp_nonce;
   free(temp_nonce);
+}
+void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, void* pBuffer)
+{
+  /*
+  byte_ard* cBuffer = (byte_ard*)pBuffer;
+  cBuffer[0] = 0x31;
+  msg->msgtype = 0x31;
+
+  for(u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + i] = msg->pID[i];
+  }
+
+  // Construct the ciphertext
+  byte_ard temp[ID_SIZE + NONCE_SIZE + RAND_SIZE + TIMER_SIZE];
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    temp[i] = msg->pID[i];
+  }
+  byte_ard* temp_nonce = (byte_ard*)&msg->nonce;
+  for (u_int16_ard i = 0; i < NONCE_SIZE: i++)
+  {
+    temp[ID_SIZE + i] = temp_nonce[i];
+  }
+  byte_ard* temp_rand = (byte_ard*)&msg->rand;
+  for(u_int16_ard i = 0; i < RAND_SIZE; i++)
+  {
+    temp[ID_SIZE + NONCE_SIZE + i] = temp_rand[i];
+  }
+  byte_ard* temp_timer = (byte_ard*)&msg->timer;
+  for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
+  {
+    temp[ID_SIZE + NONCE_SIZE + RAND_SIZE + i] = temp_timer[i];
+  }
+
+  byte_ard cipher_buff[NEWKEY_CRYPTSIZE];
+
+  // Cipher
+  CBCEncrypt((void*)temp, (void*)cipher_buff,
+             (ID_SIZE+NONCE_SIZE+RAND_SIZE+TIMER_SIZE), AUTOPAD,
+             pKeys, (const u_int16_ard*)IV);
+  // Stick it in the buffer
+  for (u_int16_ard i = 0; i < NEWKEY_CRYPTSIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + ID_SIZE + i] = temp[i];
+  }
+
+  // CMac
+  aesCMac(pKeys, cipher_buff, NEWKEY_CRYPTSIZE, msg->cmac);
+
+  for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + ID_SIZE + NEWKEY_CRYPTSIZE + i] = msg->cmac[i];
+  }
+*/
+  
+}
+void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
+{
 }

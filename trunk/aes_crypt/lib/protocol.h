@@ -53,11 +53,15 @@
 // Defines for message identifiers -- TODO: Use in the protocol instead of hardcoded IDs.
 // TODO: BENEDIKT: Fix and clean up
 //
-#define MSG_T_GET_ID_R           0x10  
+#define MSG_T_GET_ID_R           0x10
+#define MSG_T_KEY_TO_SINK        0x11
+#define MSG_T_KEY_TO_SENSE       0x12
 #define MSG_T_ID_RESPONSE_ERROR  0x1F
 #define MSG_T_REKEY_REQUEST      0x30
-#define MSG_T_KEY_TO_SENSE       0x31
+#define MSG_T_REKEY_HANDSHAKE    0x31
 #define MSG_T_REKEY_RESPONSE     0x32
+#define MSG_T_FINISH             0x90
+#define MSG_T_ERROR              0xff
 // TODO: NOT CLEAR ON 0x11 and 0x1F from the protocol definition
 
 /*
@@ -93,6 +97,9 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
 
 void pack_rekey(struct message* msg, const u_int32_ard* pKeys, void* pBuffer);
 void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
+
+void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, void* pBuffer);
+void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
 /* Cannot define IV here for some reason. Investigate */
 

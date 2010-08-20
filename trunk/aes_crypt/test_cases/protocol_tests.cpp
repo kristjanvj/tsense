@@ -36,7 +36,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   
   // Construct the packet
   struct message idmsg;
-  idmsg.msgtype = 0x10;
+  idmsg.msgtype = MSG_T_GET_ID_R;
   idmsg.pID = id;
   idmsg.nonce = n;
 
