@@ -71,7 +71,6 @@ struct message
 {
   byte_ard msgtype;               // The hex code declaring what type of message (see wiki)
   byte_ard* pID;                  // Pointer to the ID sent in plaintext
-  byte_ard* pCipherID;            // Pointer to the ID sent in ciphertext
   u_int16_ard nonce;              // The nonce
   byte_ard cmac[BLOCK_BYTE_SIZE]; // The cmac of the ciphertext
   byte_ard* key;                  // The key sent in key exchange and re-keying
