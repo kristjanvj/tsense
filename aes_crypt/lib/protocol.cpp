@@ -75,14 +75,6 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   // First MSGTYPE_SIZE (1) bytes is msgcode. Assumes one byte, no loop.
   msg->msgtype = cStream[0];
 
-  // ID_SIZE (6) bytes of public id. 
-  for (u_int16_ard i = 0; i < ID_SIZE; i++)
-  {
-    msg->pID[i] = cStream[i + MSGTYPE_SIZE];
-  }
-  // append \0, pack_idresponse() strips it off.
-  msg->pID[ID_SIZE] = '\0';
-
   byte_ard plain_buff[IDMSG_CRYPTSIZE];
 
   // Get the ciphertext. 
@@ -98,9 +90,9 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   // Get the ciphered public id (now deciphered) into the stuct and append \0
   for(u_int16_ard i = 0; i < ID_SIZE; i++)
   {
-    msg->pCipherID[i] = plain_buff[i];
+    msg->pID[i] = plain_buff[i];
   }
-  msg->pCipherID[ID_SIZE] = '\0';
+  msg->pID[ID_SIZE] = '\0';
 
   // Get the nonce into the struct, cast to int again. 
   byte_ard* temp = (byte_ard*)malloc(NONCE_SIZE);

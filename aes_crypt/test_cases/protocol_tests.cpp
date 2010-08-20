@@ -47,58 +47,51 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   struct message recv_id;
   // Allocate memory for the ID
   recv_id.pID = (byte_ard*)malloc(ID_SIZE+1);
-  recv_id.pCipherID = (byte_ard*)malloc(ID_SIZE+1);
   recv_id.ciphertext = (byte_ard*)malloc(IDMSG_CRYPTSIZE);
   byte_ard cmac[IDMSG_CRYPTSIZE];
 
   unpack_idresponse((void*)buff, (const u_int32_ard*)Keys, &recv_id);
 
+  // addpend null char
+  //recv_id.pID[ID_SIZE] = '\0';
   aesCMac((const u_int32_ard*)Keys, recv_id.ciphertext, IDMSG_CRYPTSIZE, cmac);
   
   printf("idresponse: ");
   //printf("ID: %s, Nonce: %d\n", idmsg.pID, recv_id.nonce);
   // 0 == match.
   int retval = 1;
-  if (strcmp((char*)recv_id.pID, (char*)recv_id.pCipherID) == 0)
+  if (strcmp((char*)recv_id.pID, (char*)id) == 0)
   {
-    if (strcmp((char*)recv_id.pCipherID, (char*)idmsg.pID) == 0)
+    if (n == recv_id.nonce)
     {
-      if((n + recv_id.nonce) == (n + idmsg.nonce))
+      if(strncmp((char*)recv_id.cmac, (char*)cmac, BLOCK_BYTE_SIZE) == 0)
       {
-        if(strncmp((char*)recv_id.cmac, (char*)cmac, BLOCK_BYTE_SIZE) == 0)
+        if (recv_id.msgtype == MSG_T_GET_ID_R)
         {
-          if (recv_id.msgtype == 0x10)
-          {
-            printf("Checks out! (ID: %s)\n", recv_id.pCipherID);
-            retval = 0;
-          }
-          else
-          {
-            printf("Failed: msgtype.\n");
-          }
+          printf("Checks out! (ID: %s)\n", recv_id.pID);
+          retval = 0;
         }
         else
         {
-          printf("Failed: The cmac doesn't match!\n");
+          printf("Failed: msgtype doesnt match! (0x%x)\n", recv_id.msgtype);
         }
       }
       else
       {
-        printf("Failed: nonce\n");
+        printf("Failed: The mac doesnt match!\n");
       }
     }
     else
     {
-      printf("Failed: recv_id.CipherID does not match idmsg.pID\n");
+      printf("Failed: nonce doesnt match!\n");
     }
   }
   else
   {
-    printf("Failed: the plaintext id does not match the ciphered ID\n");
+    printf("Failed: id doesnt match!\n");
   }
 
   free(recv_id.pID);
-  free(recv_id.pCipherID);
   free(recv_id.ciphertext);
   return retval;
 }
@@ -371,6 +364,7 @@ int main(int argc, char* argv[])
   int test3 = keytosensetest(1, 2, (byte_ard*)id);
   printf("\n");
   int test4 = rekeytest(9, (byte_ard*)id);
+
 
   if ((test1+test2+test3+test4) == 0) // SUM
   {
