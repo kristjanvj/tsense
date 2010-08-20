@@ -249,7 +249,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
   unpack_keytosens((void*)tosensebuffer, (const u_int32_ard*)Keys, &senserecv);
 
   byte_ard cmac_buff[BLOCK_BYTE_SIZE];
-  aesCMac((const u_int32_ard*)Keys, senserecv.ciphertext, 32, cmac_buff);
+  aesCMac((const u_int32_ard*)CmacKeys, senserecv.ciphertext, 32, cmac_buff);
   
   printf("keytosense: ");
   if (senserecv.nonce == n)
@@ -316,7 +316,7 @@ int rekeytest(u_int16_ard n, byte_ard* id)
 
   // Get a new cmac for verification purposes
   byte_ard cmac_buff[BLOCK_BYTE_SIZE];
-  aesCMac((const u_int32_ard*)Keys, recvmsg.ciphertext, REKEY_CRYPTSIZE, cmac_buff);
+  aesCMac((const u_int32_ard*)CmacKeys, recvmsg.ciphertext, REKEY_CRYPTSIZE, cmac_buff);
   
   if (recvmsg.nonce == n)
   {
