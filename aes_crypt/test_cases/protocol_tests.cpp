@@ -56,7 +56,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
 
   // addpend null char
   //recv_id.pID[ID_SIZE] = '\0';
-  aesCMac((const u_int32_ard*)Keys, recv_id.ciphertext, IDMSG_CRYPTSIZE, cmac);
+  aesCMac((const u_int32_ard*)CmacKeys, recv_id.ciphertext, IDMSG_CRYPTSIZE, cmac);
   
   printf("idresponse: ");
   //printf("ID: %s, Nonce: %d\n", idmsg.pID, recv_id.nonce);
