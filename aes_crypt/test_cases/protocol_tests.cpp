@@ -78,17 +78,17 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
       }
       else
       {
-        printf("Failed: The mac doesnt match!\n");
+        fprintf(stderr, "Failed The mac doesnt match!\n");
       }
     }
     else
     {
-      printf("Failed: nonce doesnt match!\n");
+      fprintf(stderr, "Failed nonce doesnt match!\n");
     }
   }
   else
   {
-    printf("Failed: id doesnt match!\n");
+    fprintf(stderr, "Failed id doesnt match!\n");
   }
 
   free(recv_id.pID);
@@ -170,17 +170,17 @@ h
       }
       else
       {
-        printf("Failed: timer\n");
+        fprintf(stderr, "Failed timer\n");
       }
     }
     else
     {
-      printf("Failed: plaintext key!\n");
+      fprintf(stderr, "Failed plaintext key!\n");
     }
   }
   else
   {
-    printf("Failed: msgtype\n");
+    fprintf(stderr, "Failed msgtype\n");
   }
 
   //byte_ard* pNewkey = recvmsg.key;
@@ -263,7 +263,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
         }
         else
         {
-          printf("Failed: the cmac doesn't match!\n");
+          fprintf(stderr, "Failed the cmac doesn't match!\n");
           printf("  Cmac from stream:      ");
           printBytes2(senserecv.cmac, BLOCK_BYTE_SIZE);
           printf("  Ciphertext on stream:  ");
@@ -274,17 +274,17 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
       }
       else
       {
-        printf("Failed: the key doesnt match!\n");
+        fprintf(stderr, "Failed the key doesnt match!\n");
       }
     }
     else
     {
-      printf("Failed: timer doesnt match!\n");
+      fprintf(stderr, "Failed timer doesnt match!\n");
     }
   }
   else
   {
-    printf("Failed: nonce!\n");
+    fprintf(stderr, "Failed nonce!\n");
   }
   
   free (senserecv.key);
@@ -327,17 +327,17 @@ int rekeytest(u_int16_ard n, byte_ard* id)
       }
       else
       {
-        printf("Failed: ID.\n");
+        fprintf(stderr, "Failed ID.\n");
       }
     }
     else
     {
-      printf("Failed: Cmac.\n");
+      fprintf(stderr, "Failed Cmac.\n");
     }
   }
   else 
   {
-    printf("Failed: nounce.\n");
+    fprintf(stderr, "Failed nounce.\n");
   }
   return retval;
 }
