@@ -51,6 +51,8 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   byte_ard cmac[IDMSG_CRYPTSIZE];
 
   unpack_idresponse((void*)buff, (const u_int32_ard*)Keys, &recv_id);
+  // add null char
+  recv_id.pID[ID_SIZE] = '\0';
 
   // addpend null char
   //recv_id.pID[ID_SIZE] = '\0';
@@ -369,5 +371,7 @@ int main(int argc, char* argv[])
   if ((test1+test2+test3+test4) == 0) // SUM
   {
     printf("\nAll OK!\n");
-  }  
+  }
+
+  printf("IDMSG_FULLSIZE: %d\n", IDMSG_FULLSIZE);
 }
