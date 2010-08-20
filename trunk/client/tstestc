@@ -30,15 +30,22 @@ class readThread( threading.Thread ):
 		self._stopevent = threading.Event()		
 		self._ser.timeout=1.0
 	def run(self):
+#		print "Read thread initiated"
 		while not self._stopevent.isSet():
 			if self._ser.inWaiting()>0:
-#				buffer=""
-#				for i in range(1,20):
-#					buffer += self._ser.read(1);
-				buffer = self._ser.readlines(eol="\n")
-				print buffer,"\n\n"
+				header = self._ser.read(2)
+				print "Received message. Code=x0%.2x, len=%d" % (ord(header[0]),ord(header[1]))
+				if ord(header[0])!=0xAB:
+					self._ser.flush()
+					continue
+				buffer = self._ser.read(ord(header[1]))
+				print "Received %d bytes of data" % ord(header[1])
+				resline=""
+				for b in buffer:
+					resline += "%.4d " % (ord(b)<<2) # Shift up by 2 to get approx of 10 bit value
+				print resline,"\n"
 			self._stopevent.wait(0.1)
-		print "Exiting"
+		print "Read thread terminates"
 	def join(self,timeout=None):
 		self._stopevent.set()
 		threading.Thread.join(self,timeout)
@@ -67,7 +74,6 @@ def doGetId(ser):
 
 def doGetFreeMem(ser):
 	cmd=chr(0x50)
-	cmd+="\n"
 	ser.write(cmd)
 	resp = ser.read(3);
 	if ord(resp[0]) != 0x51:
@@ -82,7 +88,6 @@ def doGetFreeMem(ser):
 def doCryptoTest(ser):
 	print "FIPS crypto test"
 	cmd=chr(0x73)
-	cmd+="\n"
 	ser.write(cmd);
 
 	resp = ser.read(16)
@@ -99,7 +104,6 @@ def doCryptoTest(ser):
 
 def doGetCurrentState(ser):
 	cmd=chr(0x52)
-	cmd+="\n" # Get state
 	ser.write(cmd);
 	resp = ser.read(3);
 	print "CODE: 0x%.2x, len=%d" % (ord(resp[0]),len(resp));
@@ -107,18 +111,26 @@ def doGetCurrentState(ser):
 	print "error code: 0x%.2x" % ord(resp[2]);
 
 def doStart(ser):
+	t=long(time.time())
+
+	print "Current time: %x" % t
+
 	cmd=chr(0x71)
-	cmd+="\n"
+	cmd+=chr(1)  # sampling rate (seconds)
+	cmd+=chr(50) # the buffer size
+	cmd+=chr(t & 0xFF)
+	cmd+=chr(t>>8 & 0xFF)
+	cmd+=chr(t>>16 & 0xFF)
+	cmd+=chr(t>>24 & 0xFF)
+
 	ser.write(cmd)
 	print "Return for start: 0x%.2x" % readAck(ser);
-#	readThread().start()
 
 def doStop(ser):
 	cmd=chr(0x72)
 	cmd+="\n"
 	ser.write(cmd)
 	print "Return for stop: 0x%.2x" % readAck(ser);
-#	readThread().stop()
 
 def getSelection(ser):
 	running=False
@@ -142,13 +154,13 @@ def getSelection(ser):
 		if sel=="c":
 			print "crypto test"
 			doCryptoTest(ser)
-		if sel=="r":
+		if sel=="r" and not running:
+#			print "run capture"
+			doStart(ser)
 			readthread = readThread(ser)
 			readthread.start()
-			print "run capture"
-			doStart(ser)
 			running=True
-		if sel=="s":
+		if sel=="s" and running:
 			print "stop capture"
 			doStop(ser)
 			readthread.join()
