@@ -92,7 +92,7 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   {
     msg->pID[i] = plain_buff[i];
   }
-  msg->pID[ID_SIZE] = '\0';
+  //msg->pID[ID_SIZE] = '\0';
 
   // Get the nonce into the struct, cast to int again. 
   byte_ard* temp = (byte_ard*)malloc(NONCE_SIZE);
