@@ -354,8 +354,11 @@ int main(int argc, char* argv[])
   
   KeyExpansion(Key, Keys);
 
-  // Key expansion for the Cmac key. TODO: use a separate key in tests.
-  KeyExpansion(Key, CmacKeys);
+  // Cmac key. Only 4 bits changed. 
+  byte_ard CmacKey[] = {
+    0x2c, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c  
+  };
+  KeyExpansion(CmacKey, CmacKeys);
 
   // Sample id: 000:001 (including null char)
   byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
