@@ -43,12 +43,9 @@
 
 //#define verbose   // Verbose output to the serial interface.
 //#define debug     // Debug output to the serial interface.
+//#define testcounters // Counters used to generate the measurements rather than analog input
 
 #define COMMAND_BUFFER_SIZE 36
-
-// Test counters
-u_int16_ard counter1 = 100;
-u_int16_ard counter2 = 200;
 
 byte_ard state=0x00;            // The state bits -- 0: initialized, 1: error, 4 MSB: error code
 u_int32_ard currentTime;        // The current update time
@@ -69,15 +66,22 @@ u_int16_ard rekeyInterval=0;
 u_int16_ard idNonce=0;
 u_int16_ard rekeyNonce=0;
 
-byte_ard commandBuffer[COMMAND_BUFFER_SIZE]; // Buffer to receive serial input
-
-// Defines for the digital output bits
-#define LED_STATUS 13
+// Defines for the digital output pins
+#define LED_STATUS    2
+#define LED_SIGNAL_1  3
+#define LED_SIGNAL_2  4
+#define LED_SIGNAL_3  5
+#define LED_SIGNAL_4  6
+// Defines for the analog input pins
+#define AI_LUM          0
+#define AI_TEMP         2
+#define AI_UNCONNECTED  5  // This pin is used to create randomness -- do not connect!
+#define AI_CUT_BITS     2  // The number of LSBs cut off the 10 bit value for more efficient packing
 
 //
-// Temporary defines for protocol messages -- include in the protocol itself eventually.
-// Some of these are strictly T <-> C messages -- can consider these a separate sensor/client
-// protocol.
+// T <-> C protocol messages. Common protocol message definitons are included in protocol.h
+//
+#define MSG_T_ACK                0x4F
 //
 #define MSG_T_GET_ID_Q           0x40
 #define MSG_T_FREE_MEM_Q         0x50
@@ -89,19 +93,9 @@ byte_ard commandBuffer[COMMAND_BUFFER_SIZE]; // Buffer to receive serial input
 #define MSG_T_STOP_CMD           0x72
 #define MSG_T_RUN_TEST_CMD       0x73
 //
-#define MSG_ACK_NORMAL           0x00 
+#define MSG_ACK_NORMAL           0x00
 #define MSG_ACK_UNKNOWN_MESSAGE  0x01
-
-//
-// See protocol.h for these message types
-//
-#define MSG_T_GET_ID_R           0x10  
-#define MSG_T_ID_RESPONSE_ERROR  0x1F
-#define MSG_T_REKEY_REQUEST      0x30
-#define MSG_T_KEY_TO_SENSE       0x31
-#define MSG_T_REKEY_RESPONSE     0x32
-#define MSG_T_ACK                0x4F
-// TODO: NOT CLEAR ON 0x11 and 0x1F from the protocol definition
+#define MSG_ACK_RUN_ERROR        0x10
 
 //
 // The state word bit definitions
@@ -126,7 +120,6 @@ byte_ard commandBuffer[COMMAND_BUFFER_SIZE]; // Buffer to receive serial input
 //
 #define MIN_NONCE_OFFSET  3    // The maximum staleness of nonce received back from authentication server.
 
-
 /**
  *  setup
  *
@@ -134,14 +127,22 @@ byte_ard commandBuffer[COMMAND_BUFFER_SIZE]; // Buffer to receive serial input
  */
 void setup(void)
 {
+  // Initialize sensor state
   state = 0x00;
-  randomSeed(analogRead(5));  // Unconnected analog pin
+  // Initialize nonces
+  randomSeed(analogRead(AI_UNCONNECTED));  // Unconnected analog pin
   idNonce = random(32000); 
   rekeyNonce = random(32000);
  
-  pinMode(LED_STATUS,OUTPUT); // Set the pinMode for pin 13 to output
+  // Set pinMode of digital pins to output
+  pinMode(LED_STATUS,OUTPUT); 
+  pinMode(LED_SIGNAL_1,OUTPUT);
+  pinMode(LED_SIGNAL_2,OUTPUT);
+  pinMode(LED_SIGNAL_3,OUTPUT);
+  pinMode(LED_SIGNAL_4,OUTPUT);
   digitalWrite(LED_STATUS,LOW);
  
+  // Initialize the serial port
   Serial.begin(9600);    
   Serial.flush();
     
@@ -170,6 +171,8 @@ void setup(void)
  */
 void loop(void) 
 {      
+  static int blinkcounter=0;
+  
   if( Serial.available() ) 
   {
     // First, check if there is a pending command
@@ -181,6 +184,11 @@ void loop(void)
   {
     // Running state
     digitalWrite(LED_STATUS,HIGH);
+    digitalWrite(LED_SIGNAL_1,LOW);
+    digitalWrite(LED_SIGNAL_2,LOW);
+    digitalWrite(LED_SIGNAL_3,LOW);
+    digitalWrite(LED_SIGNAL_4,LOW);
+    
     sampleAndReport(); 
   }
   else
@@ -200,6 +208,28 @@ void loop(void)
       else
         digitalWrite(LED_STATUS,LOW);
       bitWrite(state,STATE_BIT_BLINK,!bitRead(state,STATE_BIT_BLINK)); // Toggle led -- bit 3 is the blink bit
+      
+      digitalWrite(LED_SIGNAL_1,LOW);
+      digitalWrite(LED_SIGNAL_2,LOW);
+      digitalWrite(LED_SIGNAL_3,LOW);
+      digitalWrite(LED_SIGNAL_4,LOW);
+      blinkcounter++;
+      blinkcounter %= 4;
+      switch(blinkcounter)
+      {
+        case 0: 
+          digitalWrite(LED_SIGNAL_1,HIGH);
+          break;
+        case 1: 
+          digitalWrite(LED_SIGNAL_2,HIGH);
+          break;
+        case 2: 
+          digitalWrite(LED_SIGNAL_3,HIGH);
+          break;
+        case 3: 
+          digitalWrite(LED_SIGNAL_4,HIGH);
+          break;
+      }
     }
   } 
 }
@@ -214,22 +244,18 @@ void loop(void)
  */
 void getCommand() 
 {   
-  int endPos=0;
-  while ( Serial.available() > 0 && endPos<COMMAND_BUFFER_SIZE )
-  {
-    // Read some bytes off the serial port
-    commandBuffer[endPos++] = Serial.read();
-  }
-  
   // TODO: Patch in the rest of the protocol here
   // TODO: Use pack/unpack functions from the protocol library
    
-  if(endPos>0)
+  // Check if there is waiting data.
+  if ( Serial.available() > 0 )
   {    
-    byte_ard cmdCode = commandBuffer[0]; // The first byte identifies the message
+    // Read the first byte -- the message identifier
+    byte_ard cmdCode = Serial.read(); // Read one byte
 
-    // Handle all possible protocol messages that the sensor can receive here      
-    switch(cmdCode)
+    // Handle all possible protocol messages that the sensor can receive here based on the 1 byte message ID.
+    // Note: Handlers read the bytes expected by the protocol from the serial port.    
+    switch( cmdCode )
     {
       case MSG_T_GET_ID_Q:  // ID query received from client C
         sendDeviceId();
@@ -238,15 +264,15 @@ void getCommand()
         handleIdResponseError();
         break;
       case MSG_T_KEY_TO_SENSE:           // New (encrypted) session key package received from authentication server                                
-        handleKeyToSense(commandBuffer); // via S and C.
+        handleKeyToSense();              // via S and C.
         break;
       case MSG_T_REKEY_RESPONSE:
-        handleRekeyResponse(commandBuffer);
+        handleRekeyResponse();
         break;
       case MSG_T_START_CMD:
-        doStart(commandBuffer); // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
+        doStart(); // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
         break;
-      case MSG_T_STOP_CMD:      // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
+      case MSG_T_STOP_CMD: // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
         doStop();
         break;
       case MSG_T_FREE_MEM_Q:
@@ -259,6 +285,7 @@ void getCommand()
         doEncryptDecryptTest();     
         break;
       default:
+        Serial.flush(); // Crear the crud
         sendAck(MSG_ACK_UNKNOWN_MESSAGE);
         break;
       // TODO: Other possible messages include:
@@ -320,16 +347,21 @@ void handleIdResponseError()
  *  Utility function to handle a received key-to-sense message. This message carries the
  *  session key for the device. The session key is used for subsequent re-keying operations.
  */
-void handleKeyToSense(byte_ard *pCommandBuffer)
-{
-  message msg;
-  
+void handleKeyToSense()
+{  
   byte_ard key[KEY_BYTES];
   getPrivateKeyFromEEPROM(key);  // Get the private key from the EEPROM
   byte_ard keys[KEY_BYTES*11];
   KeyExpansion(key,keys);  
-  
+ 
+  // The struct to hold unpacked results
+  message msg;
+ 
+  // The raw command buffer
+  byte_ard *pCommandBuffer = (byte_ard *)malloc(KEYTOSENS_FULLSIZE); 
+  readFromSerial(pCommandBuffer,KEYTOSENS_FULLSIZE);
   unpack_keytosens(pCommandBuffer,(const u_int32_ard *)keys,&msg);
+  free(pCommandBuffer);
   
   // Check nonce
   // Check if the nonce is too old. A certain range must be allowed to account for the client 
@@ -403,13 +435,21 @@ void sendRekeyRequest()
  *
  *  TODO: IMPLEMENT
  */
-void handleRekeyResponse(byte_ard *pCommandBuffer)
+void handleRekeyResponse()
 {
-  // SAVE THE CRYPTO KEY HERE
+  message msg; // A message struct to hold unpacked message
   
+/*  
+  // Allocate a receive buffer and read from the serial port
+  byte_ard *pCommandBuffer = (byte_ard *)malloc(KEYTOSENS_FULLSIZE); 
+  readFromSerial(pCommandBuffer,KEYTOSENS_FULLSIZE);
+  // UNPACK THE MESSAGE HERE
+  free(pCommandBuffer);
+*/
+
   rekeyTimer=0; // Reset the rekey counter since we have a fresh key
-  
-  // Set running state to start producing encrypted messages
+  // Save crypto key. 
+  // Set capture running mode if receiving the first rekey message.  
 }
  
 /**
@@ -464,30 +504,42 @@ void sendAck(byte_ard code)
  *  shifting to a 10 bit value, but of course we loose the two LSBs permanently.
  */
 void sampleAndReport()
-{
-  // TODO: Hook in the actual analog measurements here eventually.
-  *(valBase+measBufferCount++) = counter1++ >> 2; // Cut off 2 LSBs
-  *(valBase+measBufferCount++) = counter2++ >> 2; // TODO: Use a constant for this 
-  /* Stick other interfaces in here */
-
-  // These are just demo counters -- replace with actual measured values
-  counter1 %= 1024;  
-  counter2 %= 1024;
-  
+{   
   // Update the current time. Note that we rely on the delay command to keep
   // reasonably accurate time. The currentTime and samplingInterval are in seconds.
   currentTime+=samplingInterval; 
-    
+
+  #ifdef testcounters 
+  // Use the test counters -- this is only used for testing to get predictable
+  // measurement results. Helps to determine if data is garbled in buffer manipulation,
+  // transit or on reception.  
+  static u_int16_ard counter1 = 100;
+  static u_int16_ard counter2 = 100;
+  *(valBase+measBufferCount++) = (counter1++ >> AI_CUT_BITS) & 0xFF; // Cut off 2 LSBs
+  *(valBase+measBufferCount++) = (counter2++ >> AI_CUT_BITS) & 0xFF;
+  counter1 %= 1024;  // Make sure the counters are within the AI range
+  counter2 %= 1024;
+  #else
+  *(valBase+measBufferCount++) = (analogRead(AI_LUM) >> AI_CUT_BITS) & 0xFF; // Cut off 2 LSBs
+  *(valBase+measBufferCount++) = (analogRead(AI_TEMP) >> AI_CUT_BITS) & 0xFF;
+  /* Stick other interfaces in here */
+  #endif  
+      
+  digitalWrite(LED_SIGNAL_3,HIGH);
+  
   // Check if the buffer is full. If so, dump to the serial interface.
   // TODO: Add some handling for the case when the serial port is not connected.
   if ( measBufferCount >= measBufferSize*INTERFACE_COUNT )
   {
     *pMsgTime = currentTime;  // Update the time part of the buffer header.
-    //reportValues(measBuffer);  // TODO: DISABLED FOR INTEGRATION
+    reportValues(measBuffer); 
     measBufferCount=0;
+    digitalWrite(LED_SIGNAL_4,HIGH);
   } 
 
   delay(samplingInterval*1000); // Delay for the sampling interval (in msec)
+  digitalWrite(LED_SIGNAL_3,LOW);
+  digitalWrite(LED_SIGNAL_4,LOW);  
 }
 
 /**
@@ -495,7 +547,7 @@ void sampleAndReport()
  *
  *  Handle a start command received from the host. Takes a character buffer of parameters.
  */
-void doStart(byte_ard *pCommandBuffer)
+void doStart()
 {
 #ifdef debug
   Serial.println("\n-----------------------");
@@ -511,14 +563,27 @@ void doStart(byte_ard *pCommandBuffer)
   Serial.println(measBufferSize);
   Serial.print("\n");
 #endif
-  if ( !allocateMeasBuffer() )
+  // We expect the sampling rate as a byte, followed by the current time (4 bytes ll to hh)
+  // Set the sampling parameters of the board
+  samplingInterval = Serial.read();
+  byte_ard samples = Serial.read(); // The size of the measurement buffer in bytes per interface
+  byte_ard t_ll = Serial.read();
+  byte_ard t_lh = Serial.read();
+  byte_ard t_hl = Serial.read();
+  byte_ard t_hh = Serial.read();
+  currentTime = t_ll + t_lh<<8 + t_hl<<16 + t_hh << 24;
+  
+  // Allocate the measurement buffer -- use the samples specified in the start message.
+  if ( !allocateMeasBuffer(samples) )
   {
     setErrorState(ERR_CODE_BUF_ALLOCATION);
+    sendAck(MSG_ACK_RUN_ERROR); // Error
     return;
   }
-  setRunState();
-  currentTime = 0; // TODO: Use the current time submitted from the client
   measBufferCount = 0; // Zero the current buffer size
+  
+  // set the board in run state and return an ok ack
+  setRunState();
   sendAck(MSG_ACK_NORMAL);
 }
 
@@ -560,8 +625,10 @@ void doStop()
  * 
  *  TODO: Coordinate with the protocol definition -- see protocol.h.
  */
-bool allocateMeasBuffer()
+bool allocateMeasBuffer(byte_ard size)
 { 
+  measBufferSize = size;
+  
   int headerBitSize = ID_BIT_SIZE + TIME_BIT_SIZE + SINT_BIT_SIZE + LEN_BIT_SIZE + 
                       ICNT_BIT_SIZE + ABITL_BIT_SIZE + INTERFACE_COUNT*ITYPE_BIT_SIZE;
   headerByteSize = headerBitSize/8;
@@ -653,6 +720,7 @@ void getIdStr()
  */
 void reportValues(byte_ard *measBuffer)
 {
+/*  
   Serial.print("Device ID: ");
   getIdStr();
   
@@ -681,10 +749,13 @@ void reportValues(byte_ard *measBuffer)
       Serial.print(" ");
     }
   }
-  
+*/  
+  Serial.write(0xAB);  // Dummy code for update message -- TODO: REPLACE
+  Serial.write(measBufferCount);
   byte_ard *valBase = measBuffer+headerByteSize; 
-  for( int i=0; i<measBufferCount; i++ )
-    Serial.println((u_int16_ard)(*(valBase+i))<<2); // Shift up to convert to 10 bits
+//  for( int i=0; i<measBufferCount; i++ )
+//    Serial.write( valBase[i] ); // Report the byte format -- remember to shift up at receiving end!
+  Serial.write(valBase,measBufferCount);
 }
 
 /**
@@ -738,7 +809,7 @@ void reportValuesLong(byte_ard *measBuffer)
   Serial.println("Values:");
   Serial.println("----------------------------------------");
   for( int i=0; i<measBufferCount; i++ )
-    Serial.println((u_int16_ard)(*(valBase+i))<<2); // Shift up to convert to 10 bits
+    Serial.println((u_int16_ard)(*(valBase+i))<<AI_CUT_BITS); // Shift up to convert to 10 bits
   Serial.println("----------------------------------------");
 }
 
@@ -871,4 +942,10 @@ void setErrorState( byte_ard errorCode )
   bitSet(state,STATE_BIT_ERROR);
   state &= 0xF0;
   state |= errorCode << STATE_ERR_CODE_OFFSET; 
+}
+
+void readFromSerial(byte_ard *buf, u_int16_ard length)
+{
+  for(int i=0; i<length; i++)
+    buf[i] = Serial.read(); 
 }
