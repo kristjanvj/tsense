@@ -81,10 +81,10 @@ struct message
 /*
   Key exchange and Authentication 
  */
-void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffer);
+void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void *pBuffer);
 void unpack_idresponse(void *pStream, const u_int32_ard* pKeys, struct message* msg);
 
-void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer);
+void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void *pBuffer);
 void unpack_keytosink(void *pStream, struct message* msg);
 
 void pack_keytosens(struct message* msg, void *pBuffer);
@@ -94,10 +94,10 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
   Re-keying
  */
 
-void pack_rekey(struct message* msg, const u_int32_ard* pKeys, void* pBuffer);
+void pack_rekey(struct message* msg, const u_int32_ard* pKeys,  const u_int32_ard* pCmacKeys, void* pBuffer);
 void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
-void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, void* pBuffer);
+void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
 void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
 /* Cannot define IV here for some reason. Investigate */

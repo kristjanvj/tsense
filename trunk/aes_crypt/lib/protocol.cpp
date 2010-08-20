@@ -20,7 +20,7 @@ byte_ard IV[] = {
 /*
   Authentication
  */
-void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
+void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void *pBuffer)
 {
   byte_ard crypt_buff[IDMSG_CRYPTSIZE];
   byte_ard cmac_buff[IDMSG_CRYPTSIZE];
@@ -41,7 +41,7 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, void *pBuffe
              AUTOPAD, pKeys, (const u_int16_ard*)IV);
 
   // CMac the crypted ID and Nonce. 
-  aesCMac(pKeys, crypt_buff, IDMSG_CRYPTSIZE, cmac_buff);
+  aesCMac(pCmacKeys, crypt_buff, IDMSG_CRYPTSIZE, cmac_buff);
 
   byte_ard* cBuffer = (byte_ard*)pBuffer;
   
@@ -115,7 +115,7 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   Key exchange
  */
 
-void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer)
+void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void *pBuffer)
 {
   byte_ard* cBuffer = (byte_ard*)pBuffer;
   msg->msgtype = MSG_T_KEY_TO_SINK;
@@ -159,7 +159,7 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, void *pBuffer
   // Cipher
   CBCEncrypt((void*)temp, (void*)cipher_buff, (NONCE_SIZE + KEY_BYTES + TIMER_SIZE),
              KEYTOSINK_PADLEN, pKeys, (const u_int16_ard*)IV);
-  aesCMac(pKeys, cipher_buff, KEYTOSINK_CRYPTSIZE, msg->cmac);
+  aesCMac(pCmacKeys, cipher_buff, KEYTOSINK_CRYPTSIZE, msg->cmac);
 
   // Put the cipherstuff into the buffer
   for (u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
@@ -275,7 +275,7 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
 /*
   Re-keying
  */
-void pack_rekey(struct message* msg, const u_int32_ard* pKeys, void* pBuffer)
+void pack_rekey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
 {
   byte_ard* cBuffer = (byte_ard*) pBuffer;
   // MSGTYPE
@@ -320,7 +320,7 @@ void pack_rekey(struct message* msg, const u_int32_ard* pKeys, void* pBuffer)
   }
 
   // CMac
-  aesCMac(pKeys, cipher_buff, REKEY_CRYPTSIZE, msg->cmac);
+  aesCMac(pCmacKeys, cipher_buff, REKEY_CRYPTSIZE, msg->cmac);
   // Stick it in the buffer
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
@@ -367,7 +367,7 @@ void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
   msg->nonce = (u_int16_ard)*temp_nonce;
   free(temp_nonce);
 }
-void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, void* pBuffer)
+void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
 {
   /*
   byte_ard* cBuffer = (byte_ard*)pBuffer;

@@ -25,7 +25,7 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 }
 
 byte_ard Keys[BLOCK_BYTE_SIZE*11];
-
+byte_ard CmacKeys[BLOCK_BYTE_SIZE*11];
  
 int idmsgtest(byte_ard* id, u_int16_ard n)
 {
@@ -41,7 +41,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   idmsg.nonce = n;
 
   
-  pack_idresponse(&idmsg, (const u_int32_ard*)Keys, (void*)buff);
+  pack_idresponse(&idmsg, (const u_int32_ard*)Keys, (const u_int32_ard*)CmacKeys, (void*)buff);
 
   // Unpack
   struct message recv_id;
@@ -115,7 +115,7 @@ int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
   
   byte_ard buff[KEYTOSINK_FULLSIZE];
   
-  pack_keytosink(&sendmsg, (const u_int32_ard*)Keys, buff);
+  pack_keytosink(&sendmsg, (const u_int32_ard*)Keys, (const u_int32_ard*)CmacKeys, buff);
 
   struct message recvmsg;
   recvmsg.key = (byte_ard*)malloc(KEY_BYTES);
@@ -216,7 +216,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
 
   byte_ard sinkbuff[KEYTOSINK_FULLSIZE];
 
-  pack_keytosink(&sendmsg, (const u_int32_ard*)Keys, sinkbuff);
+  pack_keytosink(&sendmsg, (const u_int32_ard*)Keys, (const u_int32_ard*)CmacKeys, sinkbuff);
 
   // Now we will unpack that message in order to grab the ciphertext. The appropiate
   // memeory still has to be allocated to prevent buffer overflows.
@@ -306,7 +306,7 @@ int rekeytest(u_int16_ard n, byte_ard* id)
   sendmsg.nonce = n;
 
   byte_ard buffer[REKEY_FULLSIZE];
-  pack_rekey(&sendmsg, (const u_int32_ard*)Keys, buffer);
+  pack_rekey(&sendmsg, (const u_int32_ard*)Keys, (const u_int32_ard*)CmacKeys, buffer);
 
   struct message recvmsg;
   recvmsg.pID = (byte_ard*)malloc(ID_SIZE+1);  // Null term.
@@ -353,7 +353,9 @@ int main(int argc, char* argv[])
   };
   
   KeyExpansion(Key, Keys);
- 
+
+  // Key expansion for the Cmac key. TODO: use a separate key in tests.
+  KeyExpansion(Key, CmacKeys);
 
   // Sample id: 000:001 (including null char)
   byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
@@ -373,5 +375,5 @@ int main(int argc, char* argv[])
     printf("\nAll OK!\n");
   }
 
-  printf("IDMSG_FULLSIZE: %d\n", IDMSG_FULLSIZE);
+  //printf("IDMSG_FULLSIZE: %d\n", IDMSG_FULLSIZE);
 }
