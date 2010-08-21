@@ -62,15 +62,19 @@ def doGetId(ser):
 	ser.write(cmd)
 
 	buf = ser.read(1)
+	if len(buf)==0: 
+		print "Timeout -- nothing received"
+		return
 	if ord(buf[0]) != 0x10: 
 		print "UNEXPECTED MESSAGE RECEIVED. GOT: 0x%.2x" % ord(buf[0])
 		return
 
-	buf += ser.read(40)
+	buf += ser.read(38) # The expected remainder of bytes
+	print hexstr(buf)
 	print "MSGTYPE: 0x%.2x, length=%d" % (ord(buf[0]),len(buf))
 	print "PUBID: %s" % hexstr(buf[1:7])
-	print "CIPHER: %s" % hexstr(buf[8:24])
-	print "MAC: %s" % hexstr(buf[25:41])
+	print "CIPHER:\t%s" % hexstr(buf[7:23])
+	print "MAC:\t%s" % hexstr(buf[23:39])
 
 def doGetFreeMem(ser):
 	cmd=chr(0x50)
