@@ -25,6 +25,15 @@
  *
  */
 
+/*
+ *  UNFINISHED:
+ *   - Test authentication protocol w. rest of the chain
+ *   - Add key derivation for MAC keys
+ *   - Code the data transfer protocol message -- crypted data transfer
+ *   - Check if heap allocation of expanded keys is more efficient than stack allocation on Arduino
+ *   - Use re-key counter to periodically refresh crypto keys
+ */
+
 //
 // There is a bunch of Serial.print stuff here for debug purposes. Use this very
 // carefully since the debug strings seem to eat up all of the available RAM very
@@ -132,13 +141,13 @@ u_int32_ard *pMsgTime=NULL;                 // Pointer to the time field in the 
 byte_ard headerByteSize=0;                  // The size of the header portion of measBuffer
 byte_ard recordByteSize;                    // The size of a single record in measBuffer -- one record is one sample per interface
 
-byte_ard *pSessionKey=NULL;
-byte_ard *pCryptoKey=NULL;
-u_int16_ard rekeyTimer=0;
-u_int16_ard rekeyInterval=0;
+byte_ard *pSessionKey=NULL;    // The session key delivered from the authentication service
+byte_ard *pCryptoKey=NULL;     // The crypto key delivered upon re-keying from sink server.
+u_int16_ard rekeyCounter=0;    // The re-keying counter
+u_int16_ard rekeyInterval=0;   // The re-keying interval -- delivered in message from sink server.
 
-u_int16_ard idNonce=0;
-u_int16_ard rekeyNonce=0;
+u_int16_ard idNonce=0;         // Use separate nonces for each message type. The nonces are counters w. wrap around
+u_int16_ard rekeyNonce=0;      // and start at some randomly chosen initial value.
 
 u_int16_ard timeout; // Soft state timeout for the communications protocol
 
@@ -154,7 +163,9 @@ void setup(void)
   state = 0x00;
   // Initialize nonces
   randomSeed(analogRead(AI_UNCONNECTED));  // Unconnected analog pin
-  idNonce = random(NONCE_INIT_MAX);     // Initialize the nonces to a random value
+  // Initialize the nonces to a random value. An unconnected analog pin is considered a
+  // good enough source of initial randomness.
+  idNonce = random(NONCE_INIT_MAX);     
   rekeyNonce = random(NONCE_INIT_MAX);
  
   // Set pinMode of digital pins to output
@@ -342,12 +353,16 @@ void handleDeviceIdQuery()
     return;  
   }
   
-  byte_ard pBuffer[41 /*IDMSG_FULLSIZE*/]; // TODO: CONST TOO SMALL! FIX IN protocol.h
+  byte_ard pBuffer[IDMSG_FULLSIZE];
   
   byte_ard key[KEY_BYTES];
   getPrivateKeyFromEEPROM(key);  // Get the private key from the EEPROM
+  // Expand crypto key schedule
   byte_ard keys[KEY_BYTES*11];
   KeyExpansion(key,keys);
+  // Expand authentication key schedule -- key derivation of MAC key missing at the moment
+  byte_ard macKeys[KEY_BYTES*11];
+  KeyExpansion(key,macKeys);
 
   byte_ard idbuf[DEV_ID_LEN];  // Get the id from EEPROM
   getPublicIdFromEEPROM(idbuf);
@@ -358,17 +373,16 @@ void handleDeviceIdQuery()
 
   // Create the input struct and populate  
   message msg;
-  msg.msgtype=0x10;  // TODO: USE CONST!
   msg.pID=idbuf;
   msg.nonce=idNonce;  
   msg.key=key;
     
   // Call the pack function to construct the message
   // See protocol.cpp for details. Encrypts and MACs the message and returns in pBuffer.
-  pack_idresponse(&msg,(const u_int32_ard*)keys,(void *)pBuffer);
+  pack_idresponse(&msg,(const u_int32_ard *)keys,(const u_int32_ard *)macKeys,(void *)pBuffer);
   
   // Write the crypto buffer to the serial port
-  Serial.write(pBuffer,41); // TODO: USE CONST FROR LENGTH
+  Serial.write(pBuffer,IDMSG_FULLSIZE);
   Serial.flush();
   
   setProtocolState(PROT_STATE_ID_DELIVERED);
@@ -450,7 +464,7 @@ void handleKeyToSense()
   pSessionKey = (byte_ard*)malloc(KEY_BYTES);
   memcpy(pSessionKey,msg.key,KEY_BYTES);
   // Set the rekey counter and interval. Use default if t=0
-  rekeyTimer=0;
+  rekeyCounter=0;
   rekeyInterval=msg.timer;
     
   setProtocolState(PROT_STATE_SESSION_KEY_SET);  
@@ -479,17 +493,22 @@ void sendRekeyRequest()
   msg.nonce=rekeyNonce;
   msg.pID = idbuf;
   
+  // TODO: Check stack vs heap allocation of encryption key schedules
+  // Expand crypto key schedule
   byte_ard *keys = (byte_ard *)malloc(KEY_BYTES*11);
   KeyExpansion(pSessionKey,keys);
+  // Expand authentication key schedule
+  byte_ard *macKeys = (byte_ard *)malloc(KEY_BYTES*11);
+  KeyExpansion(pSessionKey,macKeys); // TODO: MAC key derivation missing at the moment
 
-  // TODO: NEED TO USE A SEPARATE MAC KEY SCHEDULE
   byte_ard *buffer = (byte_ard *)malloc(REKEY_FULLSIZE);
-  pack_rekey(&msg, (const u_int32_ard *)keys, buffer);  
+  pack_rekey(&msg, (const u_int32_ard *)keys, (const u_int32_ard *)macKeys, buffer);  
   
   Serial.write(buffer,REKEY_FULLSIZE);
   
   free(buffer);
   free(keys);
+  free(macKeys);
 
   setProtocolState(PROT_STATE_REKEY_PENDING);
 }
@@ -546,7 +565,7 @@ void handleRekeyResponse()
   memcpy(pCryptoKey,msg.key,KEY_BYTES);
 
   // Reset the rekey counter since we have a fresh key
-  rekeyTimer=0; 
+  rekeyCounter=0; 
   
   setProtocolState(PROT_STATE_KEY_READY);
   doStart(); // Start the capture
