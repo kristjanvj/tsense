@@ -12,18 +12,15 @@ PROT_DIR=../../aes_crypt/lib/
 COMM_DIR=../common/
 
 
-all: servers certs
+all_i32: servers_i32 certs
+all_i64: servers_i64 certs
 
-servers: auth sink
+servers_i32: auth_i32 sink_i32
+servers_i64: auth_i64 sink_i64
 
 AUTHDNAME = tsauthd
 
-MSG=" Please pass the ARCH variable to make like this:\n"\
-	"     make <target> ARCH=INTEL_32|INTEL_64\n"\
-	"DO NOT set the ARCH variable in the makefile it self.\n"\
-	"Doing so can lead to hard-to-debug compiler errors."
-
-AUTH_DD=	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
+AUTH_DD =	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
 			$(COMM_DIR)BDaemon.cpp \
 			tls_baseserver.cpp tls_authserver.cpp tsense_keypair.cpp \
 			$(CRYPT_DIR)protocol.cpp \
@@ -31,7 +28,7 @@ AUTH_DD=	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
 			$(CRYPT_DIR)aes_crypt.cpp \
 			-o $(AUTHDNAME)
 
-AUTH_MSG "Compiling sink server:\n-----------------------"
+AUTH_MSG = "Compiling auth server:\n-----------------------"
 
 auth_i32: ARCH=INTEL_32
 auth_i32:
@@ -48,24 +45,27 @@ auth_i64:
 
 SINKDNAME = tssinkd
 
-sink:
-ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
-	@echo "Compiling sink server:"
-	@echo "-----------------------"
+SINK_MSG = "Compiling sink server:\n-----------------------"
 
-	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tssinkdaemon.cpp \
-	$(COMM_DIR)BDaemon.cpp \
-	tls_baseserver.cpp tls_sinkserver.cpp tsense_keypair.cpp \
-	$(CRYPT_DIR)protocol.cpp \
-	$(CRYPT_DIR)aes_cmac.cpp \
-	$(CRYPT_DIR)aes_crypt.cpp \
-	-o $(SINKDNAME)
+SINK_DD =	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tssinkdaemon.cpp \
+			$(COMM_DIR)BDaemon.cpp \
+			tls_baseserver.cpp tls_sinkserver.cpp tsense_keypair.cpp \
+			$(CRYPT_DIR)protocol.cpp \
+			$(CRYPT_DIR)aes_cmac.cpp \
+			$(CRYPT_DIR)aes_crypt.cpp \
+			-o $(SINKDNAME)
+
+sink_i32: ARCH=INTEL_32
+sink_i32:
+	@echo $(SINK_MSG)
+	$(SINK_DD)
 	@echo
-else
+
+sink_i64: ARCH=INTEL_64
+sink_i64:
+	@echo $(SINK_MSG)
+	$(SINK_DD)
 	@echo
-	@echo $(MSG)
-	@echo
-endif
 
 certs: root.pem serverCA.pem server.pem client.pem
 
