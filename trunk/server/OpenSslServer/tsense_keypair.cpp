@@ -8,6 +8,15 @@
 #include <string>
 #include "tsense_keypair.h"
 
+/* A class that models a key pair as used in the TSense sytem. These 
+ * keys always come in pairs:
+ *  - An encryption key such as for example K_AT.
+ *  - A corresponding CMAC key which in the case of K_AT would be 
+ *    K_AT,a. The key K_AT,a is derived from K_AT using CMAC and a consant
+ *    which in this case is called alpha.
+ * This constructor takes as it's argument K_AT and alpha, derives
+ * K_AT,a and then expands they key schedules for K_AT and K_AT,a.
+ */
 TSenseKeyPair::TSenseKeyPair(byte_ard *key, byte_ard *constant){
 
 	memcpy(cryptoKey, (void*) key, BLOCK_BYTE_SIZE);
