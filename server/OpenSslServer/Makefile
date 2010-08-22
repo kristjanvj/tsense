@@ -23,25 +23,28 @@ MSG=" Please pass the ARCH variable to make like this:\n"\
 	"DO NOT set the ARCH variable in the makefile it self.\n"\
 	"Doing so can lead to hard-to-debug compiler errors."
 
-ARCH=FOO
+AUTH_DD=	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
+			$(COMM_DIR)BDaemon.cpp \
+			tls_baseserver.cpp tls_authserver.cpp tsense_keypair.cpp \
+			$(CRYPT_DIR)protocol.cpp \
+			$(CRYPT_DIR)aes_cmac.cpp \
+			$(CRYPT_DIR)aes_crypt.cpp \
+			-o $(AUTHDNAME)
 
-auth:
-ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
-	@echo "Compiling  auth server:"
-	@echo "-----------------------"
-	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
-	$(COMM_DIR)BDaemon.cpp \
-	tls_baseserver.cpp tls_authserver.cpp tsense_keypair.cpp \
-	$(CRYPT_DIR)protocol.cpp \
-	$(CRYPT_DIR)aes_cmac.cpp \
-	$(CRYPT_DIR)aes_crypt.cpp \
-	-o $(AUTHDNAME)
+AUTH_MSG "Compiling sink server:\n-----------------------"
+
+auth_i32: ARCH=INTEL_32
+auth_i32:
+	@echo $(AUTH_MSG)
+	$(AUTH_DD)
 	@echo
-else
+
+auth_i64: ARCH=INTEL_64
+auth_i64:
+	@echo $(AUTH_MSG)
+	$(AUTH_DD)
 	@echo
-	@echo $(MSG)
-	@echo
-endif
+
 
 SINKDNAME = tssinkd
 
