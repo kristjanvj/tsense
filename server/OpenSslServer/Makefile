@@ -52,7 +52,7 @@ ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
 
 	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tssinkdaemon.cpp \
 	$(COMM_DIR)BDaemon.cpp \
-	tls_baseserver.cpp tls_sinkserver.cpp \
+	tls_baseserver.cpp tls_sinkserver.cpp tsense_keypair.cpp \
 	$(CRYPT_DIR)protocol.cpp \
 	$(CRYPT_DIR)aes_cmac.cpp \
 	$(CRYPT_DIR)aes_crypt.cpp \

@@ -40,8 +40,8 @@ int main()
 	try{
 		TSenseSinkDaemon sinkDaemon("tsensesinkd", 
 			"/home/kr/tsense/server/OpenSslServer/",
-			SINGLETON);
-			//SINGLETON|NO_DTTY);
+			//SINGLETON);
+			SINGLETON|NO_DTTY);
 		sinkDaemon.setWorkDir(
 			"/home/kr/tsense/server/OpenSslServer");
 

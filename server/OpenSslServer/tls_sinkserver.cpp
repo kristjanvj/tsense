@@ -12,6 +12,8 @@
 
 using namespace std;
 
+#define BUFSIZE 2048
+
 /* Parameters:
  *  - authServerAddr, IP/FQDN for the authentication server.
  *  - authServerPort,  The port the Auth server listens on.
@@ -27,30 +29,13 @@ TlsSinkServer::TlsSinkServer(	const char *authServerAddr,
 {
 	_authServerAddr = authServerAddr;
 	_authServerPort = authServerPort;
-
-	syslog(LOG_NOTICE, "_authServerAddr: %s", _authServerAddr);
-	syslog(LOG_NOTICE, "_authServerPort: %s", _authServerPort);
-	syslog(LOG_NOTICE, "_serverAddr: %s", _serverAddr);
-	syslog(LOG_NOTICE, "_authServerPort: %s", _serverListenPort);
 }
 
-int TlsSinkServer::sendEcho(SSL *ssl, char* readBuf, char* writeBuf){
-
-	int err;
-
-	// Write what came in from the proxy client to our auth-server.
-	writeToAuth(ssl, writeBuf, (int) strlen(writeBuf));
-
-	// Retrieve the tagged response from the auth-server.
-	err = readFromAuth(ssl, readBuf, 80);
-	
-	//sleep(20);
-
-    return (SSL_get_shutdown(ssl) & SSL_RECEIVED_SHUTDOWN)? 1 : 0;
-}
-
-int TlsSinkServer::writeToAuth(SSL *ssl, char* writeBuf, int len){
-	syslog(LOG_NOTICE, "Sink wWrote to Auth: %s", writeBuf);
+/* Writes a message to the auth server over SSL/TLS and returns the number of
+ * byter written or 0 if the call was not sucessuful. Returns <0 if an error 
+ * occurred.
+ */
+int TlsSinkServer::writeToAuth(SSL *ssl, byte_ard* writeBuf, int len){
 
 	int err = SSL_write(ssl, writeBuf, len);
 
@@ -61,24 +46,154 @@ int TlsSinkServer::writeToAuth(SSL *ssl, char* writeBuf, int len){
 	return err;
 }
 
-int TlsSinkServer::readFromAuth(SSL *ssl, char* readBuf, int len){
+/* Reads a message from the auth server over SSL/TLS and returns the number of
+ * byter read. Returns 0 if the call was not sucessuful or <0 if an error 
+ * occurred.
+ */
+int TlsSinkServer::readFromAuth(SSL *ssl, byte_ard* readBuf, int len){
 	int err = SSL_read(ssl, readBuf, len);
 
 	if(err <= 0){
         log_err_exit("Error reading from auth-server.");
 	}
 
-	// Null terminate string for syslog.
-	readBuf[err] = 0x0;
-
-	syslog(LOG_NOTICE, "Sink read from Auth: %s", readBuf);
-
 	return err;
 }
 
-void TlsSinkServer::serverFork(BIO *proxyClientReqestBio, void *arg, 
-								char* readBuf, char* writeBuf){
-    SSL *ssl = (SSL*) arg;
+/* A simple generic messge handling method that calls a specialized message 
+ * routine after examining the first byte of an incoming message packet that
+ * should contain the message ID.
+ */
+int TlsSinkServer::handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
+								 byte_ard *readBuf, int readLen)
+{
+	
+	if(readBuf[0] == 0x10){
+		handleIdResponse(ssl, proxyClientRequestBio, readBuf, readLen);
+	}else{
+        log_err_exit("Error, unsupported protocol message.");
+	}
+}
+
+/* Recieves a buffer containin a message fromt the prxy client and forwards
+ * this to the authorization server. The method then waits for a reply.
+ * After verifying that he reply from the auth server is indeed a keytosink 
+ * message the message is unpacked. The session key K_ST is stored locally. 
+ * The encrypted palyoad is then sent on to the proxy client.
+ */
+void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio, 
+									  byte_ard* readBuf, int readLen)
+{
+
+	byte_ard keyToSinkBuf[KEYTOSINK_FULLSIZE];
+
+	// Forward the idresponse to the auth server.
+	// ------------------------------------------
+	writeToAuth(ssl, readBuf, readLen);
+
+	// Read the response from the auth server.
+	// ---------------------------------------
+	int err = readFromAuth(ssl, keyToSinkBuf, KEYTOSINK_FULLSIZE);
+
+    int status = (SSL_get_shutdown(ssl) & SSL_RECEIVED_SHUTDOWN)? 1 : 0;
+
+    if(status){
+        SSL_shutdown(ssl);
+    } else {
+        SSL_clear(ssl);
+	}
+
+	// Unpack the key to sink message ------------------------------------------
+
+	struct message keyToSinkMsg;
+	keyToSinkMsg.key = (byte_ard*)malloc(KEY_BYTES);
+	keyToSinkMsg.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
+ 
+	unpack_keytosink((void*)keyToSinkBuf, &keyToSinkMsg);
+
+	if (keyToSinkMsg.msgtype != 0x11) {
+		log_err_exit("Authentication server didn't accept the ID/Cipher!");
+	}
+
+	// Done unpacking the keytosink message ------------------------------------
+
+	// Store K_ST.
+	for(int i = 0; i < BLOCK_BYTE_SIZE; i++){
+		K_ST[i] = keyToSinkMsg.key[i];
+	}
+
+	// Does this vary from T to T?
+	byte_ard beta[] = { 0xc7, 0x46, 0xe9, 0x64, 0x72, 0x3a, 0x21, 0x47,
+						 0xa2, 0x47, 0x30, 0x1a, 0xb9, 0x6b, 0x54, 0xde };
+
+	K_st = new TSenseKeyPair(keyToSinkMsg.key, beta);
+
+	// Pack keytosense message -------------------------------------------------
+
+	byte_ard keyToSenseBuf[KEYTOSENS_FULLSIZE];
+
+	pack_keytosens(&keyToSinkMsg, keyToSenseBuf);
+
+	// Send keytosense message to sensor.
+	// ----------------------------------
+	writeToProxyClient(proxyClientRequestBio, keyToSenseBuf, 
+		KEYTOSENS_FULLSIZE);
+
+	free (keyToSinkMsg.ciphertext);
+	free (keyToSinkMsg.key);
+
+	// Done packing key to sense message ---------------------------------------
+
+	// Close connection to proxy client.
+	BIO_free(proxyClientRequestBio);
+	ERR_remove_state(0);
+}
+
+/* This method is called after a BIO channel connection from the proxy client 
+ * has been accepted. What follows is:
+ *    - The incoming message from the client is read
+ *    - A BIO channel to the authorization server is created and tied to 
+ *      an SSL object.
+ *    - Post connection SSL verifications are performed.
+ *    - Achild process is forked. 
+ * The parent then returns to wait for another proxy client connection. The 
+ * child calls a generic message handler metod which in turn calls the 
+ * appropriate specialist handler method for the message in question.
+ */
+void TlsSinkServer::serverFork(BIO *proxyClientRequestBio, BIO* authServerBio){
+	byte_ard readBuf[BUFSIZE];
+    SSL *ssl;
+
+	// Read theincoming message from the proxy client.
+	int readLen = readFromProxyClient(proxyClientRequestBio, readBuf, BUFSIZE);
+
+	// Construct connection string to connect to auth-server.
+	string hostPort = _authServerAddr;
+	hostPort.append(":");
+	hostPort.append(_authServerPort);
+
+	syslog(LOG_NOTICE, "Connecting to authServer on: %s", hostPort.c_str());
+
+	// Obtain a BIO channel for connecting to the auth-server.
+	syslog(LOG_NOTICE, "Connecting to authServer: %s", hostPort.c_str());
+	authServerBio = BIO_new_connect((char*)hostPort.c_str());
+
+	if(!authServerBio){
+		log_err_exit("Error createing connection BIO");
+	}
+
+	// Connect the auth-server BIO channel.
+	if(BIO_do_connect(authServerBio) <= 0){
+		log_err_exit("Error connecting to remote machine");
+	}
+
+	// Get a new SSL structure for this auth-server connection.
+	if(!(ssl = SSL_new(ctx))){
+		log_err_exit("Error creating an SSL context.");
+	}
+
+	// Connect the SSL server with the BIOs it will use.
+	SSL_set_bio(ssl, authServerBio, authServerBio);
 
 	if(SSL_connect(ssl) <= 0){
         log_err_exit("Error connecting SSL object.");
@@ -90,7 +205,7 @@ void TlsSinkServer::serverFork(BIO *proxyClientReqestBio, void *arg,
 	//  - Chekcs usage fields in certificate.
     doVerify(ssl, _authServerAddr);
 
-    syslog(LOG_NOTICE, "SSL Connection opened.");
+    syslog(LOG_NOTICE, "SSL Connection auth-server opened.");
 
 	// Fork a child process that should be an exact copy of the parent.
 	// it will continue servicing the proxy client's request while the.
@@ -104,24 +219,15 @@ void TlsSinkServer::serverFork(BIO *proxyClientReqestBio, void *arg,
         return;
     }
 
+	// FIXME: What if messageSize > bufsize?
 	// Contact the Auth server.
-    if(sendEcho(ssl, readBuf, writeBuf)){
-        SSL_shutdown(ssl);
-    } else {
-        SSL_clear(ssl);
-    }
+	handleMessage(ssl, proxyClientRequestBio, readBuf, readLen);
 
     syslog(LOG_NOTICE, "SSL Connection to auth-server closed.\n");
 
     SSL_free(ssl);
     ERR_remove_state(0);
 
-	// Write what came in from the auth-server back to our proxy client.
-	writeToProxyClient(proxyClientReqestBio, readBuf);
-
-	// Close connection to proxy client.
-	BIO_free(proxyClientReqestBio);
-	ERR_remove_state(0);
 
     if(pid ==  0){ // The child terminates execution here.
 		syslog(LOG_ERR, "Child is exiting.");
@@ -129,12 +235,15 @@ void TlsSinkServer::serverFork(BIO *proxyClientReqestBio, void *arg,
     }
 }
 
-int  TlsSinkServer::readFromProxyClient(BIO *proxyClientReqestBio, char *readBuf){
-	int err = BIO_read(proxyClientReqestBio, readBuf, 80);
+/* Reads a message from the proxy client over a BIO cannel  and returns the 
+ * number of bytes read. Returns 0 if the call was not sucessuful or <0 if 
+ * an error occurred.
+ */
+int  TlsSinkServer::readFromProxyClient(BIO *proxyClientRequestBio, 
+						byte_ard *readBuf, int len)
+{
+	int err = BIO_read(proxyClientRequestBio, readBuf, len);
 
-	// Null terminate string for syslog.
-	readBuf[err] = 0x0;
-        
 	if(err <= 0){
 		syslog(LOG_ERR, "Read error: %d", err);
 	}
@@ -142,9 +251,15 @@ int  TlsSinkServer::readFromProxyClient(BIO *proxyClientReqestBio, char *readBuf
 	return err;
 }
 
-int TlsSinkServer::writeToProxyClient(BIO *proxyClientReqestBio, char *writeBuf){
+/* Writes a message to the proxy client over a BIO channel  and returns the 
+ * number of bytes written or 0 if the call was not sucessuful. Returns <0 if
+ * an error occurred.
+ */
+int TlsSinkServer::writeToProxyClient(BIO *proxyClientRequestBio, byte_ard *writeBuf,
+									  int len)
+{
 
-	int err = BIO_write(proxyClientReqestBio, writeBuf, strlen(writeBuf));
+	int err = BIO_write(proxyClientRequestBio, writeBuf, len);
 
 	if(err <= 0){
 		syslog(LOG_ERR, "Write error: %d", err);
@@ -153,20 +268,12 @@ int TlsSinkServer::writeToProxyClient(BIO *proxyClientReqestBio, char *writeBuf)
 	return err;
 }
 
+/* Main server loop, just sits and waits for incoming messages, as soon as one
+ * arrives a child process is forked an the loop returns to waiting for another
+ * connection attempt to accept.
+ */
 void TlsSinkServer::serverMain(){
-    BIO *authServerBio, *proxyClientAcceptBio, *proxyClientReqestBio;
-    SSL *ssl;
-    //SSL_CTX *ctx;
-
-	// Set up the the SSL context for connecting to the auth-server.
-    //ctx = setupServerCtx(CLIENT_MODE);
-
-	// Connection string to connect to auth-server.
-	string hostPort = _authServerAddr;
-	hostPort.append(":");
-	hostPort.append(_authServerPort);
-
-	syslog(LOG_NOTICE, "Connecting to authServer on: %s", hostPort.c_str());
+    BIO *authServerBio, *proxyClientAcceptBio, *proxyClientRequestBio;
 
 	initOpenSsl();
 
@@ -182,13 +289,11 @@ void TlsSinkServer::serverMain(){
         log_err_exit("Error binding client proxy listener socket.");
     }
 
-	syslog(LOG_NOTICE, "Listening for Proxy Client requests on %s", _serverListenPort);
+	syslog(LOG_NOTICE, "Listening for Proxy Client requests on %s", 
+				_serverListenPort);
 
 	int err;
 	while(true){
-
-		char readBuf[80];
-		char writeBuf[80] = "SinkServer <-> ";
 
 		// ... subsequent calls to BIO_do_accept cause the program to stop and
 		// wait for an incoming connection from a client.
@@ -197,39 +302,11 @@ void TlsSinkServer::serverMain(){
 		}
 
 		// Pop a BIO channel for an incoming connection off the accept BIO.
-		proxyClientReqestBio = BIO_pop(proxyClientAcceptBio);
-
-		readFromProxyClient(proxyClientReqestBio, readBuf);
-
-        syslog(LOG_NOTICE, "Sink read from Client: %s", readBuf);
-
-		// Obtain a BIO for connecting to the auth-server.
-		syslog(LOG_NOTICE, "Connecting to authServer: %s", hostPort.c_str());
-		authServerBio = BIO_new_connect((char*)hostPort.c_str());
-
-		if(!authServerBio){
-			log_err_exit("Error createing connection BIO");
-		}
-
-		// Connect the auth-server BIO channe.
-		if(BIO_do_connect(authServerBio) <= 0){
-			log_err_exit("Error connecting to remote machine");
-		}
-
-		// Get a new SSL structure for this auth-server connection.
-		if(!(ssl = SSL_new(ctx))){
-			log_err_exit("Error creating an SSL context.");
-		}
-
-		// Connect the SSL server with the BIOs it will use.
-		SSL_set_bio(ssl, authServerBio, authServerBio);
-
-		// Append what came in from the proxy client to our write buffer.
-		strcat(writeBuf, readBuf); 
+		proxyClientRequestBio = BIO_pop(proxyClientAcceptBio);
 
 		// Fork a clild that uses our auth-server bio channel to get a 
 		// tagged response from the auth-server.
-		serverFork(proxyClientReqestBio, ssl, readBuf, writeBuf);
+		serverFork(proxyClientRequestBio, authServerBio);
 		
 		syslog(LOG_NOTICE, "-------------");
 
