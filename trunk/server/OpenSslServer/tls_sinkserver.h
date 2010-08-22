@@ -7,29 +7,41 @@
 #ifndef __TLSSERVER_H__
 #define __TLSSERVER_H__
 
-#include "tls_baseserver.h"
 #include <stdexcept>
+#include "protocol.h"
+#include "tls_baseserver.h"
+#include "tsense_keypair.h"
 
 using namespace std;
 
 class TlsSinkServer : public TlsBaseServer{
     private:
 		const char *_authServerAddr, *_authServerPort;
+		
+		TSenseKeyPair *K_st;
 
-        //int sendEcho(SSL *ssl);
-        //void serverFork(void *arg);
+		byte_ard K_ST[BLOCK_BYTE_SIZE];
 
-        int sendEcho(SSL *ssl, char* readBuf, char* writeBuf);
-        void serverFork(BIO *proxyClientReplyBio, void *arg, 
-						char* readBuf, char* writeBuf);
+        void serverFork(BIO *proxyClientReplyBio, BIO* authServerBio);
 
 		void acceptProxyClientListenBio();
 
-		int writeToAuth(SSL *ssl, char* writeBuf, int len);
-		int readFromAuth(SSL *ssl, char* readBuf, int len);
+		int writeToAuth(SSL *ssl, byte_ard* writeBuf, int len);
+		int readFromAuth(SSL *ssl, byte_ard* readBuf, int len);
 
-		int readFromProxyClient(BIO *clientReplyBio, char *readBuf);
-		int writeToProxyClient(BIO *clientReplyBio, char *writeBuf);
+		int readFromProxyClient(BIO *clientReplyBio, byte_ard *readBuf, 
+								int len);
+		int writeToProxyClient(BIO *clientReplyBio, byte_ard *writeBuf, 
+								int len);
+        int sendReceiveToAuth(SSL *ssl, byte_ard* readBuf, int readLen, 
+							  byte_ard* writeBuf);
+
+        void handleIdResponse(SSL *ssl, byte_ard* readBuf, int readLen);
+		void handleIdResponse(SSL *ssl, BIO* proxyClientReqestBio,
+							   byte_ard* readBuf, int readLen);
+
+		int handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
+						  byte_ard *readBuf, int readLen);
 
     public:
         //TlsSinkServer(const char *hostName, const char *listenPort);
