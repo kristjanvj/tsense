@@ -17,10 +17,6 @@ CLIBIO=clibio
 CLISSL=clissl
 CLIPROT=cliprot
 
-
-
-all: $(CLIBIO) $(CLISSL) $(CLIPROT)
-
 $(CLIBIO):
 	@echo "Compiling BIO client:"
 	@echo "---------------------"
