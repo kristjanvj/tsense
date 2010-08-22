@@ -8,21 +8,32 @@
 #define __TLSAUTHSERVER_H__
 
 #include "tls_baseserver.h"
+#include "tsense_keypair.h"
+#include "protocol.h"
 #include <stdexcept>
 
 using namespace std;
 
 class TlsAuthServer : public TlsBaseServer{
 	private:
-		const char *_sinkServerAddr;
-		int doEcho(SSL *ssl);
-		void serverFork(void *arg);
+		
+		TSenseKeyPair *K_at;
 
-		int writeToSink(SSL *ssl, char* writeBuf, int len);
-		int readFromSink(SSL *ssl, char* readBuf, int len);
+		const char *_sinkServerAddr;
+		void serverFork(void *arg, BIO* proxyClientRequestBio);
+
+		void handleMessage(SSL *ssl);
+
+		int writeToSink(SSL *ssl, byte_ard* writeBuf, int len);
+		int readFromSink(SSL *ssl, byte_ard* readBuf, int len);
+
+		void handleIdResponse(SSL *ssl, byte_ard *readBuf, int readLen);
 
     public:
-		TlsAuthServer(const char* sinkServerAddr, const char *hostName, const char *listenPort);
+		TlsAuthServer(	const char* sinkServerAddr, 
+						const char *hostName, 
+						const char *listenPort);
+		~TlsAuthServer();
 		void serverMain();
 };
 

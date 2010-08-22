@@ -31,7 +31,7 @@ ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
 	@echo "-----------------------"
 	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
 	$(COMM_DIR)BDaemon.cpp \
-	tls_baseserver.cpp tls_authserver.cpp \
+	tls_baseserver.cpp tls_authserver.cpp tsense_keypair.cpp \
 	$(CRYPT_DIR)protocol.cpp \
 	$(CRYPT_DIR)aes_cmac.cpp \
 	$(CRYPT_DIR)aes_crypt.cpp \

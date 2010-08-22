@@ -41,7 +41,9 @@ int main()
 {
 	try{
 		TSenseAuthDaemon authDaemon("tsenseauthd", 
-			"/home/kr/tsense/server/OpenSslServer/", SINGLETON);
+			"/home/kr/tsense/server/OpenSslServer/",
+			//SINGLETON);
+			SINGLETON|NO_DTTY);
 		authDaemon.setWorkDir(
 			"/home/kr/tsense/server/OpenSslServer");
 
