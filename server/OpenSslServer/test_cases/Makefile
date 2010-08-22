@@ -2,13 +2,16 @@
 CC = g++
 CFLAGS = 
 LFLAGS = -lssl -lcrypto
-IFLAGS = -I/usr/include/ -I../../../aes_crypt/lib/
-RM = /bin/rm
-CAT = /bin/cat
-OPENSSL = /usr/bin/openssl
 
 CRYPT_DIR=../../../aes_crypt/lib/
 PROT_DIR=../../../aes_crypt/lib/
+SERVER_DIR=../
+
+IFLAGS = -I/usr/include/ -I$(CRYPT_DIR) -I$(PROT_DIR) -I$(SERVER_DIR)
+
+RM = /bin/rm
+CAT = /bin/cat
+OPENSSL = /usr/bin/openssl
 
 CLIBIO=clibio
 CLISSL=clissl
@@ -30,28 +33,28 @@ $(CLISSL):
 	$(CC) $(LFLAGS) tls_client_ssl.cpp common.c -o $(@)
 	@echo
 
-ARCH=FOO
+ARCH=
 
-MSG=" Please pass the ARCH variable to make like this:\n"\
-    "     make <target> ARCH=INTEL_32|INTEL_64\n"\
-	"DO NOT set the ARCH variable in the makefile it self.\n"\
-	"Doing so can lead to hard-to-debug compiler errors."
+CLIPROT_CC =	$(CC) -D_$(ARCH) $(LFLAGS) $(IFLAGS) \
+				tls_client_prot.cpp \
+				common.c \
+				$(SERVER_DIR)tsense_keypair.cpp \
+				$(PROT_DIR)protocol.cpp \
+				$(CRYPT_DIR)aes_cmac.cpp \
+				$(CRYPT_DIR)aes_crypt.cpp \
+				-o $(CLIPROT)
 
-$(CLIPROT):
-ifeq ($(ARCH),$(filter $(ARCH),INTEL_32 INTEL_64))
-	@echo "Compiling PROT client:"
-	@echo "----------------------"
-	$(CC) -D_$(ARCH) $(LFLAGS) $(IFLAGS) tls_client_prot.cpp common.c \
-	$(PROT_DIR)protocol.cpp \
-	$(CRYPT_DIR)aes_cmac.cpp \
-	$(CRYPT_DIR)aes_crypt.cpp \
-	-o cliprot
-	@echo
-else
-	@echo
+MSG = "Compiling PROT client:\n----------------------"
+
+cliprot_i32: ARCH=INTEL_32
+cliprot_i32:
 	@echo $(MSG)
-	@echo
-endif
+	$(CLIPROT_CC)
+
+cliprot_i64: ARCH=INTEL_64
+cliprot_i64:
+	@echo $(MSG)
+	$(CLIPROT_CC)
 
 clean:
 	$(RM) -f $(CLIBIO) $(CLISSL) $(CLIPROT)
