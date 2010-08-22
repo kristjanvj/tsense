@@ -5,6 +5,7 @@
  */
 
 #include "common.h"
+#include "tsense_keypair.h"
 #include <iostream>
 
 #define I_BUF_LEN 80
@@ -28,12 +29,20 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
         printf("\n");
 }
 
-byte_ard Key[] = {  0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+byte_ard key[] = {  0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
 					0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
 
-byte_ard Keys[BLOCK_BYTE_SIZE*11];
+TSenseKeyPair *K_at;
 
-void get_idresponse_packet(byte_ard *buf) {
+void do_client_loop(BIO *conn){
+    int err;
+
+	// Pack idresponse message -------------------------------------------------
+
+    byte_ard idResponseBuf[IDMSG_FULLSIZE];
+
+	// id_response packet sent as response to a get ID request from the
+	// proxy client.
 
 	// Sample id: 000:001 (including null char)
 	byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
@@ -46,76 +55,82 @@ void get_idresponse_packet(byte_ard *buf) {
 	idmsg.pID = (byte_ard*)id;
 	idmsg.nonce = 3;
 
+	printf("\n");
+
+	printf("Constructed an encrypted idresponse package:\n");
+	printf("--------------------------------------------\n");
 	printf("idmsg.msgtype:          %x\n", idmsg.msgtype);
 	printf("idmsg.nonce:           %x\n", idmsg.nonce);
 	printf("\n");
 
-	pack_idresponse(&idmsg, (const u_int32_ard*)Keys, (void*)buf);
-}
+	
+	pack_idresponse(&idmsg, (const u_int32_ard*) (K_at->getCryptoKeySched()),
+							(const u_int32_ard*) (K_at->getMacKeySched()),
+							(void*)idResponseBuf);
 
-void do_client_loop(BIO *conn){
-    int err;
+	// Done packing idresponse message -----------------------------------------
 
-	KeyExpansion(Key, Keys);
-
-	printf("do_client_loop(0)\n");
-
-	// Create the buffer to write the packet into.
-	// Needs to hold, MSGTYPE, IDSIZE, E(IDSIZE + NOUNCE) + MAC
-    byte_ard outBuf[IDMSG_FULLSIZE];
-    byte_ard inBuf[IDMSG_FULLSIZE];
-
-	// id_response packet sent as response to a get ID request from the
-	// proxy client.
-	get_idresponse_packet(outBuf);
-
-	printBytes2(outBuf, IDMSG_FULLSIZE);
-
-	printf("\n");
-
-	// Write to sink server
-    err = BIO_write(conn, (void*)outBuf, IDMSG_FULLSIZE);
+	// Write idresponse messsage to sink server
+    err = BIO_write(conn, (void*)idResponseBuf, IDMSG_FULLSIZE);
 
     printf("Done writing encrypted packet\n");
 
-	// Read response from sink server.
-    err = BIO_read(conn, (void*)inBuf, IDMSG_FULLSIZE);
+    byte_ard keyToSensBuf[KEYTOSENS_FULLSIZE];
 
-    inBuf[err] = 0x0;
-    printf("Done reading encrypted packet, printing what was recieved:\n");
-	printBytes2(inBuf, IDMSG_FULLSIZE);
+	// Read keytosense message from sink server.
+    err = BIO_read(conn, (void*)keyToSensBuf, KEYTOSENS_FULLSIZE);
 
 	printf("\n");
 
-	//----------------------------------------------------------
+	// Unpack keytosens message ------------------------------------------------
 
-	struct message recv_id;
-	// Allocate memory for the ID and '\0'
-	recv_id.pID = (byte_ard*)malloc(ID_SIZE+1);
-	recv_id.pCipherID = (byte_ard*)malloc(ID_SIZE+1);
+	struct message senserecv;
+	senserecv.key = (byte_ard*)malloc(KEY_BYTES);
+	senserecv.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
 
-	unpack_idresponse((void*)inBuf, (const u_int32_ard*)Keys, &recv_id);
+	
+	unpack_keytosens((void*)keyToSensBuf, 
+					 (const u_int32_ard*) (K_at->getCryptoKeySched()),
+					 &senserecv);
+	
+	//byte_ard cmac_buff[BLOCK_BYTE_SIZE];
+	//aesCMac((const u_int32_ard*)Keys, senserecv.ciphertext, 32, cmac_buff);
 
-    printf("Done unpacking encrypted packet:\n");
+	int validMac = verifyAesCMac((const u_int32_ard*) (K_at->getMacKeySched()),
+									senserecv.ciphertext,
+									KEYTOSINK_CRYPTSIZE,
+									senserecv.cmac);
 
-	printf("recv_id.msgtype:          %x\n", recv_id.msgtype);
-	printf("recv_id.nonce:           %x\n", recv_id.nonce);
-	printf("recv_id.public id:        %x\n", (unsigned int) *recv_id.pID);
-	printf("recv_id.public cypher id: %x\n", (unsigned int) *recv_id.pCipherID);
-	//printf("public cmac:      %x\n", (unsigned int) *recv_id.cmac);
+	if(validMac == 0){
+		int_error("Mac of incoming keytosens message did not match");
+	}
 
-	// Cleanup
-	free(recv_id.pID);
-	free(recv_id.pCipherID);
+	printf("Recieved an encrypted keytoens package:\n");
+	printf("---------------------------------------\n");
+	printf("senserecv.msgtype: %x\n", senserecv.msgtype);
+	printf("senserecv.nonce: %x\n", senserecv.nonce);
+	printf("senserecv.key:\n");
+	printBytes2(senserecv.key, KEY_BYTES); 
+	printf("senserecv.cmac:\n");
+	printBytes2(senserecv.cmac, KEY_BYTES); 
 
-	//----------------------------------------------------------
+	free(senserecv.ciphertext);
+	free(senserecv.key);
 
-
+	// Done unpacking keytosens message ----------------------------------------
 }
 
 int main(int argc, char *argv[]){
 
     BIO *conn;
+
+	byte_ard K_AT[] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+                        0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+
+    byte_ard alpha[] = { 0xc7, 0x46, 0xe9, 0x64, 0x72, 0x3a, 0x21, 0x47,
+                         0xa2, 0x47, 0x30, 0x1a, 0xb9, 0x6b, 0x54, 0xde };
+
+	K_at = new TSenseKeyPair(K_AT, alpha);
 
     init_OpenSSL();
 	
