@@ -177,7 +177,7 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, u_int32_ard M_length, byte_ard 
  * +                      Algorithm Verify_MAC                         +
  * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * +                                                                   +
- * +   Input    : K         AES Key.                                   +
+ * +   Input    : KS        Rijandel key schedule                      +
  * +            : M         Message to be verified.                    +
  * +            : M_length  Length of the message in octets.           +
  * +            : CMACm     The received MAC to be verified.           +
@@ -186,14 +186,12 @@ void aesCMac(const u_int32_ard* KS, byte_ard *M, u_int32_ard M_length, byte_ard 
  * +-------------------------------------------------------------------+
  */
 
-int32_ard verifyAesCMac(byte_ard *K, byte_ard *M, u_int32_ard M_length,
-                          byte_ard* CMACm){
-    byte_ard CMAC[BLOCK_BYTE_SIZE];
-    byte_ard keys[BLOCK_BYTE_SIZE*11];
+int32_ard verifyAesCMac(const u_int32_ard *KS, byte_ard *M, 
+						u_int32_ard M_length, byte_ard* CMACm){
 
-    KeyExpansion(K, keys);
-
-    aesCMac((const u_int32_ard*)keys, M, M_length, CMAC);
+	byte_ard CMAC[BLOCK_BYTE_SIZE];
+	
+    aesCMac(KS, M, M_length, CMAC);
 
     int32_ard i;
     for(i = 0; i<BLOCK_BYTE_SIZE; i++){

@@ -88,8 +88,10 @@ int main() {
 	printf("CMAC' 64: "); printBytes2((byte_ard*)CMAC, 16);
 	
 
-	printf("Verify (expected: 1): %d\n", verifyAesCMac(Key, M, 64,  CMAC));
-	printf("Verify (expected: 0): %d\n", verifyAesCMac(Key, M, 64,  CMAC40));
+	printf("Verify (expected: 1): %d\n", 
+			verifyAesCMac((const u_int32_ard*)KS, M, 64,  CMAC));
+	printf("Verify (expected: 0): %d\n", 
+			verifyAesCMac((const u_int32_ard*)KS, M, 64,  CMAC40));
 
     return 0;
 } // end main()

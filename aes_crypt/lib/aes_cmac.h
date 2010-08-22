@@ -23,9 +23,10 @@ void leftShiftKey(byte_ard *orig, byte_ard *shifted);
 void xorToLength(byte_ard *p, byte_ard *q, byte_ard *r);
 void initBlockZero(byte_ard *block);
 void expandMacKey(byte_ard *origKey, byte_ard *newKey);
-void aesCMac(const u_int32_ard* KS, byte_ard *M, u_int32_ard length, byte_ard *cmac);
-int32_ard verifyAesCMac(byte_ard *K, byte_ard *M, u_int32_ard M_length,
-                          byte_ard* MACm);
+void aesCMac(	const u_int32_ard* KS, byte_ard *M, u_int32_ard length, 
+				byte_ard *cmac);
+int32_ard verifyAesCMac(const u_int32_ard *KS, byte_ard *M,
+                        u_int32_ard M_length, byte_ard* CMACm);
 
 
 #endif
