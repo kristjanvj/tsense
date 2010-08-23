@@ -25,6 +25,7 @@
  */
  
 #include <string.h>      // memcpy()
+#include <stdio.h>
 
 #ifndef __AES_CRYPT_H__
 #define __AES_CRYPT_H__
@@ -82,6 +83,8 @@ void CBCDecrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
 byte_ard getSboxValue(int index);
 byte_ard getISboxValue(int index);
 byte_ard getRconValue(int index);
+
+int generateKey(byte_ard *newKey);
 
 
 #endif  //__AES_CRYPT_H__
