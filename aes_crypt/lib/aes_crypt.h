@@ -84,6 +84,7 @@ byte_ard getSboxValue(int index);
 byte_ard getISboxValue(int index);
 byte_ard getRconValue(int index);
 
+// Generate a random key. TODO: Move. Not part of AES.
 int generateKey(byte_ard *newKey);
 
 

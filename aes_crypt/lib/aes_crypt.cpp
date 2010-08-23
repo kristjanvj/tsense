@@ -753,19 +753,21 @@ byte_ard getRconValue(int index)
   #endif   
 }
 
-int generateKey(byte_ard *newKey){
+int generateKey(byte_ard *newKey)
+{
 	byte_ard res = 0;
-
+    int f;
 	FILE * urandom = fopen("/dev/urandom","r");
 
-	if(urandom) {
-		for(int i=0; i<BLOCK_BYTE_SIZE; i++){
-			fread(&res, 1, sizeof(res), urandom);
+	if(urandom)
+    {
+		for(int i=0; i<BLOCK_BYTE_SIZE; i++)
+        {
+			f = fread(&res, 1, sizeof(res), urandom);
 			newKey[i] = res;
 		}
 		fclose(urandom);
 		return 1;
 	}
-
 	return res;
 }
