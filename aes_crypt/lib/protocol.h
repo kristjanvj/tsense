@@ -29,11 +29,17 @@
 #define MSGTYPE_SIZE 1
 #define NONCE_SIZE 2
 #define TIMER_SIZE 4
+#define RAND_SIZE 4
 
 /*
   Some macros to calculate the various lengths of various things.
 
-  Please thread carefully if changing something. 
+  Please thread carefully if changing something. The general rule here is
+    _PADLEN = Number of characters needed to pad the block. <16 chars.
+    _CRYPTSIZE = The length of the crypted size. Divisable by 16.
+    _FULLSIZE = The length of the full packet, everthing included.
+
+  The _PADLEN macros are sensetive to change. 
 */
 #define IDMSG_PADLEN BLOCK_BYTE_SIZE - (ID_SIZE+NONCE_SIZE)
 #define IDMSG_CRYPTSIZE ID_SIZE + NONCE_SIZE + (IDMSG_PADLEN)
@@ -49,10 +55,13 @@
 #define REKEY_CRYPTSIZE (ID_SIZE + NONCE_SIZE + REKEY_PADLEN)
 #define REKEY_FULLSIZE MSGTYPE_SIZE + ID_SIZE + REKEY_CRYPTSIZE + BLOCK_BYTE_SIZE
 
-//
-// Defines for message identifiers -- TODO: Use in the protocol instead of hardcoded IDs.
-// TODO: BENEDIKT: Fix and clean up
-//
+#define NEWKEY_PADLEN  BLOCK_BYTE_SIZE - (ID_SIZE + NONCE_SIZE + RAND_SIZE + TIMER_SIZE)
+#define NEWKEY_CRYPTSIZE ID_SIZE + NONCE_SIZE + RAND_SIZE + TIMER_SIZE + (NEWKEY_PADLEN)
+#define NEWKEY_FULLSIZE MSGTYPE_SIZE + ID_SIZE + NEWKEY_CRYPTSIZE + BLOCK_BYTE_SIZE
+
+/*
+ Defines for message identifiers  
+ */
 #define MSG_T_GET_ID_R           0x10
 #define MSG_T_KEY_TO_SINK        0x11
 #define MSG_T_KEY_TO_SENSE       0x12
@@ -62,7 +71,6 @@
 #define MSG_T_REKEY_RESPONSE     0x32
 #define MSG_T_FINISH             0x90
 #define MSG_T_ERROR              0xff
-// TODO: NOT CLEAR ON 0x11 and 0x1F from the protocol definition
 
 /*
   Struct
@@ -76,6 +84,7 @@ struct message
   byte_ard* key;                  // The key sent in key exchange and re-keying
   byte_ard* ciphertext;           // When forwarding ciphertext
   u_int32_ard timer;              // re-keying timer
+  u_int32_ard rand;               // Random number (the new key-material)
 };
 
 /*
@@ -97,8 +106,8 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
 void pack_rekey(struct message* msg, const u_int32_ard* pKeys,  const u_int32_ard* pCmacKeys, void* pBuffer);
 void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
-void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
-void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
+void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
+//void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
 /* Cannot define IV here for some reason. Investigate */
 

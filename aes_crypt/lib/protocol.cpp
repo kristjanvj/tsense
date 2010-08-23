@@ -6,6 +6,8 @@
    Tsense Protocol methods. Written in C++ to ensure comptability with Arduino
    Wiring, but made to be compilable with gcc and g++.
 
+   Documentation: please see ldsswiki.ru.is
+
  */
 
 #include "protocol.h"
@@ -367,13 +369,13 @@ void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
   msg->nonce = (u_int16_ard)*temp_nonce;
   free(temp_nonce);
 }
-void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
+void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
 {
-  /*
   byte_ard* cBuffer = (byte_ard*)pBuffer;
-  cBuffer[0] = 0x31;
-  msg->msgtype = 0x31;
+  cBuffer[0] = MSG_T_REKEY_RESPONSE;
 
+  msg->msgtype = MSG_T_REKEY_RESPONSE;
+  
   for(u_int16_ard i = 0; i < ID_SIZE; i++)
   {
     cBuffer[MSGTYPE_SIZE + i] = msg->pID[i];
@@ -386,7 +388,7 @@ void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, const u_int32_a
     temp[i] = msg->pID[i];
   }
   byte_ard* temp_nonce = (byte_ard*)&msg->nonce;
-  for (u_int16_ard i = 0; i < NONCE_SIZE: i++)
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
     temp[ID_SIZE + i] = temp_nonce[i];
   }
@@ -420,9 +422,8 @@ void pack_newkey(struct messsage* msg, const u_int32_ard* pKeys, const u_int32_a
   {
     cBuffer[MSGTYPE_SIZE + ID_SIZE + NEWKEY_CRYPTSIZE + i] = msg->cmac[i];
   }
-*/
   
 }
-void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
-{
-}
+//void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
+//{
+//}
