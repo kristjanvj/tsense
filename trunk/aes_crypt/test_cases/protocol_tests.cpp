@@ -294,6 +294,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
   return retval;
 } 
 
+
 int rekeytest(u_int16_ard n, byte_ard* id)
 {
   int retval = 1;
@@ -301,7 +302,6 @@ int rekeytest(u_int16_ard n, byte_ard* id)
   printf("rekey: ");
 
   struct message sendmsg;
-  sendmsg.pID = (byte_ard*)malloc(ID_SIZE);
   sendmsg.pID = id;
   sendmsg.nonce = n;
 
@@ -341,6 +341,10 @@ int rekeytest(u_int16_ard n, byte_ard* id)
   {
     fprintf(stderr, "Failed nounce.\n");
   }
+
+  free (recvmsg.pID);
+  free (recvmsg.ciphertext);
+ 
   return retval;
 }
 
