@@ -16,7 +16,7 @@ int generateKey(byte_ard *newKey)
 
 	if(urandom)
     {
-		for(u_int32_ard i=0; i<BLOCK_BYTE_SIZE; i++)
+		for(u_int32_ard i=0; i<KEY_BYTES; i++)
         {
 			f = fread(&res, 1, sizeof(res), urandom);
 			newKey[i] = res;
