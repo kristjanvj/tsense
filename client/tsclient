@@ -8,10 +8,24 @@ The tsclient interfaces with a sensor (tsensor) on a serial (USB) port and a sin
 on a socket connection. Its function is in essence to forward messages unmodified back 
 and forth between sensor and sink.
 
+Usage:
+  -h|--help                 Display help message	
+  -v|--version              Display version info
+  -s|--sink-server-addr     Set the sink server address (default 'localhost')
+  -p|--sink-server-port     Set the sink server port (default 5556)
+  -c|--sensor-conn-str      Set the sensor connection string (default: /dev/ttyUSB*)
+  -b|--sensor-baud-rate     Set the sensor connection baud rate (default: 9600)
+  -t|--timeout-value        Set the timeout value for reads (nonblocking)
+
 Kristjan V. Jonsson, Benedikt Kristinsson
 2010
 
 """
+
+__product_name__ = "tsclient"
+__author__ = "Kristjan V. Jonsson, Benedikt Kristinsson"
+__version__ = "0.1.1"
+
 
 import sys
 import getopt
@@ -323,6 +337,13 @@ def listenAndForwardLoop(ser,logger):
 			ser.write(rbuf)
 				
 def main(argv=None):
+	global usb_conn_str
+	global usb_baud_rate
+	global usb_timeout
+	global socket_host
+	global socket_port
+	global socket_timeout
+	
 	if argv is None:
 		argv = sys.argv
 
@@ -330,7 +351,8 @@ def main(argv=None):
 		# config parameters here. 
 		try:
 			try:
-				opts, args = getopt.getopt(argv[1:], "h", ["help"])
+				opts, args = getopt.getopt(argv[1:], "hvs:p:c:b:t:", \
+                  ["help","version","sink-server-addr=","sink-server-port=","sensor-conn-str=","sensor-baud-rate=","timeout-value="])
 			except getopt.error, msg:
 				raise Usage(msg)
 		except Usage, err:
@@ -341,6 +363,29 @@ def main(argv=None):
 			if o in ("-h", "--help"):
 				print __doc__
 				sys.exit(0)
+			if o in ("-v", "--version"):
+				print __product_name__,__version__
+				sys.exit(0)
+			if o in ("-s", "--sink-server-addr"):
+				socket_host = a
+			if o in ("-p", "--sink-server-port"):
+				socket_port = string.atoi(a)
+			if o in ("-c", "--sensor-conn-str"):
+				usb_conn_str = a
+			if o in ("-b", "--sensor-baud-rate"):
+				usb_baud_rate = string.atoi(a)
+			if o in ("-t", "--timeout-value"):
+				usb_timeout=socket_timeout=string.atoi(a)
+
+	print "\n\ntsclient"
+	print "========\n"
+	print "\tUSB conneciton string: '%s'" % usb_conn_str
+	print "\tUSB baud rate: %d" % usb_baud_rate
+	print "\tUSB timeout: %d sec" % usb_timeout
+	print "\tSink address: '%s'" % socket_host
+	print "\tSink port: %d" % socket_port
+	print "\tSink socket timeout: %d sec" % socket_timeout
+	print "\n\n"
 
 	# Set the logger log level	
 	log_level = logging.DEBUG
