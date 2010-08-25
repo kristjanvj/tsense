@@ -8,7 +8,7 @@ The tsclient interfaces with a sensor (tsensor) on a serial (USB) port and a sin
 on a socket connection. Its function is in essence to forward messages unmodified back 
 and forth between sensor and sink.
 
-Usage:
+Command line options:
   -h|--help                 Display help message	
   -v|--version              Display version info
   -s|--sink-server-addr     Set the sink server address (default 'localhost')
@@ -16,6 +16,8 @@ Usage:
   -c|--sensor-conn-str      Set the sensor connection string (default: /dev/ttyUSB*)
   -b|--sensor-baud-rate     Set the sensor connection baud rate (default: 9600)
   -t|--timeout-value        Set the timeout value for reads (nonblocking)
+
+ctrl-c exits.
 
 Kristjan V. Jonsson, Benedikt Kristinsson
 2010
@@ -48,7 +50,7 @@ debug_dump_buffers = False	# Dump buffers received from sensor/sink in readable 
 #
 cur_maj_ver = 0
 cur_min_ver = 1
-cur_revision = 20
+cur_revision = 22
 
 #
 # The USB (serial) port parameters for the sensor connection
@@ -65,6 +67,12 @@ socket_port = 5556
 socket_timeout = 5
 
 #
+# Other sensor parameter
+#
+sampling_interval	 = 5   # seconds between samples
+sampling_buffer_size = 20  # Samples per interface per report
+
+#
 # Message type definitions. Message identifiers are carried in the first byte of all messages.
 # See the protocol definition on the wiki page for details
 #
@@ -78,13 +86,18 @@ MSG_T_REKEY_HANDSHAKE   = 0x31
 MSG_T_FINISH            = 0x90
 MSG_T_ERROR             = 0xff
 # The sensor/client protocol (USB conn only)
-MSG_T_SENSOR_ID_Q = 0x40
-MSG_T_FREE_MEM_Q  = 0x50
-MSG_T_FREE_MEM_R  = 0x51
-MSG_T_STATE_Q     = 0x52
-MSG_T_STATE_R     = 0x53
-MSG_T_VERSION_Q   = 0x54
-MSG_T_VERSION_R	  = 0x55
+MSG_T_ACK 					   = 0x4F
+MSG_T_SENSOR_ID_Q              = 0x40
+MSG_T_FREE_MEM_Q               = 0x50
+MSG_T_FREE_MEM_R               = 0x51
+MSG_T_STATE_Q                  = 0x52
+MSG_T_STATE_R                  = 0x53
+MSG_T_VERSION_Q                = 0x54
+MSG_T_VERSION_R	               = 0x55
+MSG_T_SET_TIME_CMD             = 0x74  
+MSG_T_SET_SAMLPLE_INTERVAL_CMD = 0x75
+MSG_T_SET_SAMPLE_BUF_SIZE_CMD  = 0x76
+
 # Length of messages in bytes
 MSG_T_SENSOR_ID_R_LEN = 39
 MSG_T_FREE_MEM_R_LEN  = 3
@@ -248,6 +261,55 @@ def sendStatusQuery(ser,logger):
 		raise Exception("Unexpected return 0x%.2x for status query" % resp[0])
 	logger.info("SENSOR: Status report. State: 0x%.2x, error: 0x%.2x" % (ord(resp[1]),ord(resp[2])))
 
+def readAck(ser,logger):
+	"""
+	Read an expected ACK message from the sensor. Expected 2 bytes, ACK message code
+	and a result code. See protocol description for details.
+	An ACK message is only expected for the USB-only protocol and only for commands, that is
+	protocol messages that do not return data.
+	"""
+	res = ser.read(2);
+	if not ord(res[0]) == MSG_T_ACK: 
+		logger.error("Unexpected message from sensor. Expected ACK, got 0x%.2x" % ord(res[0]))
+	return ord(res[1])
+
+def sendSetTimeCmd(timeval,ser,logger):
+	"""
+	Set the current sensor time. 5 bytes are sent -- message code and four bytes of time, ordered
+	lowest to highest. An ACK message is expected in return.
+	"""
+	cmd=chr(MSG_T_SET_TIME_CMD)
+	ser.timeout = usb_timeout
+	ser.write(cmd);
+	ser.write(chr(timeval & 0xFF))
+	ser.write(chr(timeval>>8 & 0xFF))
+	ser.write(chr(timeval>>16 & 0xFF))
+	ser.write(chr(timeval>>24 & 0xFF))
+	logger.info("SENSOR: Set time to %ld. Return code: 0x%.2x" % (timeval,readAck(ser,logger)))
+
+def sendSetSamplingIntervalCmd(interval,ser,logger):
+	"""
+	Set the sensor sampling interval in seconds. Two bytes are sent -- message code and the sampling
+	interval as a single byte. An ACK is expected in return.
+	"""
+	cmd=chr(MSG_T_SET_SAMLPLE_INTERVAL_CMD)
+	ser.timeout = usb_timeout
+	ser.write(cmd);
+	ser.write(chr(interval))
+	logger.info("SENSOR: Set sampling interval to %d seconds. Return code: 0x%.2x" % (interval,readAck(ser,logger)))
+
+def sendSetSampleBufferSizeCmd(size,ser,logger):
+	"""
+	Set the sensor sample buffer size, that is, how many items are buffered per interface before
+	reporting. Two bytes are sent, the message code and a single byte for the size. An ACK
+	is expected in return.
+	"""
+	cmd=chr(MSG_T_SET_SAMPLE_BUF_SIZE_CMD)
+	ser.timeout = usb_timeout
+	ser.write(cmd);
+	ser.write(chr(size))
+	logger.info("SENSOR: Set buffer size to %d samples per interface. Return code: 0x%.2x" % (size,readAck(ser,logger)))
+
 def sendIdQuery(ser,logger):
 	"""
 	Send an id query to the sensor. This message bootstraps the authentication 
@@ -380,11 +442,11 @@ def main(argv=None):
 	print "\n\ntsclient"
 	print "========\n"
 	print "\tUSB conneciton string: '%s'" % usb_conn_str
-	print "\tUSB baud rate: %d" % usb_baud_rate
-	print "\tUSB timeout: %d sec" % usb_timeout
-	print "\tSink address: '%s'" % socket_host
-	print "\tSink port: %d" % socket_port
-	print "\tSink socket timeout: %d sec" % socket_timeout
+	print "\tUSB baud rate:         %d" % usb_baud_rate
+	print "\tUSB timeout:           %d sec" % usb_timeout
+	print "\tSink address:          '%s'" % socket_host
+	print "\tSink port:             %d" % socket_port
+	print "\tSink socket timeout:   %d sec" % socket_timeout
 	print "\n\n"
 
 	# Set the logger log level	
@@ -418,11 +480,18 @@ def main(argv=None):
 		# Send an id query
 		try:
 			# Send a version query and validate the result to help prevent headaches
-			# caused by out-of-date sensor boards
 			version=sendVersionQuery(ser,logger)
 			if not check_version_valid(version):
-				logger.error("This sensor version is really old. Please update")
+				logger.error("This sensor version is really old. Please update. "
+							  "Current minimum version is %.2d.%.2d.%.2d" % \
+                              (cur_maj_ver,cur_min_ver,cur_revision))
 				sys.exit(-1)
+			# Set the current time, sampling interval and sample buffer size			
+			timeval=int(time())
+			sendSetTimeCmd(timeval,ser,logger)
+			sendSetSamplingIntervalCmd(sampling_interval,ser,logger)
+			sendSetSampleBufferSizeCmd(sampling_buffer_size,ser,logger)
+			# caused by out-of-date sensor boards
 			# Send memory and status queries to help with debugging
 			sendMemoryQuery(ser,logger)
 			sendStatusQuery(ser,logger)
