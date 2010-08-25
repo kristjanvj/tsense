@@ -27,11 +27,8 @@
 
 /*
  *  UNFINISHED:
- *   - Test authentication protocol w. rest of the chain
- *   - Add key derivation for MAC keys
- *   - Code the data transfer protocol message -- crypted data transfer
  *   - Check if heap allocation of expanded keys is more efficient than stack allocation on Arduino
- *   - Use re-key counter to periodically refresh crypto keys
+ *   - Use re-key counter to periodically refresh crypto keys. Code this in conjunction with data transfer protocol.
  */
 
 //
@@ -41,7 +38,17 @@
 // remove for "production" builds.
 //
 
+
+//
+// Version of sensor software. This is used for compatibility checking with the client software to
+// help prevent weird bugs due to out of date sensor software.
+//
+#define MAJOR_VERSION   0
+#define MINOR_VERSION   1
+#define REVISION       22
+
 #include <EEPROM.h>
+#include <stdlib.h>
 #include "aes_cmac.h"
 #include "aes_crypt.h"
 #include "protocol.h"
@@ -49,7 +56,14 @@
 #include "devinfo.h"    // TODO: REMOVE -- INTEGRATE WITH PROTOCOL INFO AND OTHER HEADERS
 #include "edevdata.h"   // The EEPROM data layout
 #include "memoryFree.h"
+#include "tsense_keypair.h"
 
+void* operator new(size_t size) { return malloc(size); }
+void operator delete(void* ptr) { free(ptr); }
+
+//
+// The debug defines
+//
 //#define verbose   // Verbose output to the serial interface.
 //#define debug     // Debug output to the serial interface.
 //#define testcounters // Counters used to generate the measurements rather than analog input
@@ -71,6 +85,7 @@
 
 //
 // T <-> C protocol messages. Common protocol message definitons are included in protocol.h
+// See the protocol definition wiki page for details
 //
 #define MSG_T_ACK                0x4F
 //
@@ -79,10 +94,15 @@
 #define MSG_T_FREE_MEM_R         0x51
 #define MSG_T_STATE_Q            0x52
 #define MSG_T_STATE_R            0x53
+#define MSG_T_VERSION_Q          0x54
+#define MSG_T_VERSION_R          0x55
 //
-#define MSG_T_START_CMD          0x71 
-#define MSG_T_STOP_CMD           0x72
-#define MSG_T_RUN_TEST_CMD       0x73
+#define MSG_T_START_CMD                0x71  // To manually start the data acquisition -- testing only
+#define MSG_T_STOP_CMD                 0x72  // To manually stop the data acquisition -- testing only
+#define MSG_T_RUN_TEST_CMD             0x73  // Run a crypto test using the FIPS test vectors
+#define MSG_T_SET_TIME_CMD             0x74  // Set the current time
+#define MSG_T_SET_SAMLPLE_INTERVAL_CMD 0x75
+#define MSG_T_SET_SAMPLE_BUF_SIZE_CMD  0x76
 //
 #define MSG_ACK_NORMAL           0x00
 #define MSG_ACK_UNKNOWN_MESSAGE  0x01
@@ -93,20 +113,10 @@
 //
 #define STATE_BIT_RUNNING 0   // Set to 1 when capture running -- sensor fully initialized
 #define STATE_BIT_ERROR   1   // Set to 1 if error occurs
-// State but 2 is reserved
+// State bit 2 is reserved
 #define STATE_BIT_BLINK   3   // Utility bit to blink status led in standby mode
 #define STATE_BIT_MASK    0x07
 #define STATE_ERR_CODE_OFFSET 4
-
-//
-// The protocol state word bit definitions
-//
-#define PROT_STATE_STANDBY         0x00
-#define PROT_STATE_ID_DELIVERED    0x01
-#define PROT_STATE_SESSION_KEY_SET 0x02
-#define PROT_STATE_REKEY_PENDING   0x03
-#define PROT_STATE_KEY_READY       0x10
-
 //
 // Error code definitions -- max 4 bits. Kept in the upper 4 bits of the state byte
 //
@@ -117,14 +127,28 @@
 #define ERR_CODE_ID_RESPONSE_ERROR         0x04
 #define ERR_CODE_UNEXPECTED_KEY_TO_SENSE   0x05
 #define ERR_CODE_UNEXPECTED_REKEY_MESSAGE  0x06
+#define ERR_CODE_GEN_PROTOCOL_ERROR        0x07
+
+//
+// The protocol state word definitions
+//
+#define PROT_STATE_STANDBY         0x00
+#define PROT_STATE_ID_DELIVERED    0x01
+#define PROT_STATE_SESSION_KEY_SET 0x02
+#define PROT_STATE_REKEY_PENDING   0x03
+#define PROT_STATE_KEY_READY       0x10
 
 //
 // Protocol/policy related defines
 //
 #define MIN_NONCE_OFFSET  3        // The maximum staleness of nonce received back from authentication server.
 #define NONCE_INIT_MAX    10000    // The maximum value of the nonces in the beginning
-#define TIMEOUT_INTERVAL  60000    // timeout interval in msec
+#define TIMEOUT_INTERVAL  10000    // timeout interval in msec. For intermediary protocol states.
 #define NONCE_MAX_VALUE   65536    // The max for a 16 bit nonce
+#define DEFAULT_REKEY_INTERVAL 0   // The default re-keying interval. Used if t=0 delivered from sink. 0: no key expiration.
+
+
+#define SHORT_DELAY 100  // The short delay used when the sensor is not in sampling mode.
 
 //
 // Sensor state variables
@@ -141,15 +165,16 @@ u_int32_ard *pMsgTime=NULL;                 // Pointer to the time field in the 
 byte_ard headerByteSize=0;                  // The size of the header portion of measBuffer
 byte_ard recordByteSize;                    // The size of a single record in measBuffer -- one record is one sample per interface
 
-byte_ard *pSessionKey=NULL;    // The session key delivered from the authentication service
-byte_ard *pCryptoKey=NULL;     // The crypto key delivered upon re-keying from sink server.
-u_int16_ard rekeyCounter=0;    // The re-keying counter
-u_int16_ard rekeyInterval=0;   // The re-keying interval -- delivered in message from sink server.
-
 u_int16_ard idNonce=0;         // Use separate nonces for each message type. The nonces are counters w. wrap around
 u_int16_ard rekeyNonce=0;      // and start at some randomly chosen initial value.
 
-u_int16_ard timeout; // Soft state timeout for the communications protocol
+u_int32_ard timeout;           // Soft state timeout for the communications protocol
+
+TSenseKeyPair *sessionKeys=NULL;         // The session key delivered from the authentication service
+TSenseKeyPair *transportKeys=NULL;       // The crypto key delivered upon re-keying from sink server.
+u_int16_ard sessionKeyUseCounter=0;      // Session keys usage counter
+u_int16_ard transportKeyUseCounter=0;    // Transport key usage counter
+u_int16_ard rekeyInterval=DEFAULT_REKEY_INTERVAL; // The re-keying interval for the transport key -- delivered in message from sink server.
 
 
 /**
@@ -167,7 +192,7 @@ void setup(void)
   // good enough source of initial randomness.
   idNonce = random(NONCE_INIT_MAX);     
   rekeyNonce = random(NONCE_INIT_MAX);
- 
+   
   // Set pinMode of digital pins to output
   pinMode(LED_STATUS,OUTPUT); 
   pinMode(LED_SIGNAL_1,OUTPUT);
@@ -175,9 +200,9 @@ void setup(void)
   pinMode(LED_SIGNAL_3,OUTPUT);
   pinMode(LED_SIGNAL_4,OUTPUT);
   digitalWrite(LED_STATUS,LOW);
- 
+   
   // Initialize the serial port
-  Serial.begin(9600);    
+  Serial.begin(9600);
   Serial.flush();
     
   #ifdef verbose    
@@ -205,14 +230,15 @@ void setup(void)
  */
 void loop(void) 
 {      
-  // static int blinkcounter=0; // Only for fun!
+  static byte_ard timeUpdateCounter=0;
   
   // Check on protocol timeouts
   if ( timeout > 0 )
   {
-    if( timeout <= millis() )
+    if( timeout <= millis() ) 
     {
       // millis returns the number of msecs since the program began executing
+      // If the timeout set equals the current time then reset
       setProtocolState(PROT_STATE_STANDBY);
     }  
   }
@@ -220,26 +246,21 @@ void loop(void)
   if( Serial.available() ) 
   {
     // First, check if there is a pending command
-    // TODO: THe protocol needs to be coded into the getCommand function
     getCommand();  
   }
 
-  // Set all LEDs in default state
-  digitalWrite(LED_SIGNAL_1,LOW);
-  digitalWrite(LED_SIGNAL_2,LOW);
-  digitalWrite(LED_SIGNAL_3,LOW);
-  digitalWrite(LED_SIGNAL_4,LOW);
-        
   if ( getRunState() ) // Bit 0 is the running bit
   {
     // Running state
-    digitalWrite(LED_STATUS,HIGH);
-    
+    digitalWrite(LED_STATUS,HIGH);    
     sampleAndReport();  // This function delays for at least a second
+    // Update the current time. Note that we rely on the delay command to keep
+    // reasonably accurate time. The currentTime and samplingInterval are in seconds.
+    currentTime += samplingInterval; 
   }
   else
   {        
-    delay(100);   // Delay for a while
+    delay(SHORT_DELAY);   // Delay for a while
     if( getErrorState() ) 
     {  
       // Error state. Turn off the status LED
@@ -248,31 +269,18 @@ void loop(void)
     }
     else
     {
-      // Standby state -- Blink the status LED
+      // Standby state -- Blink the status LED if not in running and error is not set
       if( bitRead(state,STATE_BIT_BLINK)==0 )
         digitalWrite(LED_STATUS,HIGH);
       else
         digitalWrite(LED_STATUS,LOW);
       bitWrite(state,STATE_BIT_BLINK,!bitRead(state,STATE_BIT_BLINK)); // Toggle led -- bit 3 is the blink bit
-      
-      // Set the status leds to reflect the protocol state
-      switch( protocolState )
-      {
-        case PROT_STATE_STANDBY:
-          break; // all off
-        case PROT_STATE_ID_DELIVERED:
-          digitalWrite(LED_SIGNAL_1,HIGH);
-          break;
-        case PROT_STATE_SESSION_KEY_SET:
-          digitalWrite(LED_SIGNAL_2,HIGH);
-          break;
-        case PROT_STATE_REKEY_PENDING:
-          digitalWrite(LED_SIGNAL_3,HIGH);
-          break;        
-        case PROT_STATE_KEY_READY:
-          digitalWrite(LED_SIGNAL_4,HIGH);
-          break;        
-      }      
+    }
+    // Update the clock
+    if ( ++timeUpdateCounter >= 1000/SHORT_DELAY )
+    {
+      currentTime++;
+      timeUpdateCounter=0;
     }
   } 
 }
@@ -287,9 +295,6 @@ void loop(void)
  */
 void getCommand() 
 {   
-  // TODO: Patch in the rest of the protocol here
-  // TODO: Use pack/unpack functions from the protocol library
-   
   // Check if there is waiting data.
   if ( Serial.available() > 0 )
   {    
@@ -306,11 +311,17 @@ void getCommand()
       case MSG_T_ID_RESPONSE_ERROR:
         handleIdResponseError();
         break;
-      case MSG_T_KEY_TO_SENSE:           // New (encrypted) session key package received from authentication server                                
-        handleKeyToSense();              // via S and C.
+      case MSG_T_KEY_TO_SENSE:       // New (encrypted) session key package received from authentication server                                
+        handleKeyToSense();          // via S and C.
         break;
       case MSG_T_REKEY_RESPONSE:
         handleRekeyResponse();
+        break;
+      case MSG_T_FINISH:
+        handleFinish();
+        break;
+      case MSG_T_ERROR:
+        handleGeneralProtocolError();
         break;
       case MSG_T_START_CMD:
         doStart(); // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
@@ -324,8 +335,20 @@ void getCommand()
       case MSG_T_STATE_Q:
         sendCurrentState();
         break;    
+      case MSG_T_VERSION_Q:
+        handleVersionQuery();
+        break;
       case MSG_T_RUN_TEST_CMD:
         doEncryptDecryptTest();     
+        break;
+      case MSG_T_SET_TIME_CMD:
+        handleSetTimeCmd();
+        break;
+      case MSG_T_SET_SAMLPLE_INTERVAL_CMD:
+        handleSetSamplingRateCmd();
+        break;
+      case MSG_T_SET_SAMPLE_BUF_SIZE_CMD:        
+        handleSetSampleBufferSizeCmd();
         break;
       default:
         Serial.flush(); // Crear the crud
@@ -346,25 +369,25 @@ void getCommand()
  */
 void handleDeviceIdQuery()
 {
-  // Only handle if the sensor is in standby mode
-  if ( protocolState != PROT_STATE_STANDBY )
+  // Only handle if the sensor is in standby mode or id delivered mode. We dont want the sensor
+  // state to be messed up by spurious device id queries.
+  if ( protocolState != PROT_STATE_STANDBY && protocolState != PROT_STATE_ID_DELIVERED )
   {
     Serial.flush(); // Get rid of crud
     return;  
   }
   
   byte_ard pBuffer[IDMSG_FULLSIZE];
-  
-  byte_ard key[KEY_BYTES];
-  getPrivateKeyFromEEPROM(key);  // Get the private key from the EEPROM
-  // Expand crypto key schedule
-  byte_ard keys[KEY_BYTES*11];
-  KeyExpansion(key,keys);
-  // Expand authentication key schedule -- key derivation of MAC key missing at the moment
-  byte_ard macKeys[KEY_BYTES*11];
-  KeyExpansion(key,macKeys);
+    
+  // Get the private key from the EEPROM
+  byte_ard masterKeyBuf[KEY_BYTES];
+  getPrivateKeyFromEEPROM(masterKeyBuf);  
+  // FIXME: Use publicly available constant once defined
+  byte_ard cmaster[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+  TSenseKeyPair masterKeys(masterKeyBuf,cmaster);
 
-  byte_ard idbuf[DEV_ID_LEN];  // Get the id from EEPROM
+  // Get the public id from EEPROM
+  byte_ard idbuf[DEV_ID_LEN];  
   getPublicIdFromEEPROM(idbuf);
   
   // Increment the nonce
@@ -375,12 +398,12 @@ void handleDeviceIdQuery()
   message msg;
   msg.pID=idbuf;
   msg.nonce=idNonce;  
-  msg.key=key;
     
   // Call the pack function to construct the message
   // See protocol.cpp for details. Encrypts and MACs the message and returns in pBuffer.
-  pack_idresponse(&msg,(const u_int32_ard *)keys,(const u_int32_ard *)macKeys,(void *)pBuffer);
-  
+  pack_idresponse( &msg, (const u_int32_ard *)masterKeys.getCryptoKeySched(),
+                   (const u_int32_ard *)masterKeys.getMacKeySched(), (void *)pBuffer);
+   
   // Write the crypto buffer to the serial port
   Serial.write(pBuffer,IDMSG_FULLSIZE);
   Serial.flush();
@@ -395,10 +418,9 @@ void handleDeviceIdQuery()
  */
 void handleIdResponseError()
 {
-  // TODO 
+  // TODO: CHECK HANDLING
   setProtocolState(PROT_STATE_STANDBY);
-  setErrorState(ERR_CODE_ID_RESPONSE_ERROR);
-  
+  setErrorState(ERR_CODE_ID_RESPONSE_ERROR); 
   Serial.flush();
 }
 
@@ -419,33 +441,33 @@ void handleKeyToSense()
     return;  
   }
   
-  byte_ard key[KEY_BYTES];
-  getPrivateKeyFromEEPROM(key);  // Get the private key from the EEPROM
-  byte_ard keys[KEY_BYTES*11];
-  KeyExpansion(key,keys);  
- 
-  // The struct to hold unpacked results
-  message msg;
- 
-  // The raw command buffer -- unpack into the message struct to process
+  // Get the private key from the EEPROM
+  byte_ard pMasterKeyBuf[KEY_BYTES]; 
+  getPrivateKeyFromEEPROM(pMasterKeyBuf);  
+  
+  // Construct the master key schedules
+  // FIXME: Use the predefined constant (once decided) and load from EEPROM
+  byte_ard cmaster[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+  TSenseKeyPair masterKey(pMasterKeyBuf,cmaster);  // TODO: CHECK KEY OBJECT ALLOCATION
+  
+  // Allocate the raw command buffer and read the expected number of bytes
   byte_ard *pCommandBuffer = (byte_ard *)malloc(KEYTOSENS_FULLSIZE); 
   readFromSerial(pCommandBuffer,KEYTOSENS_FULLSIZE);
+      
+  // Unpack the command buffer to a message struct and free the buffer
+  message msg;
+  unpack_keytosens(pCommandBuffer,(const u_int32_ard *)masterKey.getCryptoKeySched(),&msg);  
+  free(pCommandBuffer);
   
-  // First, check the MAC
-  // TODO: SHOULD UNPACK HANDLE MAC VERIFICATION????
-  byte_ard cmac_buff[BLOCK_BYTE_SIZE];
-  byte_ard authKeys[KEY_BYTES*11];
-  KeyExpansion(key,authKeys);     // TODO: NEED THE AUTHENTICATION KEY!!
-  aesCMac((const u_int32_ard*)authKeys, msg.ciphertext, KEYTOSINK_CRYPTSIZE, cmac_buff);  // TODO: CHECK LENGHT
-  if (strncmp((const char*)msg.cmac, (const char*)cmac_buff, BLOCK_BYTE_SIZE) != 0)
+  // Check the MAC against the encrypted data
+  if ( !verifyAesCMac( (const u_int32_ard *)masterKey.getMacKeySched(), 
+                       msg.ciphertext, KEYTOSENS_FULLSIZE, msg.cmac ) )
   {
     setErrorState(ERR_CODE_MAC_FAILED);
     setProtocolState(PROT_STATE_STANDBY);
+    free(pCommandBuffer);
     return;     
   }
-    
-  unpack_keytosens(pCommandBuffer,(const u_int32_ard *)keys,&msg);
-  free(pCommandBuffer);
   
   // Check nonce
   // Check if the nonce is too old. A certain range must be allowed to account for the client 
@@ -458,18 +480,23 @@ void handleKeyToSense()
   
   // TODO: CHECK OTHER PARAMS
           
-  // Save the session key
-  if ( pSessionKey!=NULL )
-    free(pSessionKey);
-  pSessionKey = (byte_ard*)malloc(KEY_BYTES);
-  memcpy(pSessionKey,msg.key,KEY_BYTES);
-  // Set the rekey counter and interval. Use default if t=0
-  rekeyCounter=0;
-  rekeyInterval=msg.timer;
+  // FIXME: Use publicly defined const once its decided and load from EEPROM
+  // Store the session key in a keypair object
+  byte_ard c[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
+  if (sessionKeys!=NULL)
+    delete sessionKeys;
+  sessionKeys = new TSenseKeyPair(msg.key,c);
+  if ( msg.timer==0 )
+    rekeyInterval=DEFAULT_REKEY_INTERVAL;
+  else
+    rekeyInterval=msg.timer;
+  sessionKeyUseCounter=0; // Set the session key use counter to zero since we have a fresh key
     
+  // Update the protocol state
   setProtocolState(PROT_STATE_SESSION_KEY_SET);  
     
-  sendRekeyRequest();  // Send a rekey request to the associated S
+  // Send a rekey request to the associated S
+  sendRekeyRequest();  
 }
 
 /**
@@ -479,37 +506,33 @@ void handleKeyToSense()
  */
 void sendRekeyRequest()
 {
-  if (pSessionKey==NULL)
+  if ( sessionKeys == NULL )
     return; // Should not happen! TODO: HANDLE BETTER
     
   // Increment the nonce
   rekeyNonce++;
   rekeyNonce %= NONCE_MAX_VALUE; // Wrap around
   
-  byte_ard idbuf[DEV_ID_LEN];  // Get the id from EEPROM
+  // Get the public devie id from EEPROM
+  byte_ard idbuf[DEV_ID_LEN];  
   getPublicIdFromEEPROM(idbuf);
     
+  // Construct the message struct and fill in the needed fields.
   message msg;
   msg.nonce=rekeyNonce;
   msg.pID = idbuf;
-  
-  // TODO: Check stack vs heap allocation of encryption key schedules
-  // Expand crypto key schedule
-  byte_ard *keys = (byte_ard *)malloc(KEY_BYTES*11);
-  KeyExpansion(pSessionKey,keys);
-  // Expand authentication key schedule
-  byte_ard *macKeys = (byte_ard *)malloc(KEY_BYTES*11);
-  KeyExpansion(pSessionKey,macKeys); // TODO: MAC key derivation missing at the moment
 
+  // Pack, encrypt and MAC the message using the session key.
   byte_ard *buffer = (byte_ard *)malloc(REKEY_FULLSIZE);
-  pack_rekey(&msg, (const u_int32_ard *)keys, (const u_int32_ard *)macKeys, buffer);  
+  pack_rekey( &msg, (const u_int32_ard *)sessionKeys->getCryptoKeySched(), 
+              (const u_int32_ard *)sessionKeys->getMacKeySched(), buffer );  
+  sessionKeyUseCounter++;  // Keep track of how often the key has been used
   
-  Serial.write(buffer,REKEY_FULLSIZE);
-  
+  // Write the buffer to serial and free
+  Serial.write(buffer,REKEY_FULLSIZE);  
   free(buffer);
-  free(keys);
-  free(macKeys);
 
+  // Update the protocol state
   setProtocolState(PROT_STATE_REKEY_PENDING);
 }
 
@@ -529,53 +552,117 @@ void handleRekeyResponse()
     Serial.flush(); // Get rid of crud
     return;  
   }
-
-  if ( pSessionKey == NULL )
-    return; // TODO: CHECK HANDLING
- 
-  message msg; // A message struct to hold unpacked message
-  
-  // Expand keys
-  byte_ard *keys = (byte_ard *)malloc(KEY_BYTES*11);
-  KeyExpansion(pSessionKey,keys);
-
-  // Allocate a receive buffer and read from the serial port
+   
+  // Allocate a receive buffer and read the expected number of bytes from the serial port
   byte_ard *pCommandBuffer = (byte_ard *)malloc(REKEY_FULLSIZE);  // TODO: CHECK THE BUFFER SIZE
   readFromSerial(pCommandBuffer,REKEY_FULLSIZE);
-  
-  // First, check the MAC
-  byte_ard cmac_buff[BLOCK_BYTE_SIZE];
-  byte_ard authKeys[KEY_BYTES*11];
-  KeyExpansion(pSessionKey,authKeys);     // TODO: NEED THE AUTHENTICATION KEY!!
-  aesCMac((const u_int32_ard*)authKeys, msg.ciphertext, REKEY_CRYPTSIZE, cmac_buff);  // TODO: CHECK LENGHT
-  if (strncmp((const char*)msg.cmac, (const char*)cmac_buff, BLOCK_BYTE_SIZE) != 0)
+
+  // Unpack the raw buffer into a message struct
+  message msg; 
+  unpack_rekey(pCommandBuffer,(const u_int32_ard *)sessionKeys->getCryptoKeySched(),&msg);   // TODO: Should this be unpack_newkey ???
+  free(pCommandBuffer);
+
+  // Check the MAC against the encrypted data
+  if ( !verifyAesCMac( (const u_int32_ard *)sessionKeys->getMacKeySched(), msg.ciphertext, REKEY_CRYPTSIZE, msg.cmac ) )
   {
     setErrorState(ERR_CODE_MAC_FAILED);
     setProtocolState(PROT_STATE_STANDBY);
     return;     
   }
     
-  unpack_rekey(pCommandBuffer,(const u_int32_ard *)keys,&msg);
-  free(pCommandBuffer);
-
-  // Save the crypto key
-  if ( pCryptoKey!=NULL )
-    free(pCryptoKey);
-  pCryptoKey = (byte_ard*)malloc(KEY_BYTES);
-  memcpy(pCryptoKey,msg.key,KEY_BYTES);
-
+  // FIXME: Use the public constant once defined
+  // Save the transport key
+  byte_ard c[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 };
+  transportKeys = new TSenseKeyPair(msg.key,c);
   // Reset the rekey counter since we have a fresh key
-  rekeyCounter=0; 
+  transportKeyUseCounter=0; 
   
+  // Update the protocol state and start the capture
   setProtocolState(PROT_STATE_KEY_READY);
-  doStart(); // Start the capture
+  doStart();
 }
  
+/**
+ *  handleFinish
+ *
+ *  Handle a received finish message.
+ */
+void handleFinish()
+{
+  // Stop data acquisition, if running, and reset the protocol state to standby.
+  doStop();  
+  setProtocolState(PROT_STATE_STANDBY);
+  // TODO: Other cleanup?? 
+}
+
+/**
+ *  handleGeneralProtocolError
+ *
+ *  Handle a received protocol error message. Set error state on the sensor.
+ */
+void handleGeneralProtocolError()
+{
+  doStop();
+  setProtocolState(PROT_STATE_STANDBY);
+  setErrorState(ERR_CODE_GEN_PROTOCOL_ERROR);  
+  // TODO: Other cleanup;
+}
+
+/**
+ *  handleSetTimeCmd
+ *
+ *  Set the current time as unix time, Expected byte order is lowest to highest.
+ *  Replies with an ACK message.
+ */
+void handleSetTimeCmd()
+{
+  // Read four bytes off the serial port
+  byte_ard t_ll = Serial.read();
+  byte_ard t_lh = Serial.read();
+  byte_ard t_hl = Serial.read();
+  byte_ard t_hh = Serial.read();
+  // Calculate the 32-bit time value.
+  currentTime = t_ll + t_lh<<8 + t_hl<<16 + t_hh << 24;   
+  // Send an ACK back.
+  sendAck(MSG_ACK_NORMAL);
+}
+
+/**
+ *  handleSetSamplingIntervalCmd
+ *
+ *  Set the sampling interval (in seconds) for the sensor. Expects one byte of data.
+ *  Replies with an ACK message.
+ */
+void handleSetSamplingRateCmd()
+{
+   samplingInterval = Serial.read(); 
+   sendAck(MSG_ACK_NORMAL);
+}
+  
+/**
+ *  handleSetSampleBufferSizeCmd
+ *
+ *  Sets the sampling buffer size -- the number of samples held per interface.
+ *  Expects one byte of data. Replies with an ACK message.
+ */
+void handleSetSampleBufferSizeCmd()
+{
+  measBufferSize = Serial.read();
+  sendAck(MSG_ACK_NORMAL);
+  // Reallocate the buffer if already allocated. Otherwise, simply store the new size
+  if ( measBuffer != NULL )
+  {
+     deallocateMeasBuffer();
+     allocateMeasBuffer(measBufferSize);
+  }
+} 
+  
 /**
  *  sendFreeMemory
  *
  *  Handler for the send free memory utility command. Returns (an estimate?) of the
- *  free RAM on the device.
+ *  free RAM on the device in bytes, encoded in two bytes. Byte order is low to high.
+ *  Message code and two additional bytes written.
  */
 void sendFreeMemory()
 {
@@ -590,7 +677,7 @@ void sendFreeMemory()
  *  sendCurrentState
  *
  *  Handler for the get current state utility command. Returns the state bits and
- *  error code of the device.
+ *  error code of the device. Message code and two additional bytes written.
  */
 void sendCurrentState()
 {
@@ -601,9 +688,25 @@ void sendCurrentState()
 }
 
 /**
+ *  handleVersionQuery
+ *
+ *  Return the sensor version major.minor.revision. Message code and three additional bytes
+ *  written.
+ */
+void handleVersionQuery()
+{
+  Serial.write(MSG_T_VERSION_R);  
+  Serial.write((byte_ard)MAJOR_VERSION);
+  Serial.write((byte_ard)MINOR_VERSION);
+  Serial.write((byte_ard)REVISION);
+  Serial.flush();
+}
+
+/**
  *  sendAck
  *
- *  Utility function to construct and send an ack packet.
+ *  Utility function to construct and send an ACK packet. Message code and one additional 
+ *  byte written.
  */
 void sendAck(byte_ard code)
 {
@@ -624,10 +727,6 @@ void sendAck(byte_ard code)
  */
 void sampleAndReport()
 {   
-  // Update the current time. Note that we rely on the delay command to keep
-  // reasonably accurate time. The currentTime and samplingInterval are in seconds.
-  currentTime+=samplingInterval; 
-
   #ifdef testcounters 
   // Use the test counters -- this is only used for testing to get predictable
   // measurement results. Helps to determine if data is garbled in buffer manipulation,
@@ -668,6 +767,8 @@ void sampleAndReport()
  */
 void doStart()
 {
+  if( getRunState() )
+    return; // Dont execute if already running
 #ifdef debug
   Serial.println("\n-----------------------");
   Serial.println("Data acquisition begins");
@@ -715,6 +816,8 @@ void doStart()
  */
 void doStop()
 {
+  if( !getRunState() )
+    return; // Dont execute if already running  
   #ifdef debug
   Serial.println("\n------------------------");
   Serial.println("Data acquisition stopped");
@@ -756,6 +859,9 @@ bool allocateMeasBuffer(byte_ard size)
    
   recordByteSize = (INTERFACE_COUNT*VAL_BIT_SIZE)/8;
 
+  // Free an already allocated buffer
+  if( measBuffer!=NULL )
+    deallocateMeasBuffer();
   // Try to allocate the buffer
   measBuffer = (byte_ard*)malloc(headerByteSize+measBufferSize*recordByteSize);
   if ( measBuffer == NULL )
@@ -997,7 +1103,8 @@ void getPublicIdFromEEPROM( byte_ard *idbuf )
 /**
  *  printBytes
  *
- *  For debug only. Pretty print an array of bytes
+ *  For debug only. Pretty print an array of bytes.
+ *  Can be safely removed from "production" builds.
  */
 void printBytes(byte_ard* pBytes, int dLength)
 {	 
@@ -1016,7 +1123,8 @@ void printBytes(byte_ard* pBytes, int dLength)
 /**
  *  printEEPROMBytes
  *
- *  Dump an EEPROM buffer
+ *  Dump an EEPROM buffer -- similar to the printBytes method.
+ *  Can be safely removed from "production" builds. 
  */
 void printEEPROMBytes(int start, int dLength)
 {
@@ -1036,26 +1144,52 @@ void printEEPROMBytes(int start, int dLength)
   Serial.print("\n");
 }
 
+/**
+ *  setRunState
+ *
+ *  setter for the run state bit.
+ */
 void setRunState()
 {
   bitSet(state,STATE_BIT_RUNNING);
 }
 
+/**
+ *  clearRunState
+ *
+ *  clears the run state bit
+ */
 void clearRunState()
 {
   bitClear(state,STATE_BIT_RUNNING);
 }
 
+/**
+ *  getRunState
+ *
+ *  Returns the run state bit value.
+ */
 bool getRunState()
 {
   return (bitRead(state,STATE_BIT_RUNNING)==1); 
 }
 
+/**
+ *  getErrorState
+ *
+ *  Returns the error state bit value.
+ */
 bool getErrorState()
 {
   return (bitRead(state,STATE_BIT_ERROR)==1);
 }
 
+/**
+ *  setErrorState
+ *
+ *  Setter for error state. Sets the error bit and
+ *  associated error code.
+ */
 void setErrorState( byte_ard errorCode )
 {
   bitSet(state,STATE_BIT_ERROR);
@@ -1063,19 +1197,58 @@ void setErrorState( byte_ard errorCode )
   state |= errorCode << STATE_ERR_CODE_OFFSET; 
 }
 
+/**
+ *  readFromSerial
+ *
+ *  Utility function to read an array of bytes from the serial port.
+ *  Returns the read bytes in the buffer buf.
+ */
 void readFromSerial(byte_ard *buf, u_int16_ard length)
 {
   for(int i=0; i<length; i++)
     buf[i] = Serial.read(); 
 }
 
+/**
+ *  setProtocolState
+ *
+ *  Sets the sensor protocol state. The authentication protocol proceeds in several stages
+ *  as discussed in the protocol description. The state codes help to keep track of the stages.
+ *  Soft states are used for intermediary stages. The four signal LEDs on the prototype board
+ *  are used to indicate the current stage for easier debugging.
+ */
 void setProtocolState(byte_ard state)
 {
   protocolState = state;
-
+  // Set the timeout
   if ( protocolState == PROT_STATE_STANDBY || 
        protocolState == PROT_STATE_KEY_READY )
-    timeout = 0;
+    timeout = 0; // No timeout
   else
-    timeout = millis() + TIMEOUT_INTERVAL;   
+    timeout = millis() + TIMEOUT_INTERVAL;  // Some timeout for the intermediary states    
+    
+  // Set all LEDs in default state
+  digitalWrite(LED_SIGNAL_1,LOW);
+  digitalWrite(LED_SIGNAL_2,LOW);
+  digitalWrite(LED_SIGNAL_3,LOW);
+  digitalWrite(LED_SIGNAL_4,LOW);
+ 
+  // Set the status leds to reflect the protocol state
+  switch( protocolState )
+  {
+    case PROT_STATE_STANDBY:
+      break; // all off
+    case PROT_STATE_ID_DELIVERED:
+      digitalWrite(LED_SIGNAL_1,HIGH);
+      break;
+    case PROT_STATE_SESSION_KEY_SET:
+      digitalWrite(LED_SIGNAL_2,HIGH);
+      break;
+    case PROT_STATE_REKEY_PENDING:
+      digitalWrite(LED_SIGNAL_3,HIGH);
+      break;        
+    case PROT_STATE_KEY_READY:
+      digitalWrite(LED_SIGNAL_4,HIGH);
+      break;        
+  }         
 }
