@@ -148,11 +148,12 @@ def hexstr(buf):
 def check_version_valid(version):
 	"""
 	Validate the current sensor version. Exit if the version is too old.
-	Current implementation returns false if the version codes do not match exactly.
+	Current implementation returns false if the major,minor version codes do not match exactly
+	and the revision is less than the current minimum.
 	"""
 	return version[0] == cur_maj_ver and \
        version[1] == cur_min_ver and \
-	   version[2] == cur_revision		
+	   version[2] >= cur_revision		
 
 def forwardAndWait(buf,logger):
 	"""
