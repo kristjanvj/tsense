@@ -199,7 +199,7 @@ def main(argv=None):
 	print "\n\ntstestc -- tsense test client\n\n"
 
 	ser = serial.Serial('/dev/ttyUSB0', 9600)
-	ser.timeout=5
+	ser.timeout=5  # Set some reasonable timeout for the serial connection
 	getSelection(ser);  
 
 if __name__ == "__main__":
