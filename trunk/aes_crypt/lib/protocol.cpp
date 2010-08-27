@@ -373,7 +373,6 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
 {
   byte_ard* cBuffer = (byte_ard*)pBuffer;
   cBuffer[0] = MSG_T_REKEY_RESPONSE;
-
   msg->msgtype = MSG_T_REKEY_RESPONSE;
   
   for(u_int16_ard i = 0; i < ID_SIZE; i++)
