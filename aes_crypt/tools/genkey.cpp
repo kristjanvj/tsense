@@ -57,11 +57,12 @@ void printKey(unsigned char* pBytes, unsigned long dLength, int textWidth=8)
 
 void usage(){
 	fprintf(stderr, "SYNOPSIS\n");
-	fprintf(stderr, "    genkey -l <length> [-c]\n\n");
+	fprintf(stderr, "    generatekey -l <length> [-c]\n\n");
 
 	fprintf(stderr, "DESCRIPTION\n");
 	fprintf(stderr, "    A small convenience utility to generates an "
-			"arbatrarily long random key.\n\n");
+			"arbatrarily long random key. \n    Running it with no options"
+			" will generate a key of 16 hex values.\n\n");
 
 	fprintf(stderr, "OPTIONS\n");
 	fprintf(stderr, "    -l    Key length in bytes.\n");
@@ -102,8 +103,6 @@ int main(int argc, char **argv) {
 	}
 
 	byte_ard newKey[keyLength];
-
-	printf("keyLength=%d\n",keyLength);
 
 	if(!generateKeyOfLength(newKey, keyLength)){
 		printf("Unable to generate key.\n");
