@@ -9,15 +9,18 @@
 
 #include "aes_utils.h"
 
-int generateKey(byte_ard *newKey)
-{
+int generateKey(byte_ard *newKey) {
+	generateKeyOfLength(newKey, KEY_BYTES);
+}
+
+int generateKeyOfLength(byte_ard *newKey, int length) {
 	byte_ard res = 0;
     u_int32_ard f;
 	FILE * urandom = fopen("/dev/urandom","r");
 
 	if(urandom)
     {
-		for(u_int32_ard i=0; i<KEY_BYTES; i++)
+		for(u_int32_ard i=0; i<length; i++)
         {
 			f = fread(&res, 1, sizeof(res), urandom);
 			newKey[i] = res;
