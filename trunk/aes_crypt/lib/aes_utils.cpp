@@ -7,6 +7,7 @@
  *
  */
 
+#include "aes_utils.h"
 
 int generateKey(byte_ard *newKey)
 {

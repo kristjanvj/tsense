@@ -6,5 +6,6 @@
  * library and some methods are platform dependent. 
  *
  */
+#include "aes_crypt.h"
 
 int generateKey(byte_ard *newKey);
