@@ -25,7 +25,6 @@
  */
  
 #include "aes_crypt.h"
-  
 #ifdef _ARDUINO_DUEMILANOVE
   #include <EEPROM.h>     // The EEPROM access library
   #include <WProgram.h>   // Needed for Serial.print debugging
@@ -596,7 +595,7 @@ void CBCEncrypt(void *pTextIn, void* pBuffer, u_int32_ard length,
   // C_i = E_k(P_i XOR C_{i-1})
   for (u_int32_ard i = 0; i < blocks; i++) 
   {
-    #if defined(unroll_cbc_loop)
+    #if defined(unroll_cbc_encrypt_loop)
     currblock[0] = cBuffer[(i*BLOCK_BYTE_SIZE)+0] ^ lastblock[0];
     currblock[1] = cBuffer[(i*BLOCK_BYTE_SIZE)+1] ^ lastblock[1];
     currblock[2] = cBuffer[(i*BLOCK_BYTE_SIZE)+2] ^ lastblock[2];
@@ -677,8 +676,74 @@ void CBCDecrypt(void* pText, void* pBuffer, u_int32_ard length,
 
   for (u_int32_ard i = 0; i < blocks; i++)
   {
-    #if defined(unroll_cbc_loop) 
-    // This loop unrolled would be really ugly. 
+    #if defined(unroll_cbc_decrypt_loop)
+    currblock[0] = cText[(i*BLOCK_BYTE_SIZE)+0];
+    tempblock[0] = currblock[0];
+    currblock[1] = cText[(i*BLOCK_BYTE_SIZE)+1];
+    tempblock[1] = currblock[1];
+    currblock[2] = cText[(i*BLOCK_BYTE_SIZE)+2];
+    tempblock[2] = currblock[2];
+    currblock[3] = cText[(i*BLOCK_BYTE_SIZE)+3];
+    tempblock[3] = currblock[3];
+    currblock[4] = cText[(i*BLOCK_BYTE_SIZE)+4];
+    tempblock[4] = currblock[4];
+    currblock[5] = cText[(i*BLOCK_BYTE_SIZE)+5];
+    tempblock[5] = currblock[5];
+    currblock[6] = cText[(i*BLOCK_BYTE_SIZE)+6];
+    tempblock[6] = currblock[6];
+    currblock[7] = cText[(i*BLOCK_BYTE_SIZE)+7];
+    tempblock[7] = currblock[7];
+    currblock[8] = cText[(i*BLOCK_BYTE_SIZE)+8];
+    tempblock[8] = currblock[8];
+    currblock[9] = cText[(i*BLOCK_BYTE_SIZE)+9];
+    tempblock[9] = currblock[9];
+    currblock[10] = cText[(i*BLOCK_BYTE_SIZE)+10];
+    tempblock[10] = currblock[10];
+    currblock[11] = cText[(i*BLOCK_BYTE_SIZE)+11];
+    tempblock[11] = currblock[11];
+    currblock[12] = cText[(i*BLOCK_BYTE_SIZE)+12];
+    tempblock[12] = currblock[12];
+    currblock[13] = cText[(i*BLOCK_BYTE_SIZE)+13];
+    tempblock[13] = currblock[13];
+    currblock[14] = cText[(i*BLOCK_BYTE_SIZE)+14];
+    tempblock[14] = currblock[14];
+    currblock[15] = cText[(i*BLOCK_BYTE_SIZE)+15];
+    tempblock[15] = currblock[15];
+
+    DecryptBlock((void*)currblock, pKeys);
+
+    cBuffer[(i*BLOCK_BYTE_SIZE)+0] = currblock[0]  ^ lastblock[0];
+    lastblock[0] = tempblock[0];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+1] = currblock[1]  ^ lastblock[1];
+    lastblock[1] = tempblock[1];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+2] = currblock[2]  ^ lastblock[2];
+    lastblock[2] = tempblock[2];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+3] = currblock[3]  ^ lastblock[3];
+    lastblock[3] = tempblock[3];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+4] = currblock[4]  ^ lastblock[4];
+    lastblock[4] = tempblock[4];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+5] = currblock[5]  ^ lastblock[5];
+    lastblock[5] = tempblock[5];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+6] = currblock[6]  ^ lastblock[6];
+    lastblock[6] = tempblock[6];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+7] = currblock[7]  ^ lastblock[7];
+    lastblock[7] = tempblock[7];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+8] = currblock[8]  ^ lastblock[8];
+    lastblock[8] = tempblock[8];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+9] = currblock[9]  ^ lastblock[9];
+    lastblock[9] = tempblock[9];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+10] = currblock[10]  ^ lastblock[10];
+    lastblock[10] = tempblock[10];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+11] = currblock[11]  ^ lastblock[11];
+    lastblock[11] = tempblock[11];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+12] = currblock[12]  ^ lastblock[12];
+    lastblock[12] = tempblock[12];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+13] = currblock[13]  ^ lastblock[13];
+    lastblock[13] = tempblock[13];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+14] = currblock[14]  ^ lastblock[14];
+    lastblock[14] = tempblock[14];
+    cBuffer[(i*BLOCK_BYTE_SIZE)+15] = currblock[15]  ^ lastblock[15];
+    lastblock[15] = tempblock[15];
     #else
 
     // copy the data to 'currblock', to be deciphered. 
