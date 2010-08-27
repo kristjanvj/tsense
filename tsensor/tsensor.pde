@@ -1,14 +1,18 @@
 /**
  *
- *  TSensor
+ *  @file tsensor.pde
  *
- *  Kristjan Valur Jonsson, Kristján Rúnarsson, Benedikt Kristinsson
- *  2010
+ *  @brief TSensor
  *
  *  Trusted sensor implementation for the Arduino platform.
  *  Written for the Arduino ATMega328 board.
+ *  This component is part of the Trusted sensors research project (TSense)
  * 
- *  This file is part of the Trusted Sensors Research Project (TSense).
+ *  @author Kristjan Valur Jonsson, Kristján Rúnarsson, Benedikt Kristinsson
+ *  @date 2010
+ */
+
+/*  This file is part of the Trusted Sensors Research Project (TSense).
  *
  *  TSense is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +26,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with the TSense code.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 /*
@@ -42,10 +45,11 @@
 //
 // Version of sensor software. This is used for compatibility checking with the client software to
 // help prevent weird bugs due to out of date sensor software.
+// CHANGE THIS AT LEAST WHEN MODIFYING THE PROTOCOL.
 //
 #define MAJOR_VERSION   0
 #define MINOR_VERSION   1
-#define REVISION       22
+#define REVISION       24
 
 #include <EEPROM.h>
 #include <stdlib.h>
@@ -96,6 +100,9 @@ void operator delete(void* ptr) { free(ptr); }
 #define MSG_T_STATE_R            0x53
 #define MSG_T_VERSION_Q          0x54
 #define MSG_T_VERSION_R          0x55
+#define MSG_T_STARTUP_ID_Q       0x56         
+#define MSG_T_CUR_TIME_Q         0x57
+#define MSG_T_CUR_TIME_R         0x58
 //
 #define MSG_T_START_CMD                0x71  // To manually start the data acquisition -- testing only
 #define MSG_T_STOP_CMD                 0x72  // To manually stop the data acquisition -- testing only
@@ -337,6 +344,12 @@ void getCommand()
         break;    
       case MSG_T_VERSION_Q:
         handleVersionQuery();
+        break;
+      case MSG_T_STARTUP_ID_Q:
+        handleStartupIdQuery();
+        break;
+      case MSG_T_CUR_TIME_Q:
+        handleCurTimeQuery();
         break;
       case MSG_T_RUN_TEST_CMD:
         doEncryptDecryptTest();     
@@ -622,7 +635,7 @@ void handleSetTimeCmd()
   byte_ard t_hl = Serial.read();
   byte_ard t_hh = Serial.read();
   // Calculate the 32-bit time value.
-  currentTime = t_ll + t_lh<<8 + t_hl<<16 + t_hh << 24;   
+  currentTime = long(t_ll) + (long(t_lh)<<8) + (long(t_hl)<<16) + (long(t_hh)<<24);   
   // Send an ACK back.
   sendAck(MSG_ACK_NORMAL);
 }
@@ -699,6 +712,36 @@ void handleVersionQuery()
   Serial.write((byte_ard)MAJOR_VERSION);
   Serial.write((byte_ard)MINOR_VERSION);
   Serial.write((byte_ard)REVISION);
+  Serial.flush();
+}
+
+/**
+ *  handleStartupIdQuery
+ *
+ *  This message should only be returned once at the first connection to a sensor. It returns a random-looking
+ *  string of bytes. The purpose of this step in the connection process is simply to rule out an accidental 
+ *  and non-malicious connection to a USB device other than a sensor. This is the only message that does not return
+ *  a message identifier in the first byte.
+ */
+void handleStartupIdQuery()
+{
+  byte_ard buf[] = {0xAB, 0x2E, 0x12, 0xF1, 0xC3, 0x13, 0xD9, 0x01, 0x39, 0xBA, 0x2E, 0x51, 0xC3, 0x81, 0xFF, 0x0A};
+  Serial.write(buf,16);
+  Serial.flush();
+}
+
+/**
+ *  handleCurTimeQuery
+ *
+ *  Returns the current sensor time in four bytes, ordered lowest to highest.
+ */
+void handleCurTimeQuery()
+{
+  Serial.write(MSG_T_CUR_TIME_R);
+  Serial.write(currentTime & 0xFF);
+  Serial.write((currentTime>>8) & 0xFF);
+  Serial.write((currentTime>>16) & 0xFF);    
+  Serial.write((currentTime>>24) & 0xFF);
   Serial.flush();
 }
 
