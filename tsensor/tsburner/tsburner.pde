@@ -1,19 +1,40 @@
 
 /**
- *  tsburner
+ *  @file tsburner.pde
  *
- *  Kristjan V. Jonsson
- *  2010
+ *  @brief tsburner -- Utility program for the Arduino to burn tsensor device data into EEPROM.
  *
- *  Utility program for the Arduino to burn tsensor device data into EEPROM.
+ *  AES lookup tables and other global constants are stored in the lower 768 bytes of the EEPROM.
+ *  Put device specific data into the upper 256 bytes. This inlcudes public and private IDs.
+ *
+ *  @author Kristjan V. Jonsson
+ *  @date 2010
  */
 
-// Put lookup tables into the lower 768 bytes of EEPROM
-// Put device specific data into the upper 256 bytes.
+/*  This file is part of the Trusted Sensors Research Project (TSense).
+ *
+ *  TSense is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  TSense is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with the TSense code.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <EEPROM.h>
 #include "edevdata.h"
 
+#define LED_STATUS          2
+#define LED_SIGNAL_1        3
+#define LED_SIGNAL_2        4
+#define LED_SIGNAL_3        5
+#define LED_SIGNAL_4        6
 
 #define INTERFACE_COUNT 2   // The number of sampled interfaces
 #define INTERFACE1 0
@@ -69,35 +90,67 @@ char modelName[] = {"ALPHA"};
 char serialNo[] = {"0000001"};
 char manDate[] = {"aug 6, 2010"};
 
-unsigned char devId[6] = {0x00,0x01,0x00,0x00,0x00,0x01};  // Manufacturer 01 -- device 0001
-unsigned char masterKey[16] = {0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c}; // FIPS KEY FOR TESTING
+//
+// Insert the public id 0100## where ## is the number actually WRITTEN on the board
+//
+unsigned char devId[6] = {0x00,0x01,0x00,0x00,0x00,0x02};  // Manufacturer 01 -- device 00##
+
+//
+// Insert a FRESHLY generated 128-bit encryption key here. FIPS key used only for testing.
+// 
+unsigned char masterKey[16] = {0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c};
 
 unsigned char interface_types[INTERFACE_COUNT] = {INTERFACE1_TYPE,INTERFACE2_TYPE};
 char* interface_names[INTERFACE_COUNT] = {INTERFACE1_NAME,INTERFACE2_NAME};
 
 void setup(void)
 {
+  // Set pinMode of digital pins to output
+  pinMode(LED_STATUS,OUTPUT); 
+  pinMode(LED_SIGNAL_1,OUTPUT);
+  pinMode(LED_SIGNAL_2,OUTPUT);
+  pinMode(LED_SIGNAL_3,OUTPUT);
+  pinMode(LED_SIGNAL_4,OUTPUT);
+    
   Serial.begin(9600);
   Serial.flush();
+
+  digitalWrite(LED_STATUS,LOW);
+  digitalWrite(LED_SIGNAL_1,LOW);
+  digitalWrite(LED_SIGNAL_2,LOW);
+  digitalWrite(LED_SIGNAL_3,LOW);
+  digitalWrite(LED_SIGNAL_4,LOW);  
   
   delay(1000);
+  
+  // Set all status LEDs to indicate ongoing EEPROM programming
+  digitalWrite(LED_STATUS,HIGH);
+  digitalWrite(LED_SIGNAL_1,HIGH);
+  digitalWrite(LED_SIGNAL_2,HIGH);
+  digitalWrite(LED_SIGNAL_3,HIGH);
+  digitalWrite(LED_SIGNAL_4,HIGH);  
   
   Serial.println("\n\n------------------------");
   Serial.println("Flashing data to tsensor");
   Serial.println("------------------------\n"); 
   
+  // Write AES sbox lookup table
   for( int i=0; i<S_TABLE_LEN; i++)
     EEPROM.write(S_TABLE_START+i,sbox[i]);
-    
+
+  // Write AES inverse sbox lookup table    
   for( int i=0; i<IS_TABLE_LEN; i++)
     EEPROM.write(IS_TABLE_START+i,isbox[i]);
   
+  // Write the AES round constant table
   for( int i=0; i<RCON_TABLE_LEN; i++)
     EEPROM.write(RCON_TABLE_START+i,Rcon[i]);
   
+  // Write the public device ID
   for( int i=0; i<DEV_ID_LEN; i++ )
     EEPROM.write( i+DEV_DATA_START+DEV_ID_START, devId[i] );
     
+  // Write the private device ID -- private key
   for( int i=0; i<DEV_KEY_LEN; i++ )
     EEPROM.write( i+DEV_DATA_START+DEV_KEY_START, masterKey[i] );
  
@@ -108,12 +161,22 @@ void setup(void)
   Serial.println("\n\n------------------------");
   Serial.println("Flashing done");
   Serial.println("------------------------\n"); 
+
+  // Dump the EEPROM for diagnostics
+  dumpEEPROM();  
 }
 
+// Blink all LEDs after flashing the EEPROM is done
 void loop(void)
 {
-  dumpEEPROM();
-  delay(10000);
+  static bool blinkState=false;
+  blinkState = !blinkState;  
+  digitalWrite(LED_STATUS,blinkState);
+  digitalWrite(LED_SIGNAL_1,blinkState);
+  digitalWrite(LED_SIGNAL_2,blinkState);
+  digitalWrite(LED_SIGNAL_3,blinkState);
+  digitalWrite(LED_SIGNAL_4,blinkState);      
+  delay(1000);  
 }
 
 void dumpEEPROM()
