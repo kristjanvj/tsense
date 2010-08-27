@@ -34,7 +34,7 @@
 
 #ifdef _ARDUINO_DUEMILANOVE
   #define unroll_encrypt_loop
-  #define unroll_decrupt_loop
+  #define unroll_decrypt_loop
   #define unroll_cbc_loop
 #endif
 
@@ -83,9 +83,5 @@ void CBCDecrypt(void* pTextIn, void* pBuffer, u_int32_ard length,
 byte_ard getSboxValue(int index);
 byte_ard getISboxValue(int index);
 byte_ard getRconValue(int index);
-
-// Generate a random key. TODO: Move. Not part of AES.
-int generateKey(byte_ard *newKey);
-
 
 #endif  //__AES_CRYPT_H__
