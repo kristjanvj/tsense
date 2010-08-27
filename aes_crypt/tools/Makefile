@@ -9,7 +9,7 @@ IFLAGS = -I/usr/include/ -I$(CRYPT_DIR)
 
 RM = /bin/rm
 
-GENKEY_CC =	$(CC) -D_$(ARCH) genkey.cpp \
+GENKEY_CC =	$(CC) -D_$(ARCH) $(IFLAGS) genkey.cpp \
 			$(CRYPT_DIR)aes_crypt.cpp \
 			$(CRYPT_DIR)aes_utils.cpp \
 			-o generatekey

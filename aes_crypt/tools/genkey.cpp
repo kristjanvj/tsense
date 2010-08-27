@@ -6,8 +6,8 @@
 
 #include <iostream>
 #include <string>
-#include "../lib/aes_crypt.h"
-#include "../lib/aes_utils.h"
+#include "aes_crypt.h"
+#include "aes_utils.h"
 
 using namespace std;
 
