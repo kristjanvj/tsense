@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <ctime>
 
+
 // printBytes2 KVJ
 void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
 {	

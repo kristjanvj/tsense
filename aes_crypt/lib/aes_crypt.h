@@ -35,9 +35,14 @@
 #ifdef _ARDUINO_DUEMILANOVE
   #define unroll_encrypt_loop
   #define unroll_decrypt_loop
-  #define unroll_cbc_loop
+  #define unroll_cbc_decrypt_loop
+  #define unroll_cbc_encrypt_loop
 #endif
 
+//#define unroll_cbc_encrypt_loop
+//#define unroll_cbc_decrypt_loop
+
+//#define unroll_decrypt_loop
 //#define unroll_encrypt_loop 
 //#define verbose_debug
 
