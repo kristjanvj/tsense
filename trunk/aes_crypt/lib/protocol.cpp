@@ -6,7 +6,7 @@
    Tsense Protocol methods. Written in C++ to ensure comptability with Arduino
    Wiring, but made to be compilable with gcc and g++.
 
-   Documentation: please see ldsswiki.ru.is
+   For documentation, please see ldsswiki.ru.is
 
  */
 
