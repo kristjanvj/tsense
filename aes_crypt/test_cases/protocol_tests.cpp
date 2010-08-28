@@ -348,19 +348,92 @@ int rekeytest(u_int16_ard n, byte_ard* id)
   return retval;
 }
 
+int newkeytest(byte_ard* id, u_int16_ard n, u_int16_ard r, u_int16_ard t)
+{
+  int retval = 1;
+  printf("newkey: ");
+  
+  struct message sendmsg;
+  sendmsg.pID = id;
+  sendmsg.nonce = n;
+  sendmsg.rand = r;
+  sendmsg.timer = t;
+
+  byte_ard buffer[NEWKEY_FULLSIZE];
+
+  pack_newkey(&sendmsg, (const u_int32_ard*)Keys, (const u_int32_ard*)CmacKeys,
+              (void*)buffer);
+
+  
+  struct message recvmsg;
+  recvmsg.pID = (byte_ard*)malloc(ID_SIZE+1);
+  recvmsg.ciphertext = (byte_ard*)malloc(NEWKEY_CRYPTSIZE);
+
+  unpack_newkey((void*)buffer, (const u_int32_ard*)Keys, &recvmsg);
+  recvmsg.pID[ID_SIZE] = '\0';
+
+  // verify cmac
+  byte_ard cmac_temp[BLOCK_BYTE_SIZE];
+  aesCMac((const u_int32_ard*)CmacKeys, recvmsg.ciphertext,
+          NEWKEY_CRYPTSIZE, cmac_temp);
+  if(strncmp((const char*)recvmsg.cmac, (const char*)cmac_temp, BLOCK_BYTE_SIZE) == 0)
+  {
+    if (strncmp((const char*)recvmsg.pID, (const char*)id, ID_SIZE) == 0)
+    {
+      if (recvmsg.nonce == n)
+      {
+        if (recvmsg.timer == t)
+        {
+          if (recvmsg.rand == r)
+          {
+            printf("Checks out! (Nonce: %d)\n", recvmsg.nonce);
+            retval = 0;
+          }
+          else
+          {
+            fprintf(stderr, "Failed: random\n");
+          }
+        }
+        else
+        {
+          fprintf(stderr, "Failed: timer\n");
+        }
+      }
+      else
+      {
+        fprintf(stderr, "Failed: nonce\n");
+      }
+    }
+    else
+    {
+      fprintf(stderr, "Failed: ID\n");
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Failed: cmac \n");
+  }
+  
+  free(recvmsg.pID);
+  free(recvmsg.ciphertext);
+  return retval;
+}
+
 int main(int argc, char* argv[])
 {
 
   // Sample key. 
   byte_ard Key[] = {
-    0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c 
+    0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+    0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c 
   };
   
   KeyExpansion(Key, Keys);
 
   // Cmac key. Only 4 bits changed. 
   byte_ard CmacKey[] = {
-    0x2c, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c  
+    0x2c, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+    0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c  
   };
   KeyExpansion(CmacKey, CmacKeys);
 
@@ -375,11 +448,16 @@ int main(int argc, char* argv[])
   int test3 = keytosensetest(1, 2, (byte_ard*)id);
   printf("\n");
   int test4 = rekeytest(9, (byte_ard*)id);
+  int test5 = newkeytest((byte_ard*)id, 2, 3, 4);
 
 
-  if ((test1+test2+test3+test4) == 0) // SUM
+  if ((test1+test2+test3+test4+test5) == 0) // SUM
   {
     printf("\nAll OK!\n");
+  }
+  else
+  {
+    printf("\nSome test(s) failed!\n");
   }
 
   //printf("IDMSG_FULLSIZE: %d\n", IDMSG_FULLSIZE);

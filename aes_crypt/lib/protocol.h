@@ -29,7 +29,7 @@
 #define MSGTYPE_SIZE 1
 #define NONCE_SIZE 2
 #define TIMER_SIZE 4
-#define RAND_SIZE 4
+#define RAND_SIZE 2
 
 /*
   Some macros to calculate the various lengths of various things.
@@ -84,7 +84,7 @@ struct message
   byte_ard* key;                  // The key sent in key exchange and re-keying
   byte_ard* ciphertext;           // When forwarding ciphertext
   u_int32_ard timer;              // re-keying timer
-  u_int32_ard rand;               // Random number (the new key-material)
+  u_int16_ard rand;               // Random number (the new key-material)
 };
 
 /*
@@ -107,7 +107,7 @@ void pack_rekey(struct message* msg, const u_int32_ard* pKeys,  const u_int32_ar
 void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
 void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
-//void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
+void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
 /* Cannot define IV here for some reason. Investigate */
 

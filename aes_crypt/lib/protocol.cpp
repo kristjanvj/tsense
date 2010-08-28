@@ -248,7 +248,7 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
   }
   byte_ard plainbuff[KEYTOSINK_CRYPTSIZE];
     
-  CBCDecrypt((void*)msg->ciphertext, plainbuff, KEYTOSINK_CRYPTSIZE,
+  CBCDecrypt((void*)msg->ciphertext, (void*)plainbuff, KEYTOSINK_CRYPTSIZE,
              pKeys, (const u_int16_ard*)IV);
 
   // 1 - nonce
@@ -350,7 +350,7 @@ void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
 
   // Decipher
   byte_ard plainbuff[REKEY_CRYPTSIZE];
-  CBCDecrypt((void*)msg->ciphertext, plainbuff, REKEY_CRYPTSIZE,
+  CBCDecrypt((void*)msg->ciphertext, (void*)plainbuff, REKEY_CRYPTSIZE,
              pKeys, (const u_int16_ard*)IV);
 
   // Extract the ID for the ciphertext
@@ -382,20 +382,24 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
 
   // Construct the ciphertext
   byte_ard temp[ID_SIZE + NONCE_SIZE + RAND_SIZE + TIMER_SIZE];
+  
   for (u_int16_ard i = 0; i < ID_SIZE; i++)
   {
     temp[i] = msg->pID[i];
   }
+  
   byte_ard* temp_nonce = (byte_ard*)&msg->nonce;
   for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
     temp[ID_SIZE + i] = temp_nonce[i];
   }
+  
   byte_ard* temp_rand = (byte_ard*)&msg->rand;
   for(u_int16_ard i = 0; i < RAND_SIZE; i++)
   {
     temp[ID_SIZE + NONCE_SIZE + i] = temp_rand[i];
   }
+  
   byte_ard* temp_timer = (byte_ard*)&msg->timer;
   for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
@@ -411,11 +415,11 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
   // Stick it in the buffer
   for (u_int16_ard i = 0; i < NEWKEY_CRYPTSIZE; i++)
   {
-    cBuffer[MSGTYPE_SIZE + ID_SIZE + i] = temp[i];
+    cBuffer[MSGTYPE_SIZE + ID_SIZE + i] = cipher_buff[i];
   }
 
   // CMac
-  aesCMac(pKeys, cipher_buff, NEWKEY_CRYPTSIZE, msg->cmac);
+  aesCMac(pCmacKeys, cipher_buff, NEWKEY_CRYPTSIZE, msg->cmac);
 
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
@@ -423,6 +427,59 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
   }
   
 }
-//void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
-//{
-//}
+
+void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
+{
+  byte_ard* cStream = (byte_ard*)pStream;
+
+  msg->msgtype = cStream[0];
+
+  // Skip the ID sent in plaintext and grab the cipherstream
+  for (u_int32_ard i = 0; i < NEWKEY_CRYPTSIZE; i++)
+  {
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + ID_SIZE + i];
+  }
+
+  byte_ard plainbuff[NEWKEY_CRYPTSIZE];
+
+  CBCDecrypt((void*)msg->ciphertext, (void*)plainbuff, NEWKEY_CRYPTSIZE, pKeys,
+             (const u_int16_ard*)IV);
+
+  // Cipertext part 1 - ID
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    msg->pID[i] = plainbuff[i];
+  }
+  
+  // Ciphertext part 2 - Nonce
+  byte_ard* temp_nonce = (byte_ard*)malloc(NONCE_SIZE);
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
+  {
+    temp_nonce[i] = plainbuff[ID_SIZE + i];
+  }
+  msg->nonce = (u_int16_ard)*temp_nonce;
+  free(temp_nonce);
+
+  // Ciphertext part 3 - Random
+  byte_ard* temp_rand = (byte_ard*)malloc(NONCE_SIZE);
+  for (u_int16_ard i = 0; i < RAND_SIZE; i++)
+  {
+    temp_nonce[i] = plainbuff[ID_SIZE + NONCE_SIZE + i];
+  }
+  msg->rand = (u_int16_ard)*temp_rand;
+  free(temp_rand);
+
+  // Ciphertext part 4 - Timer
+  byte_ard* temp_timer = (byte_ard*)malloc(TIMER_SIZE);
+  for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
+  {
+    temp_timer[i] = plainbuff[ID_SIZE + NONCE_SIZE + RAND_SIZE + i];
+  }
+  msg->timer = (u_int32_ard)*temp_timer;
+  free(temp_timer);
+
+  for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + ID_SIZE + NEWKEY_CRYPTSIZE + i];
+  }
+}
