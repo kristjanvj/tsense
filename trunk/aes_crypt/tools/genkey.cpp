@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <string>
+#include <stdlib.h>
 #include "aes_crypt.h"
 #include "aes_utils.h"
 
