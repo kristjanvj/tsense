@@ -1,0 +1,20 @@
+
+tsconfig
+========
+
+Utility to program the EEPROM on a tsensor device (Arduino Duemilanove with an ATmega328).
+
+The shell script first calls a python script which constructs a cpp program file which 
+can be compiled for the Arduino board. The generated file is then compiled with avr-gcc 
+and transformed into the correct hex format. The compliation steps were originally
+copied off a shift-[verify] output in the Arduino environment but slightly modified.
+The hex code is then uploaded to the Arduino board using avr dude.
+
+A log file of actions is kept by the python program generator. The file includes all
+information written to the device EEPROM, including the PRIVATE KEY! This may look
+like a security violation, but we can view this record keeping as the manufacturers
+very vell protected log of programmed devices. The public and private IDs from this
+file must be installed on the authentication service for the programmed devices to 
+be allowed into the system.
+
+
