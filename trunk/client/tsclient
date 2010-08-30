@@ -49,7 +49,7 @@ debug_dump_buffers = False	# Dump buffers received from sensor/sink in readable 
 #
 cur_maj_ver = 0
 cur_min_ver = 1
-cur_revision = 24
+cur_revision = 26
 
 #
 # The USB (serial) port parameters for the sensor connection
@@ -241,10 +241,10 @@ def sendCurTimeQuery(ser,logger):
 	resp = ser.read(MSG_T_CUR_TIME_R_LEN)
 	if resp==None or len(resp)==0:
 		raise Exception("No reply for current time query")
+	if ord(resp[0]) != MSG_T_CUR_TIME_R:
+		raise Exception("Unexpected return 0x%.2x for current time query" % ord(resp[0]))
 	if len(resp) != MSG_T_CUR_TIME_R_LEN:
 		raise Exception("Length of time query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
-	if ord(resp[0]) != MSG_T_CUR_TIME_R:
-		raise Exception("Unexpected return 0x%.2x for curren time query" % resp[0])
 	timeval = 0
 	timeval += ord(resp[1])
 	timeval += (ord(resp[2]) << 8 )
@@ -264,10 +264,10 @@ def sendVersionQuery(ser,logger):
 	resp = ser.read(MSG_T_VERSION_R_LEN); 
 	if resp==None or len(resp)==0:
 		raise Exception("No reply for version query")
+	if ord(resp[0]) != MSG_T_VERSION_R:
+		raise Exception("Unexpected return 0x%.2x for version query" % ord(resp[0]))
 	if len(resp) != MSG_T_VERSION_R_LEN:
 		raise Exception("Length of version query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
-	if ord(resp[0]) != MSG_T_VERSION_R:
-		raise Exception("Unexpected return 0x%.2x for version query" % resp[0])
 	mem = ord(resp[1]) + (ord(resp[2])<<8)	
 	logger.info("SENSOR: Version %.2d.%.2d.%.2d" % (ord(resp[1]),ord(resp[2]),ord(resp[3])))
 	return (ord(resp[1]),ord(resp[2]),ord(resp[3]))
@@ -283,10 +283,10 @@ def sendMemoryQuery(ser,logger):
 	resp = ser.read(MSG_T_FREE_MEM_R_LEN); 
 	if resp==None or len(resp)==0:
 		raise Exception("No reply for memory query")
+	if ord(resp[0]) != MSG_T_FREE_MEM_R:
+		raise Exception("Unexpected return 0x%.2x for memory query" % ord(resp[0]))
 	if len(resp)<MSG_T_FREE_MEM_R_LEN:
 		raise Exception("Length of memory query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
-	if ord(resp[0]) != MSG_T_FREE_MEM_R:
-		raise Exception("Unexpected return 0x%.2x for memory query" % resp[0])
 	mem = ord(resp[1]) + (ord(resp[2])<<8)
 	logger.info("SENSOR: Free memory = %d bytes" % mem)
 
@@ -301,10 +301,10 @@ def sendStatusQuery(ser,logger):
 	resp = ser.read(MSG_T_STATE_R_LEN);
 	if resp==None or len(resp)==0:
 		raise Exception("No reply for status query")
+	if ord(resp[0]) != MSG_T_STATE_R:
+		raise Exception("Unexpected return 0x%.2x for status query" % ord(resp[0]))
 	if len(resp)<MSG_T_STATE_R_LEN:
 		raise Exception("Length of status query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
-	if ord(resp[0]) != MSG_T_STATE_R:
-		raise Exception("Unexpected return 0x%.2x for status query" % resp[0])
 	logger.info("SENSOR: Status report. State: 0x%.2x, error: 0x%.2x" % (ord(resp[1]),ord(resp[2])))
 
 def readAck(ser,logger):
