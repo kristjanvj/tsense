@@ -63,11 +63,11 @@ avr-objcopy -O ihex -R .eeprom  tmp/tsexec.cpp.elf  tmp/tsexec.cpp.hex
 #
 # Use avrdude to flash to the chip
 #
-#avrdude -v -v -v -v -patmega328p -carduino -P/dev/ttyUSB0 -b57600 -D -Uflash:w:tmp/tsexec.cpp.hex:i
+avrdude -v -v -v -v -patmega328p -carduino -P/dev/ttyUSB0 -b57600 -D -Uflash:w:tmp/tsexec.cpp.hex:i
 
 #
 # Remove the temporary directory
 #
-#rm -rf tmp
+rm -rf tmp
 
 
