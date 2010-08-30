@@ -40,7 +40,10 @@
 // quickly. Use #define to include only debug code for testing and be careful to
 // remove for "production" builds.
 //
-
+// Two interface commands intentionally leak the secret key (private ID) of the
+// device. One fetches the private key bytes, the other dumps the EEPROM. Both are useful
+// for diagnostics and debugging while developing but should be removed from "production" devices.
+//
 
 //
 // Version of sensor software. This is used for compatibility checking with the client software to
@@ -49,7 +52,7 @@
 //
 #define MAJOR_VERSION   0
 #define MINOR_VERSION   1
-#define REVISION       24
+#define REVISION       26
 
 #include <EEPROM.h>
 #include <stdlib.h>
@@ -103,6 +106,10 @@ void operator delete(void* ptr) { free(ptr); }
 #define MSG_T_STARTUP_ID_Q       0x56         
 #define MSG_T_CUR_TIME_Q         0x57
 #define MSG_T_CUR_TIME_R         0x58
+#define MSG_T_PRIVATE_KEY_Q      0x5A  // NOTE: These four message types violate the
+#define MSG_T_PRIVATE_KEY_R      0x5B  // basic security premise of the tsensor device
+#define MSG_T_EEPROM_DUMP_Q      0x5C  // and should not be included in a 
+#define MSG_T_EEPROM_DUMP_R      0x5D  // production device. For development only!
 //
 #define MSG_T_START_CMD                0x71  // To manually start the data acquisition -- testing only
 #define MSG_T_STOP_CMD                 0x72  // To manually stop the data acquisition -- testing only
@@ -363,6 +370,12 @@ void getCommand()
       case MSG_T_SET_SAMPLE_BUF_SIZE_CMD:        
         handleSetSampleBufferSizeCmd();
         break;
+      case MSG_T_PRIVATE_KEY_Q:
+        handlePrivateKeyQuery();
+        break;
+      case MSG_T_EEPROM_DUMP_Q:
+        handleEepromDumpQuery();
+        return;        
       default:
         Serial.flush(); // Crear the crud
         sendAck(MSG_ACK_UNKNOWN_MESSAGE);
@@ -743,6 +756,40 @@ void handleCurTimeQuery()
   Serial.write((currentTime>>16) & 0xFF);    
   Serial.write((currentTime>>24) & 0xFF);
   Serial.flush();
+}
+
+/**
+ *  handlePrivateKeyQuery
+ *
+ *  Return the private key of the device.
+ *
+ *  NOTE: This function breaks the basic security premise of the tsensor device -- that the private key cannot
+ *  be extracted from the device. This function is only indended for debug/development and should never be
+ *  implemented on a production device.
+ */
+void handlePrivateKeyQuery()
+{
+  Serial.write(MSG_T_PRIVATE_KEY_R);
+  byte_ard PK[16];
+  getPrivateKeyFromEEPROM(PK);
+  for( int i=0; i<16; i++ )
+    Serial.write(PK[i]);
+}
+
+/**
+ *  handlePrivateKeyQuery
+ *
+ *  Dump the entire EEPROM memory of the device. This is 1K on the Duemilanove with ATmega328.
+ *
+ *  NOTE: This function breaks the basic security premise of the tsensor device -- that the private key cannot
+ *  be extracted from the device. This function is only indended for debug/development and should never be
+ *  implemented on a production device.
+ */
+void handleEepromDumpQuery()
+{
+  Serial.write(MSG_T_EEPROM_DUMP_R);
+  for( int i=0; i<1024; i++ )
+    Serial.write(EEPROM.read(i));
 }
 
 /**
