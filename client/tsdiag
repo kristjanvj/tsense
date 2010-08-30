@@ -1,0 +1,353 @@
+#!/usr/bin/env python
+
+"""
+
+tsdiag: Diagnostics utility for the TSense system. 
+
+Kristjan V. Jonsson
+2010
+
+"""
+
+__product_name__ = "tsdiag"
+__author__ = "Kristjan V. Jonsson"
+__version__ = "0.1.1"
+
+import sys
+import getopt
+import string
+import serial
+import socket
+import glob
+from time import *
+
+#
+# The USB (serial) port parameters for the sensor connection
+#
+usb_conn_str  = '/dev/ttyUSB*'  # Change this if we want to support other OSes at some time
+usb_baud_rate = 9600
+usb_timeout   = 5  # seconds
+
+#
+# Message type definitions. Message identifiers are carried in the first byte of all messages.
+# See the protocol definition on the wiki page for details
+#
+# The "proper" protocol
+MSG_T_GET_ID_R          = 0x10
+MSG_T_KEY_TO_SINK       = 0x11
+MSG_T_KEY_TO_SENSE      = 0x12
+MSG_T_ID_RESPONSE_ERROR = 0x1f
+MSG_T_REKEY_REQUEST     = 0x30
+MSG_T_REKEY_HANDSHAKE   = 0x31
+MSG_T_FINISH            = 0x90
+MSG_T_ERROR             = 0xff
+# The sensor/client protocol (USB conn only)
+MSG_T_ACK 					   = 0x4F
+MSG_T_SENSOR_ID_Q              = 0x40
+MSG_T_FREE_MEM_Q               = 0x50
+MSG_T_FREE_MEM_R               = 0x51
+MSG_T_STATE_Q                  = 0x52
+MSG_T_STATE_R                  = 0x53
+MSG_T_VERSION_Q                = 0x54
+MSG_T_VERSION_R	               = 0x55
+MSG_T_STARTUP_ID_Q             = 0x56         
+MSG_T_CUR_TIME_Q               = 0x57
+MSG_T_CUR_TIME_R         	   = 0x58
+MSG_T_PRIVATE_KEY_Q      	   = 0x5A
+MSG_T_PRIVATE_KEY_R            = 0x5B
+MSG_T_EEPROM_DUMP_Q      	   = 0x5C
+MSG_T_EEPROM_DUMP_R      	   = 0x5D
+
+MSG_T_SET_TIME_CMD             = 0x74  
+MSG_T_SET_SAMLPLE_INTERVAL_CMD = 0x75
+MSG_T_SET_SAMPLE_BUF_SIZE_CMD  = 0x76
+
+# Length of messages in bytes
+MSG_T_SENSOR_ID_R_LEN = 39
+MSG_T_FREE_MEM_R_LEN  = 3
+MSG_T_STATE_R_LEN     = 3
+MSG_T_VERSION_R_LEN   = 4
+MSG_T_CUR_TIME_R_LEN  = 5
+
+class Usage(Exception):
+	"""
+	Usage exception class
+	"""
+	def __init__(self, msg):
+		self.msg = msg
+
+def setup_serial():
+	"""
+	Setup the serial connection to the sensor.
+	Raises exception if no sensor is connected.
+	"""
+	# Look for the USB connection string. Raise an exception if no ports match.
+	port = glob.glob(usb_conn_str)
+	if len(port)<1: 
+		raise Exception("No sensors connected")
+	# Connect to the first port found. 
+	ser = serial.Serial(port[0], usb_baud_rate)
+	ser.flush()
+	return ser
+
+def hexstr(buf,line_len=0):
+	"""
+	Utility class to format a binary buffer of data as a readable hex formatted string.
+	"""
+	respstr=""
+	chrcnt=0
+	for c in buf:
+		respstr += "%.2x " % ord(c)
+		if line_len!=0:
+			chrcnt+=1
+			if chrcnt%line_len==0: respstr += "\n"
+	return respstr
+	
+def sendStartupDeviceIdentificationQuery(ser):
+	"""
+	This message queries the sensor for a 16-bit constant but random looking byte string.
+	The purpose is to prevent weird errors caused by the client trying to connect to another
+	USB-connected device than a tsensor. Basically, this is a handshake saying "I too speak the
+	protocol". This is not intended to be a foolproof test or secure in any way against malicious
+	parties.
+	"""
+	refbuf = [0xAB, 0x2E, 0x12, 0xF1, 0xC3, 0x13, 0xD9, 0x01, 0x39, 0xBA, 0x2E, 0x51, 0xC3, 0x81, 0xFF, 0x0A]
+	cmd=chr(MSG_T_STARTUP_ID_Q)
+	ser.timeout = usb_timeout
+	ser.write(cmd)
+	buf=ser.read(16)
+	if len(buf)!=16:
+		raise Exception("Error receiving initial device identification from sensor")
+	for i in range(0,len(buf)):
+		if refbuf[i] != ord(buf[i]):
+			raise Exception("Error receiving initial device identification from sensor")		
+
+def sendCurTimeQuery(ser):
+	cmd=chr(MSG_T_CUR_TIME_Q)
+	ser.write(cmd)
+	ser.timeout = usb_timeout
+	resp = ser.read(MSG_T_CUR_TIME_R_LEN)
+	if resp==None or len(resp)==0:
+		raise Exception("No reply for current time query")
+	if ord(resp[0]) != MSG_T_CUR_TIME_R:
+		raise Exception("Unexpected return 0x%.2x for current time query" % ord(resp[0]))
+	if len(resp) != MSG_T_CUR_TIME_R_LEN:
+		raise Exception("Length of time query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
+	timeval = 0
+	timeval += ord(resp[1])
+	timeval += (ord(resp[2]) << 8 )
+	timeval += (ord(resp[3]) << 16 )
+	timeval += (ord(resp[4]) << 24 )
+	return timeval
+
+def sendVersionQuery(ser):
+	"""
+	Send a version query to the sensor and wait (for a reasonable time) for a response.
+	This pair of messages is part of the sensor/client protocol.
+	"""
+	cmd=chr(MSG_T_VERSION_Q) 
+	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
+	ser.write(cmd) # Send report memory request 
+	resp = ser.read(MSG_T_VERSION_R_LEN); 
+	if resp==None or len(resp)==0:
+		raise Exception("No reply for version query")
+	if ord(resp[0]) != MSG_T_VERSION_R:
+		raise Exception("Unexpected return 0x%.2x for version query" % ord(resp[0]))
+	if len(resp) != MSG_T_VERSION_R_LEN:
+		raise Exception("Length of version query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
+	mem = ord(resp[1]) + (ord(resp[2])<<8)	
+	return (ord(resp[1]),ord(resp[2]),ord(resp[3]))
+
+def sendMemoryQuery(ser):
+	"""
+	Send a free memory query to the sensor and wait (for a reasonable time) for a response.
+	This pair of messages is part of the sensor/client protocol.
+	"""
+	cmd=chr(MSG_T_FREE_MEM_Q) 
+	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
+	ser.write(cmd) # Send report memory request 
+	resp = ser.read(MSG_T_FREE_MEM_R_LEN); 
+	if resp==None or len(resp)==0:
+		raise Exception("No reply for memory query")
+	if ord(resp[0]) != MSG_T_FREE_MEM_R:
+		raise Exception("Unexpected return 0x%.2x for memory query" % ord(resp[0]))
+	if len(resp)<MSG_T_FREE_MEM_R_LEN:
+		raise Exception("Length of memory query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
+	return ord(resp[1]) + (ord(resp[2])<<8)
+
+def sendStatusQuery(ser):
+	"""
+	Send a status query to the sensor and wait (for a reasonable time) for a response.
+	This pair of messages is part of the sensor/client protocol.
+	"""
+	cmd=chr(MSG_T_STATE_Q)
+	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
+	ser.write(cmd);  # Send status query
+	resp = ser.read(MSG_T_STATE_R_LEN);
+	if resp==None or len(resp)==0:
+		raise Exception("No reply for status query")
+	if ord(resp[0]) != MSG_T_STATE_R:
+		raise Exception("Unexpected return 0x%.2x for status query" % ord(resp[0]))
+	if len(resp)<MSG_T_STATE_R_LEN:
+		raise Exception("Length of status query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
+	return (ord(resp[1]),ord(resp[2]))
+
+def sendPrivateKeyQuery(ser):
+	cmd=chr(MSG_T_PRIVATE_KEY_Q)
+	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
+	ser.write(cmd);  # Send status query
+	resp = ser.read(17);
+	if resp==None or len(resp)==0:
+		raise Exception("No reply for private key query")
+	if ord(resp[0]) != MSG_T_PRIVATE_KEY_R:
+		raise Exception("Unexpected return 0x%.2x for private key query" % ord(resp[0]))
+	if len(resp)<17:
+		raise Exception("Length of private key query reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
+	resp = resp[1:]
+	return hexstr(resp)
+
+def sendEepromDumpRequest(ser):
+	cmd=chr(MSG_T_EEPROM_DUMP_Q)
+	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
+	ser.write(cmd);  # Send status query
+	resp = ser.read(1025);
+	if resp==None or len(resp)==0:
+		raise Exception("No reply for EEPROM dump request")
+	if ord(resp[0]) != MSG_T_EEPROM_DUMP_R:
+		raise Exception("Unexpected return 0x%.2x for EEPROM dump request" % ord(resp[0]))
+	if len(resp)<17:
+		raise Exception("Length of EEPROM dump request reply invalid. Received %d bytes: %s" % (len(resp),hexstr(resp)))
+	resp = resp[1:]
+	return hexstr(resp,16)
+
+def readAck(ser):
+	"""
+	Read an expected ACK message from the sensor. Expected 2 bytes, ACK message code
+	and a result code. See protocol description for details.
+	An ACK message is only expected for the USB-only protocol and only for commands, that is
+	protocol messages that do not return data.
+	"""
+	res = ser.read(2);
+	if not ord(res[0]) == MSG_T_ACK: 
+		logger.error("Unexpected message from sensor. Expected ACK, got 0x%.2x" % ord(res[0]))
+	return ord(res[1])
+
+def sendIdQuery(ser):
+	"""
+	Send an id query to the sensor. 
+	"""
+	cmd=chr(MSG_T_SENSOR_ID_Q)
+	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
+	ser.write(cmd)
+
+	# Read the expected number of bytes off the serial. Timeout handles unresponsive sensors.
+	buf = ser.read(MSG_T_SENSOR_ID_R_LEN) # The expected remainder of bytes
+	# Log some info about the transaction. Note that the length is buffer+1 to account
+	# for the message identification byte already read.
+	buf = buf[1:]
+	return ( hexstr(buf[0:6]), hexstr(buf[6:22]) , hexstr(buf[22:38]) )
+				
+def main(argv=None):
+	global usb_conn_str
+	global usb_baud_rate
+	global usb_timeout
+	global socket_host
+	global socket_port
+	global socket_timeout
+	
+	show_private_key = False
+	dump_eeprom = False
+
+	if argv is None:
+		argv = sys.argv
+
+		# TODO: If we want the client to be more flexible, we can add all sorts of cmd line
+		# config parameters here. 
+		try:
+			try:
+				opts, args = getopt.getopt(argv[1:], "hvc:b:t:pe", \
+                  ["help","version","sink-server-addr=","sink-server-port=","sensor-conn-str=", \
+                   "sensor-baud-rate=","timeout-value=","show-private-key","dump-eeprom"])
+			except getopt.error, msg:
+				raise Usage(msg)
+		except Usage, err:
+			print >>sys.stderr, err.msg
+			print >>sys.stderr, "for help use --help"
+			return 2
+		for o, a in opts:
+			if o in ("-h", "--help"):
+				print __doc__
+				sys.exit(0)
+			if o in ("-v", "--version"):
+				print __product_name__,__version__
+				sys.exit(0)
+			if o in ("-c", "--sensor-conn-str"):
+				usb_conn_str = a
+			if o in ("-b", "--sensor-baud-rate"):
+				usb_baud_rate = string.atoi(a)
+			if o in ("-t", "--timeout-value"):
+				usb_timeout=socket_timeout=string.atoi(a)
+			if o in ("-p", "--show-private-key"):
+				show_private_key=True
+			if o in ("-e", "--dump-eeprom"):
+				dump_eeprom=True
+
+	print "\n\ntsdiag begins"
+	print "=============\n"
+	print "\tUSB conneciton string: '%s'" % usb_conn_str
+	print "\tUSB baud rate:         %d" % usb_baud_rate
+	print "\tUSB timeout:           %d sec" % usb_timeout
+	print "\n\n"
+
+	try:
+		# Setup the serial port
+		try:
+			ser = setup_serial()
+		except Exception, err:
+			print >>sys.stderr, err
+			sys.exit(-1)	
+
+	
+		# Send an id query
+		try:
+			# Check if its really a tsensor thats hanging off the port. Throws an 
+			# excecption if the identifiers dont match.
+			sendStartupDeviceIdentificationQuery(ser)
+			print "A tsensor is connected" # Otherwise, we get an exception
+			# Send a version query and validate the result to help prevent headaches
+			# caused by out-of-date sensor boards
+			version=sendVersionQuery(ser)
+			print "Sensor version: %.2d.%.2d.%.2d" % (version[0],version[1],version[2])
+			# Set the current time, sampling interval and sample buffer size			
+			timeval = sendCurTimeQuery(ser) # Check the time on the sensor just to make sure we are in sync			
+			print "Current sensor time is %s" % ctime(timeval)
+			# Send memory and status queries to help with debugging
+			freemem=sendMemoryQuery(ser)
+			print "Free sensor memory: %d bytes" % freemem
+			status = sendStatusQuery(ser)
+			print "Sensor status: %d (error=%d)" % (status[0],status[1])
+			# Send a public ID query
+			pub_id = sendIdQuery(ser)
+			print "Sensor ID: '%s' (crypto: '%s', MAC: '%s')" % (pub_id[0],pub_id[1],pub_id[2])
+			# Print the private key -- this of course violates all security requirements and
+			# should only be used for debugging. The private key extraction function should not
+			# exist at all on a production sensor.
+			if show_private_key:
+				print "\nPrivate key is '%s'" % sendPrivateKeyQuery(ser)
+			# Dump the sensor EEPROM. This function is only used for debug and should not exist
+			# at all on a production sensor.
+			if dump_eeprom: 	
+				print "\nEEPROM DUMP:\n",sendEepromDumpRequest(ser)
+		except Exception, err:
+			print >>sys.stderr, err
+			sys.exit(-1)	
+	except Exception, err:
+		print >>sys.stderr, err
+
+	print "\n\ntsdiag -- Diagnostics done\n\n"
+
+if __name__ == "__main__":
+	sys.exit(main())
+
+
+
