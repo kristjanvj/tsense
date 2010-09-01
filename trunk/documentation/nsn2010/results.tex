@@ -1,0 +1,34 @@
+
+\chapter{Results}
+\label{sec:results}
+
+Our work began with construction of small prototypes, in order to get to grips with the Duemilanove and the Arduino development environment. Although we hit some initial problems, the experience of working with the Arduino system was overall a pleasant one. The basic system design decisions were then discussed in the group, which settled on the fully symmetric crypto approach. We then proceeded to code and test the cryptographic primitives on the supported platforms. The cryptographic protocols were designed in parallel with the code development. Once all the ducks were in a row, we proceeded to code the protocols in a multi-platform library, again for minimum coding effort and maximum maintainability. The final step was to integrate and test the system as a whole. We will describe our results in this section.
+
+\section{Verification of cryptographic algorithms}
+
+Several unit tests of the cryptographic primitives were developed and executed repeatedly during the software development on all supported platforms:
+\begin{itemize}
+\item Unit tests of the block cipher -- encryption and decryption using available test vectors, e.g.\ the key expansion and encryption test vectors from the FIPS document and using randomly generated blocks.
+\item Unit tests of the CBC-mode encryption and decryption on all supported platforms and for plaintexts of various lengths, from one block (16-bytes) to several blocks in length.
+\item Unit tests of the CMAC authentication. 
+\end{itemize}
+All unit tests are included in our open source implementation at \url{http://code.google.com/p/tsense}.
+
+\subsection{Performance of cryptographic primitives}
+
+\textbf{PERFORMANCE -- AES-128 on Arduino v.s. PC platforms (wall-clock). XTEA for comparison??}
+
+\section{Verification of cryptographic protocol implementation}
+
+The implementation of the cryptographic protocols -- authentication, key-exchange and data transfer -- was done on a test bed system, similar to the one shown in Figure~\ref{}. PC laptops running linux and a MacBook running OS-X served as hosts (clients) for an Arduino Duemilanove based tsensor. Two virtual machines, running Ubuntu 10.04 LTS (kernel 2.6.32) served as sink and authentication servers. The clients used DHCP to obtain dynamic network addresses, while the two servers had fixed IPs. The sensor board was USB-connected to the host (client).
+
+The protocols were tested individually at first and then combined. In summary, we were successful in getting the whole system up and running, albeit under fairly well controlled circumstances. Notably, handling of abnormal and unexpected events is lacking in the current version. However, we believe we have shown the feasibility of our implementation in a proof-of-concept setting.
+
+\section{Soundness of the cryptographic protocol}
+
+\textbf{SOME CRYPTOGRAPHIC ANALYSIS OF THE PROTOCOLS}
+
+\section{Cost of materials}
+
+We base our sensor prototype on an Arduino Duemlianove experimentation board, mainly for the convenience of programming the ATmeg328 in such an environment rather than using a separate programmer. The cost of this board is \$29.95 (+ shipping and import costs) from \url{http://www.sparkfun.com}. An Atmel ATmega328 is available for \$4.40 in quantities of 100+, but this would require custom circuit boards and support hardware. The cost of sensors varies according to their sophistication, but the NTC thermistor and photoresistor used in our project cost less than \$2 a piece. A reasonable estimated price for an assembled and tamper-proof tsensor is certainly less than \$20 in quantities using our demonstration sensors. We can therefore conclude that a ATmega-based tsensor is a relatively cheap unit.
+

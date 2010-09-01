@@ -1,0 +1,29 @@
+
+\chapter{Discussion}
+\label{sec:discussion}
+
+\section{Future work}
+
+Future work -- sketch distributed.
+
+Work on protocol robustness -- current protocol has minimum error handling and such. Make system overall more resilient.
+
+Utilizing asymmetric crypto, at least for initial identification and session key exchange, is worth considering. This would allow private sensor keys to be truly private, that is only reside burned onto the tamperproof sensor device itself. All sinks can then safely hold the corresponding public keys, without sacrificing any security. This would in turn decrease the reliance on the authentication server; in fact, its role would be reduced to a fairly non-critical public key distribution service. Public key crypto algorithms are rather well known but their feasibility on resource constrained hardware is questionable. We will consider such algorithms, in particular elliptic curve \cite{} encrypion and signature algorithms, in future projects.
+
+=====
+
+Efficiency was not the primary focus of this project. Rather, we concentrated on developing a working prototype that satisfies rigorous security requirements. Future work includes optimizing the protocols for more resource constrained networks, e.g.\ wireless transports. One way of increasing efficiency is to decrease security, e.g.\ by using shorter encryption and MAC keys or sacrificing encryption and solely use MACs. A more satisfying solution is to explore authenticating block or stream ciphers. Block ciphers, such as AES, can be operated in several accepted authenticating modes, e.g.\ Galoais Counter Mode (GCM) \cite{} and OCB (Offset CodeBook) \cite{}. Authenticating modes are generally more efficient, since one slightly more complex operation is generally faster than two simpler ones. \textbf{CIPHER SIZE OF AUTHENTICATING MODES???} \textbf{AUTHENTICATED STREAM CIPHERS.}
+
+\textbf{Ciphertext stealing to prevent code expansion -- cite Schneier.}
+
+=====
+
+TODO: Conclusions and future work.
+
+Discuss how our initial goals were met by the implementation. Decided to use only private (symmetric) crypto as this is more in the spirit of the project -- small resource constrained devices. Discuss assumptions such as tamper-proofness.
+
+Future work: Public key crypto or zero-knowledge proofs for identification and key exchange instead of symmetric. The weaknesses of this system are the single point of failure and compromise in form of $A$. Scalability becomes an issue in a large system, as $A$ is bound to be loaded. Storage requirements on $A$ are considerable, especially since it is required to keep state on each sensor (last counter, last seen, ...). All this should be considered.
+
+Should also discuss here reasonable security levels. We are not talking about a system of extreme importance, such as credit card chip systems which must be unbreakable (or nearly so). Rather, we really dont care about compromise, as long as the number of compromised nodes is low enough to maintain the required confidence level in the system.
+
+The choice of cipher algorithms also plays a part in performance. One may for example consider a different block cipher than AES, which is claimed by e.g.\ \shortciteA{karlof2004} to be slower than Skipjack and RC5. Stream ciphers are generally very fast, but also difficult to handle since one must be very careful never to re-use initialization vectors. We may consider some modern stream ciphers, for example the eCrypt portfolio in future work.
