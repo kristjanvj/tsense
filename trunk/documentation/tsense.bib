@@ -5324,6 +5324,26 @@
 	even when an attack is suspected.}
 }
 
+@INPROCEEDINGS{cardenas2008,
+  author = {C\'{a}rdenas, Alvaro A. and Amin, Saurabh and Sastry, Shankar},
+  title = {Research challenges for the security of control systems},
+  booktitle = {{HOTSEC'08}: Proceedings of the 3rd conference on Hot topics in security},
+  year = {2008},
+  pages = {1--6},
+  address = {Berkeley, CA, USA},
+  publisher = {USENIX Association},
+  abstract = {n this paper we attempt to answer two questions: (1) Why should we
+	be interested in the security of control systems? And (2) What are
+	the new and fundamentally different requirements and problems for
+	the security of control systems? We also propose a new mathematical
+	framework to analyze attacks against control systems. Within this
+	framework we formulate specific research problems to (1) detect attacks,
+	and (2) survive attacks.},
+  file = {cardenas2008.pdf:cardenas2008.pdf:PDF},
+  keywords = {security, SCADA, control systems},
+  location = {San Jose, CA}
+}
+
 @MISC{cardenas2006,
   author = {Alvaro A. C\'{a}rdenas and Gelareh Taban and John S. Baras},
   title = {A Unified Framework of Information Assurance for the Design and Analysis
@@ -5633,6 +5653,30 @@
 	source-level models, stochastic models, synthetic HTTP source traffic,
 	web traffic},
   review = {See also: PackMime-HTTP traffic generator for ns-2}
+}
+
+@ARTICLE{cardenas2009,
+  author = {Alvaro Cardenas and Tanya Roosta and S. Shankar Sastry},
+  title = {Rethinking Security Properties, Threat Models and the Design Space
+	in Sensor Networks: A case study in {SCADA} systems},
+  journal = {Ad Hoc Networks},
+  year = {2009},
+  month = {May},
+  abstract = {In recent years we have witnessed the emergence and establishment
+	of research in sensor network security. The majority of the literature
+	has focused on discovering numerous vulnerabilities and attacks against
+	sensor networks, along with suggestions for corresponding countermeasures.
+	However, there has been little guidance for understanding the holistic
+	nature of sensor network security for practical deployments. In this
+	paper, we discuss these concerns and propose a taxonomy composed
+	of the security properties of the sensor network, the threat model,
+	and the security design space. In particular, we try to understand
+	the application-layer goals of a sensor network, and provide a guide
+	to research challenges that need to be addressed in order to prioritize
+	our defenses against threats to application-layer goals.},
+  file = {cardenas2009.pdf:cardenas2009.pdf:PDF},
+  keywords = {security, SCADA, sensor networks},
+  url = {http://chess.eecs.berkeley.edu/pubs/598.html}
 }
 
 @INPROCEEDINGS{carmi2007,
@@ -12583,27 +12627,26 @@
   abstract = {The widespread use of sensor networks presents revolutionary opportunities
 	for life and environmental science applications. Many of these applications
 	involve continuous queries that require the tracking, monitoring,
-	and
-	
-	correlation of multi-sensor data that represent moving objects. We
-	propose to answer these queries using a multi-way stream window join
-	operator. This form of join over multi-sensor data must cope with
-	the inﬁnite nature of sensor data streams and the delays in network
-	transmission. This paper introduces a class of join algorithms, termed
-	W-join, for joining multiple inﬁnite data streams. W-join addresses
-	the inﬁnite nature of the data streams by joining stream data items
-	that lie within a sliding window and that match a certain join condition.
-	W-join can be used to track the motion of a moving object or detect
-	the propagation of clouds of hazardous material or pollution spills
-	over time in a sensor network environment. We describe two new algorithms
-	for W-join, and address variations and local/global optimizations
-	related to specifying the nature of the window constraints to fulﬁll
-	the posed queries. The performance of the proposed algorithms are
-	studied experimentally in a prototype stream database system, using
-	synthetic data streams and real time-series data. Tradeoffs of the
-	proposed algorithms and their advantages and disadvantages are highlighted,
-	given variations in the aggregate arrival rates of the input data
-	streams and the desired response times per query.},
+	and correlation of multi-sensor data that represent moving objects.
+	We propose to answer these queries using a multi-way stream window
+	join operator. This form of join over multi-sensor data must cope
+	with the inﬁnite nature of sensor data streams and the delays in
+	network transmission. This paper introduces a class of join algorithms,
+	termed W-join, for joining multiple inﬁnite data streams. W-join
+	addresses the inﬁnite nature of the data streams by joining stream
+	data items that lie within a sliding window and that match a certain
+	join condition. W-join can be used to track the motion of a moving
+	object or detect the propagation of clouds of hazardous material
+	or pollution spills over time in a sensor network environment. We
+	describe two new algorithms for W-join, and address variations and
+	local/global optimizations related to specifying the nature of the
+	window constraints to fulﬁll the posed queries. The performance of
+	the proposed algorithms are studied experimentally in a prototype
+	stream database system, using synthetic data streams and real time-series
+	data. Tradeoffs of the proposed algorithms and their advantages and
+	disadvantages are highlighted, given variations in the aggregate
+	arrival rates of the input data streams and the desired response
+	times per query.},
   doi = {10.1109/SSDM.2003.1214967},
   file = {01214967.pdf:01214967.pdf:PDF},
   issn = {1099-3371 },
