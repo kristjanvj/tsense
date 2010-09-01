@@ -215,21 +215,21 @@ The sensor can be controlled interactively through a set of control message whic
 
 The \textit{tsclient} is a small and completely untrusted software component installed on an equally untrusted hardware platform. The sole purpose of this software is to interface with the USB-connected tsensor and forward its messages unmolested to the sink server. The goal of this project is in essence to force this untrusted piece of software and the platform it resides on to provide trustworthy information to the sink.
 
-tsclient is written completely in python (v. 2.6), using the serial and socket libraries. The tsclient, and other TSense components, are open-source and maintained at \url{http://code.google.com/p/tsense}. \textbf{Implementation details are further described in xxxxx PYDOC.}
+tsclient is written completely in python (v. 2.6), using the serial and socket libraries. 
 
-======
-
-\textbf{We can require a digital certificate to be installed on the client platform, but this buys us little in terms of security. At best, we can permanently register a specific digital certificate with a specific sensor, but this buys us nothing beyond the strong identity of the sensor. A TPM, smartcard or other hardware device may provide stronger platform identity, but we leave this for future work. 
+%\textbf{We can require a digital certificate to be installed on the client platform, but this buys us little in terms of security. At best, we can permanently register a specific digital certificate with a specific sensor, but this buys us nothing beyond the strong identity of the sensor. A TPM, smartcard or other hardware device may provide stronger platform identity, but we leave this for future work. 
 %
 We regard the attached and unforgeable tsensor to be strong enough to uniquely identify the client -- not as trusted but guarantees (within computational bounds) that the Sybil attack \cite{} is impossible in this system.}
 
 
 \subsection{tsink -- TSense sink daemon}
 
+\textbf{TODO: KR}
+
 The \textit{tsink} -- TSense sink daemon collects authenticated measurements from one or more client/sensor systems. In addition, it participates in the authentication and re-keying protocols, as further described in Section~\ref{}. The tsink software and the systems on which it resides are considered trusted for the purposes of this project.
 
-tsink is written entirely in C++ and uses the same codebase as tauth and tsensor for its encryption functions. The tsink software, and other TSense components, are open-source and maintained at \url{http://code.google.com/p/tsense}. \textbf{Implementation details are further described in doxygen generated documentation found at \url{http://xxxxxxx}}.
-
+tsink is written entirely in C++ and uses the same codebase as tauth and tsensor for its encryption functions.
+%
 tsink is a daemon service, written and tested on 32- and 64-bit OS-X and linux platforms. The test deployment is on 32-bit virtual machine, running Ubuntu 10.04 and a 2.6.32 kernel. A child is forked for each incoming client connection.
 
 \textbf{MySQL -- State that needs to be kept on the sink regarding client/sensor pairs. Cleanup of state, etc.}
@@ -238,31 +238,35 @@ tsink is a daemon service, written and tested on 32- and 64-bit OS-X and linux p
 
 \subsection{tauth -- TSense authentication service}
 
-The tauth -- TSense authentication daemon assists in the insertion of sensor/client pairs into a working measurement system. The tauth holds all the private keys (private IDs) of all tsensors. The tauth software and the platform it resides on is considered to be highly a highly trusted and hardened server for the purposes of this project. tauth is entirely written in C++ and uses the same codebase as tsink and tsensor for its encryption functions.  The tauth software, and other TSense components, are open-source and maintained at \url{http://code.google.com/p/tsense}. \textbf{Implementation details are further described in doxygen generated documentation found at \url{http://xxxxxxx}}.
+\textbf{TODO: KR}
+
+The tauth -- TSense authentication daemon assists in the insertion of sensor/client pairs into a working measurement system. The tauth holds all the private keys (private IDs) of all tsensors. The tauth software and the platform it resides on is considered to be highly a highly trusted and hardened server for the purposes of this project. tauth is entirely written in C++ and uses the same codebase as tsink and tsensor for its encryption functions.  
 
 tsink is a daemon service, written and tested on 32- and 64-bit OS-X and linux platforms. The test deployment is on 32-bit virtual machine, running Ubuntu 10.04 and a 2.6.32 kernel. A child is forked for each incoming connection.
 
-Storage of private cryptographic keys.
+\textbf{Storage of private cryptographic keys.}
 
 \textbf{MORE DETAILS}
 
 \section{Cryptographic protocols}
 
+\textbf{TODO: BK}
+
 \subsection{Authentication and key exchange protocols}
 
-This section outlines a very basic symmetric authentication protocol, using a third party, in our case the authentication server $A$. The authentication protocol is based on the Needham-Schroeder authentication and key exchange protocol \shortcite{needham1978} [B. Schneier -- Applied Crypto]. A modified Needham-Schroeder is also used in the Kerberos protocol \shortcite{neuman1994}. The main modification in our protocol is that $T$ does not communicate directly with $A$ but through $S$. This adds a layer of obscurity to $A$ as only the fairly well trusted $S$ need direct knowledge of its address, in essence a bit of security-by-obscurity for $A$.
+The authentication protocol is a symmetric protocol using a trusted thrid party, based on the Needham-Schroeder authentication and key exchange protocol \shortcite{needham1978} [B. Schneier -- Applied Crypto]. A modified Needham-Schroeder is also used in the Kerberos protocol \shortcite{neuman1994}. The main modification in our protocol is that $T$ does not communicate directly with $A$ but through $S$. This adds a layer of obscurity to $A$ as only the fairly well trusted $S$ need direct knowledge of its address, in essence a bit of security-by-obscurity for $A$.
 %
-The original Needham-Schroeder was vulnerable to replay attacks \shortcite{denning1981}, which can be fixed by using nonces and/or timestamps \cite{needham1987}. We use nonces to prevent replays.
+The original Needham-Schroeder was vulnerable to replay attacks \shortcite{denning1981}, which can be fixed by using nonces and/or timestamps \cite{needham1987}. We use both nonces and timestamps in our protocols.
 
-As discussed in Section~\ref{}, we use the \textit{Encrypt-then-MAC (ETM)} \shortciteA{bellare2007} composition paradigm, in which the plaintext is first encrypted and then a MAC of the ciphertext appended:
-\[
-\bar{\mathcal{E}}_{K_e \parallel K_a, M} = C \parallel \mathcal{T}_{K_a}(C)
-\]
-where
-\[
-C = \mathcal{E}_{K_e}(M)
-\]
-This construction is proven more secure than the other two generic compositions (encrypt-and-MAC and MAC-then-encrypt) by \citeauthor{bellare2007}. 
+As discussed in Section~\ref{}, we use the \textit{Encrypt-then-MAC (ETM)} \shortciteA{bellare2007} composition paradigm, in which the plaintext is first encrypted and then a MAC of the ciphertext appended. We use $\mathcal{T}_K$ in our protocol to indicate \textit{tagging} (MACing) of the message ciphertext with a shared symmetric secret key $K$. $\mathcal{E}_K$ and $\mathcal{D}_K$ are used for encryption (resp.\ decryption) with a shared symmetric secret key $K$.
+%\[
+%\bar{\mathcal{E}}_{K_e \parallel K_a, M} = C \parallel \mathcal{T}_{K_a}(C)
+%\]
+%where
+%\[
+%C = \mathcal{E}_{K_e}(M)
+%\]
+%This construction is proven more secure than the other two generic compositions (encrypt-and-MAC and MAC-then-encrypt) by \citeauthor{bellare2007}. 
 
 \subsubsection{Initial phase -- authentication and session key exchange}
 
@@ -394,8 +398,8 @@ Private sensor ID generated at time of "manufacture" -- in prototype burned to E
 
 Vulnerabilities in the /dev/random implementations have been found on some platforms. To reduce the possible correlations, we can MAC the 16 byte sequence with another randomly generated 128-bit key. One of the requirements for a robust MAC function is that the results are indistinquishable (within computational bounds) from a random value for any input. Using a cryptographically secure hash function would also suffice. However, we regard the randomness provided by /dev/urandom to be sufficient for the purposes of this project.
 
-\section{CHECK: Challenge-response authentication}
-
-See Bellovin and Merrit on EKE. Interesting C-R to simply encrypt a random number and requiring partner to echo back a re-encrypted decryption of an encrypted random number. All encryptions-decryptions are done using a shared symmetric key -- the secret to be verified.
-
-Another method is to send a random number and require a hash of the random number with the secret to be verified. A MAC keyed on a shared secret key would be as effective.
+%\section{CHECK: Challenge-response authentication}
+%
+%See Bellovin and Merrit on EKE. Interesting C-R to simply encrypt a random number and requiring partner to echo back a re-encrypted decryption %of an encrypted random number. All encryptions-decryptions are done using a shared symmetric key -- the secret to be verified.
+%
+%Another method is to send a random number and require a hash of the random number with the secret to be verified. A MAC keyed on a shared secret key would be as effective.
