@@ -1,0 +1,108 @@
+
+\chapter{Introduction}
+\label{sec:intro}
+
+Information gathering and processing is an increasingly pivotal function in our society at large. This is also true in modern networked measuring and monitoring systems, seemingly increasing daily in terms of size and complexity. Examples include management of large computer networks and SCADA systems for power and utility control and monitoring tasks. The size and complexity issues prompt questions regarding the scalability of measurement systems and their security. We will address the security aspect of one particular factor of networked measurement systems in this work.
+
+Operators in a large networked system of any kind rely on state information, often in aggregate form, to make well grounded decisions. Such decisions may include resource allocation, failure response and billing. Obviously, operators of such networks must be able to trust the information provided implicitly -- any doubts can easily render monitoring pointless.
+
+Current measurement systems generally use a client/server architecture form, where sensors or remote terminal units (RTUs) communicate directly with dedicated sinks or programmable logic controllers (PLCs). In the SCADA world, communications between RTUs, sensors and controllers are often unsecured on the assumption that the network itself is secure by physical separation from publicly accessible networks. This assumption does not hold if we move to a general-purpose transport layer, such as the Internet, transport layers superimposed on the power grid or wireless technologies of any sort. In fact, the trend in even critical SCADA systems is toward more heterogeneous systems and open standards.
+%\textbf{See \url{http://en.wikipedia.org/wiki/SCADA} on background.}
+%
+RTUs sometimes employ cryptographic primitives to end-to-end secure communications to some dedicated endpoint. This solves the network security issue if done correctly. However, this solution obviously implies that all endpoints in such a system must be trusted, which can be non-trivial in complex devices or systems.
+
+In this work, we explore the concept of a trusted sensor -- a small self-contained network with very limited communications capabilities. The premise is a small and cheap sensor with minimal communications facilities. Our proof-of-concept prototype, \textit{tsensor},  is a temperature and luminosity meter, embedded with a small microcontroller and basic serial port communications. A production unit would be embedded in a permanently sealed and tamper-proof package, ensuring that manipulation of the unit, including extraction of cryptographic keys, would be infeasible. In contrast, our current prototype is anything but tamperproof, although we demonstrate the feasibility of the architecture. The sensor is attached to a host system via the USB port, transforming that host, although inherently untrusted, into a trustworthy source of measurements for a networked monitoring system.
+%
+Our prototype sensor measures admittedly non-critical values, but the concept can be extended to any type of sensor that can be embedded in a tamperproof package, large enough to house a microcontroller and serial interface. Applying security measures at the very source allows the remainder of the chain, for example PLCs, to be relatively untrusted with regards to the message integrity. One interesting application of such a device is integration with wireless sensor nodes \cite{}. These small and relatively inexpensive devices are generally considered too inexpensive to tamperproof\footnote{This may be a fallacy, as companies such as Freescale have arguably shown the feasibility of tamperproof and cost effective miniature devices.} \cite{}. Authenticity of sensor node measurements could be ensured by the simple means of soldering on a tsensor instead of a regular, unsecured sensor unit.
+
+We explore the issues involved in the construction of a sensor, capable of guaranteeing (within computational bounds) end-to-end integrity and confidentiality of measurements between sensor and a trusted sink, regardless of the number of intermediary hops, including the actual hosting computer of the sensor. The construction of the sensor and associated trusted sink is one aspect of the task; another is the necessary supporting systems. Our client/server (sensor/sink) based prototype requires a single supporting node -- an authentication server. Later work will focus on reducing the importance of this unit.
+
+The remainder of this report describes our work on the project, but first we will discuss the system requirements, security goals and adversarial modeling. We will also briefly introduce related work and summarize the contributions of the project. However, let us first briefly discuss a motivating example for a trusted sensor and the associated infrastructure.
+
+
+\url{http://www.schneier.com/blog/archives/2010/07/internet_worm_t.html}
+
+\url{http://www.controleng.com/index.php?id=2735&tx_ttnews[tt_news]=3170&cHash=270907}
+
+\url{http://www.securityfocus.com/news/11402}
+
+\cite{cardenas2008}, \cite{cardenas2009}
+
+
+\section{Global Warming Watch -- a trusted collaborative monitoring project}
+
+Our motivating example is in our opinion a realistic application of the system, although non-critical by some accounts. A fictional organization, Global Warming Watch, wants to conduct independent temperature measurements around the globe to determine heating trends. The most efficient way, according to GWW, is to recruit as many volunteers as possible to donate modest computing resources and contribute local measurements. The naive solution is to simply ask volunteers to read their outside thermometers once a day and email in the results; a slightly better one is to use automatic weather stations, similar to the Weather Underground\footnote{\url{http://www.wunderground.com}}. The issue of trust is important for GWW's application: there is considerable risk of adversarial influence in the process. Environmental groups may want to inflate the heating trends, while the fossil fuel industry will definitely want to deflate them. Both types of adversaries want to do their "damage" undetected and therefore collude to bias individual measurements slightly in such a manner that each individual change is hard to detect but the aggregate trend is still affected.
+
+GWW's solution to establish trust in their results is to use the tsensor system. Volunteers register with the organization and get a tsensor -- a trusted temperateure sensor -- sent in the mail. Each tsensor has an embedded ID -- a unique public device ID and a secret and unmodifiable cryptographic key. Each volunteer downloads a small piece of client-side software, which connects to the GWW collection infrastructure, and plugs the tsensor into a USB port. Note that the volunteer's computer, including its operating system, all other running software including the GWW client program itself, and indeed the user itself, is untrusted. That is, the volunteers computers are the entities in the GWW monitoring system which can be under adversarial control.
+
+The tsensor solves several problems. First, it provides a strong and unforgeable identity for the client computer by virtue of its embedded secret cryptographic key and identity. It serves the same purpose as a smart card or similar authentication mechanisms. Authentication is extremely important in a measurement system, since it is the only dependable solution to the Sybil attack \shortcite{Douceur2002}, that is, adversaries gaining the upper hand by simulating great numbers of nodes. Secondly, it guarantees that measurements are authenticated at the source, the sensor device itself, and do not depend on the volunteer's computer for anything but transport to a measurement sink. The tsensor also optionally provides encryption of the data, which is not critical for this particular application.
+
+Now, GWW must set up its infrastucture of sink servers, each of which is a reasonably well protected server. A degree of scalability and fault tolerance is achieved by enabling each of the clients to submit measurements to several sink servers, each of which functions as a clusterhead for several clients. The trusted network of sink servers then collaboratively aggregates the results to provide an up-to-date global view. A single authentication server ensures that no more than a single instance of each tsensor can be active in the system at any given time.
+
+This example is practically a toy application and certainly not reality, at least at the present time. However, bootstrapping trust by applying cryptographic primitives at the earliest possible point does certainly have applications. We can in this respect mention applications in which safety or finances depend on truthful reporting of values measured by networked sensors.
+
+\section{Security goals and adversarial modeling}
+
+The GWW motivating example sketched informally the security requirements and adversarial modeling. Let us now define this more carefully.
+
+We use a client/server model in which clients are pairs of tsensors and untrusted end-systems of some sort and servers are measurement sink servers. Sink servers and tsensors are implicitly trusted: tsensors by the embedded cryptographic keys and assumed tamperproofness, and the sink servers by the assumption of direct control and hardening. Therefore, the clients, the general purpose end-user systems, are the sole corruptible node type in the system\footnote{The definitely real threat that a sink or authentication server are compromised can be addressed by standard best practices in server and systems management.}. We focus on integrity, and to a lesser extent confidentiality issues, in the classic CIA trilogy of computer security. We neglect availability issues, since we focus on stealty data modification attacks, rather than the generally "noisy" availability ones such as denial-of-service attacks. For simplification, we will talk about a single adversary corrupting some fraction of the client population, although several adversarial groups or adversarial structures \cite{} \textbf{MAURER?} are certainly possible in reality.
+
+We consider insider attackers, that is, the end-systems corrupted by our adversary. Outsider attackers, both active and passive, are excluded by the tsensor/sink encrypted and authenticated communications. We assume stealthy adversaries \shortcite{przydatek2003}, that is, ones which seek to modify the final aggregate in such a manner that they remain undetected. The adversary can coordinate the actions of the clients under its control, that is, we assume colluding corrupted entities.
+
+We assume the client, even if corrupted, will always communicate with a single sink. Specifically, a corrupted client will never try to divert communications to an adversarial controlled entity. The rationale behind this assumption is that the goal of the adversary in our model is to influence the aggregate measurement, not to "steal" the individual readings.
+
+To summarize, the adversarial goal is to corrupt some fraction of the clients such that it can stealthily influence the final aggregate of the collected measurements. The security requirements are that \underline{if} a client delivers a result, the corresponding sink can ascertain (within computational bounds) that the results are authentic and, optionally, confidential.
+
+\subsection*{A note on computational v.s.\ information theoretic security}
+
+\textbf{Briefly introduce -- see \cite{maurer2006}.}
+
+\subsection*{The role of encryption}
+
+Our main goal is to effectively deny an adversary the possibility of modifying messages, which can be effectively addressed by applying message authentication codes (MACs) or digital signatures. We use MACs in our system, as will be discussed later on. Authenticity does not imply confidentiality as MAC authenticated messages are commonly sent in plaintext. However, we assume encryption and MAC as our standard mode of operation. This does not buy any added security in terms of the GWW example, but may do so for other applications. Encryption ensures confidentiality, which may be important for some applications. Even more importantly, it helps to deny the adversary the opportunity to selectively drop and forward measurements to advance its own stealthy goals. 
+
+We can deny the adversary the possibility to modify messages by the application of MACs. However, measurement bias can be introduced by dropping messages, that is simulating crash failures. Crash failures are a fact of life in any distributed system and do not necessarily indicate any malicious behavior. Selective dropping can therefore be a reasonably effective and stealthy method of manipulating the aggregate results. Encryption of the data to be dropped means that the adversary is blind -- he can at best flip a coin to decide whether to drop any given message. This of course assumes that the adversary does not have direct knowledge of the measured quantity. This is in general not the case in an end-to-end client/server system but comes into play in a distributed aggregation system, which is the future goal of this system.
+
+\section{Contribution}
+
+The contributions of this work are the following:
+\begin{itemize}
+\item Multi-platform implementations of the industry standard AES encryption algorithm, executable on 32- and 64-bit Intel systems under linux and BSD as well as on the 8-bit Atmel ATmega328 embedded microprocessor. The block cipher building block was used to implement CBC-mode encryption and decryption, and CMAC authentication.
+\item Development of a minimal trusted sensor in a comprehensive client/server based secure measurement system with a trusted third party service. The proof-of-concept system includes:
+\begin{itemize}
+\item a trusted sensor prototype -- \textit{tsensor} -- based on an Arduino Duemlianove\footnote{\url{http://http://arduino.cc/en/Main/Hardware}} with an Atmel\footnote{\url{http://www.atmel.com}} ATmega328 embedded microprocessor.
+\item a sink server for receiving measurements from a number of tsensors.
+\item an authentication server for strong identification of tsensors (the trusted third party).
+\item a set of cryptographic protocols for authentication, key exchange and data transfer, tying all components together.
+\end{itemize}
+\end{itemize}
+
+All the tsense code, including sensor, supporting infrastructure and utilities, is open-source and maintained at \url{http://code.google.com/p/tsense}. On-line documentation is available through links on the site.
+
+\section{Background and related work}
+
+\textbf{TODO: FINALIZE}
+
+TPMs and processors with crypto on board -- concept of crypto and burnt in keys.
+
+YubiKey for authentication via symmetric keys. Uses AES. Similarities/dissimilarities. YubiKey more like a salted password system than a complete authentication protocol -- one strengthening factor in authentication.
+%
+Smart card authentication protocols. 
+
+GSM/UTMS/LTE key derivation and authentication model.
+
+Paper on tamper-proofness.
+
+Bunch of papers on crypto on small devices -- Malan etc.
+
+\textbf{SHARED SENSING REFS} \cite{grosky2007}. Outsourced aggregation \cite{nath2009} -- consider the aggregators as the untrusted units. Perhaps \cite{hammad2003} on sensor fusion. Perhaps better placed with motivating example
+
+\url{http://www.greentechmedia.com/articles/read/freescale-unveils-new-secure-smart-meter-chips/}
+
+\url{http://www.certicom.com/index.php/certicom-advanced-metering-infrastructure-for-the-utility-industry}
+
+Work on securing transport protocols for sensor networks \shortciteA{parno2006} and \shortciteA{luk2007}. Link layer security \cite{karlof2004}.
+
+
+
+
