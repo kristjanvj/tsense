@@ -30,3 +30,22 @@ int generateKeyOfLength(byte_ard *newKey, int length) {
 	}
 	return res;
 }
+
+void printByteArd(unsigned char* pBytes, unsigned long dLength, 
+						int textWidth = 16)
+{
+	int bytecount=0;
+	for(unsigned long i=0;i<dLength;i++)
+	{
+		printf("%.2x ",pBytes[i]);
+		if ( ++bytecount == textWidth )
+		{
+			printf("\n");
+			bytecount=0;
+		}
+	}
+
+	if ( bytecount != 0 )
+		printf("\n");
+}
+
