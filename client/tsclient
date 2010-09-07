@@ -49,7 +49,7 @@ debug_dump_buffers = False	# Dump buffers received from sensor/sink in readable 
 #
 cur_maj_ver = 0
 cur_min_ver = 1
-cur_revision = 26
+cur_revision = 30
 
 #
 # The USB (serial) port parameters for the sensor connection
@@ -99,6 +99,7 @@ MSG_T_CUR_TIME_R         	   = 0x58
 MSG_T_SET_TIME_CMD             = 0x74  
 MSG_T_SET_SAMLPLE_INTERVAL_CMD = 0x75
 MSG_T_SET_SAMPLE_BUF_SIZE_CMD  = 0x76
+MSG_T_DEBUG_PACKET             = 0x77
 
 # Length of messages in bytes
 MSG_T_SENSOR_ID_R_LEN = 39
@@ -174,16 +175,10 @@ def forwardAndWait(buf,logger):
 	# Setup the socket connection
 	sock,sfile = setup_socket()
 	sfile.write(buf)
-	sfile.write("\n")
+#	sfile.write("\n")
 
-	# wait for some response. The socket timeout handles unresponsive sinks.
-	resp = sfile.readline()  
-
-	# Dump the buffer only for debug to reduce on-screen clutter
-	if debug_dump_buffers: 
-		print "Buffer from sink:"
-		print hexstr(resp)
 	# Handle the messages -- the id is in the first byte
+	resp = sfile.read(1)  
 	msg_code = ord(resp[0])
 	if msg_code == MSG_T_GET_ID_R:
 		logger.info("FROM SINK: Received an Id response message")
@@ -193,13 +188,20 @@ def forwardAndWait(buf,logger):
 		raise Exception("Unexpected key-to-sink from sink")
 	elif msg_code == MSG_T_KEY_TO_SENSE:
 		logger.info("FROM SINK: Received a key-to-sense message")  # valid from sink
+		resp+=handleKeyToSense(sfile,logger)
 	elif msg_code == MSG_T_ID_RESPONSE_ERROR:
 		logger.info("FROM SINK: Received an id response error")  # valid from sink
+#		resp+=handleIdResponseError(ser,logger)
+		raise Exception("ID response error message unexpected. Not implemented at this time")
 	elif msg_code == MSG_T_REKEY_REQUEST:
 		logger.info("FROM SINK: Received an re-key request")
 		raise Exception("Unexpected re-key request from sink")
 	elif msg_code == MSG_T_REKEY_HANDSHAKE:
-		logger.info("FROM SINK: Received a re-keying handshake")  # valid from sink
+		logger.info("FROM SINK: Received a re-keying handshake")  # valid from sink ??
+		raise Exception("Unexpected rekey handshake from sink")
+	elif msg_code == MSG_T_REKEY_RESPONSE:
+		logger.info("FROM SINK: Received a re-keying response") # valid from sink ???
+		resp+=handleRekeyResponse(sfile,logger)
 	elif msg_code == MSG_T_FINISH:
 		logger.info("FROM SINK: Received a finish message") # valid from sink
 		raise Exception("FINISH")
@@ -209,11 +211,27 @@ def forwardAndWait(buf,logger):
 	else:
 		raise Exception("FROM SINK: Unknown message 0x%.2x received" % msg_code)
 
-	logger.info("Received '%s' in response" % hexstr(resp))
-	sock.close()  # Close the socket after receiving the response
+	sock.close()  # Close the socket after receiving the response // TODO: CHECK HANDLING
 
 	return resp # Return the buffer. Caller is responsible for handing back to sensor
 	
+def handleKeyToSense(sfile,logger):
+	buf = sfile.read(48)
+	if len(buf)!=48:
+		raise Exception("Unexpected number of bytes received for a key-to-sense message");
+	return buf
+
+#def handleIdResponseError(ser,logger):
+#	print "handleIdResponseError"
+
+def handleRekeyResponse(sfile,logger):
+	print "handleRekeyResponse"
+	buf = sfile.read(38)
+	print "received a buffer of length %d:\n%s" % (len(buf),hexstr(buf))
+	if len(buf)!=38:
+		raise Exception("Unexpected number of bytes received for a newkey message");
+	return buf
+
 def sendStartupDeviceIdentificationQuery(ser,logger):
 	"""
 	This message queries the sensor for a 16-bit constant but random looking byte string.
@@ -361,6 +379,7 @@ def sendIdQuery(ser,logger):
 	Send an id query to the sensor. This message bootstraps the authentication 
 	procedure for the sensor/client pair.
 	"""
+	print "\n********************************************************************************\n\n"
 	logger.info("INITIATING PROTOCOL: Sending ID query to sensor")
 	cmd=chr(MSG_T_SENSOR_ID_Q)
 	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
@@ -385,8 +404,10 @@ def handleReKeyRequest(ser,logger):
 	Reads the expected bytes for a re-key request from the sensor and 
 	returns the buffer.	The caller is responsible for handing the buffer to the sink.
 	"""
-	# TODO: IMPLEMENT	
-	buf = ser.read(40) # DUMMY VAL
+	buf = ser.read(38)
+	logger.debug("Received re-key request from sensor. Length=%d. PUBID: %s" % (len(buf)+1,hexstr(buf[0:6])))
+	logger.debug("\tPLD:\t%s" % hexstr(buf[6:22]))
+	logger.debug("\tMAC:\t%s" % hexstr(buf[22:38]))
 	return buf
 
 def listenAndForwardLoop(ser,logger):
@@ -406,7 +427,21 @@ def listenAndForwardLoop(ser,logger):
 		buf = ser.read(1)
 		# Handle received messages based on message id in first byte.
 		msg_code = ord(buf[0])
-		if msg_code == MSG_T_GET_ID_R:
+		print "\n *** Received message with code 0x%.2x ***\n" % msg_code
+		if msg_code == MSG_T_ACK:
+			# An ACK is not expected at this point in the protocol except for abnormal 
+			# circumstances. Lets print and ignore at this point in time.
+			code = ord(ser.read(1))
+			if code==0x01: # TIMEOUT					
+				logger.exception("FROM SENSOR: Received an ACK message with code 0x%.2x: TIMEOUT " % code)
+				raise Exception("Sensor timeout")
+			else:
+				logger.exception("FROM SENSOR: Received an ACK message with code 0x%.2x: TIMEOUT " % code)
+				raise Exception("Unexpected ACK with code 0x%.2x received" % code )
+		elif msg_code == MSG_T_DEBUG_PACKET:
+			handleDebugPacketFromSensor(ser)
+			continue # Dont handle further
+		elif msg_code == MSG_T_GET_ID_R:
 			logger.info("FROM SENSOR: Received an Id response message") #valid from sensor
 			buf+=handleIdResponse(ser,logger)
 			ser.timeout = None
@@ -421,10 +456,11 @@ def listenAndForwardLoop(ser,logger):
 			raise Exception("Unexpected id response error from sensor")
 		elif msg_code == MSG_T_REKEY_REQUEST:
 			logger.info("FROM SENSOR: Received an re-key request") # Valid from sensor
-			buf+=receiveReKeyRequest(ser,logger)
+			buf+=handleReKeyRequest(ser,logger)
 		elif msg_code == MSG_T_REKEY_HANDSHAKE:
 			logger.info("FROM SENSOR: Received a re-keying handshake") 
-			raise Exception("Unexpected re-keying handshake from sensor")
+			#raise Exception("Unexpected re-keying handshake from sensor")
+			buf+=handleReKeyRequest(ser,logger)
 		elif msg_code == MSG_T_FINISH:
 			logger.info("FROM SENSOR: Received a finish message")
 			raise Exception("Unexpected FINISH from sensor")
@@ -436,14 +472,39 @@ def listenAndForwardLoop(ser,logger):
 
 		# Only dump the buffer for debug to avoid cluttering the output
 		if debug_dump_buffers:
-			print "Buffer from sensor:"
-			print hexstr(buf)
+			print "Buffer from sensor:\n",hexstr(buf)
+
 		# Forward to sink and wait for respnse. Exceptions break loop.
-		rbuf = forwardAndWait(buf,logger)  
+		try:
+			rbuf = forwardAndWait(buf,logger)  
+		except Exception, err:
+			raise Exception("Error reading from sink: %s" % err)
+
 		# Write the buffer received from sink to the sensor	
 		if rbuf!=None:
+			if debug_dump_buffers:
+				print "Buffer to sensor:\n",hexstr(rbuf)	
 			ser.write(rbuf)
-				
+		else:
+			raise Exception("No response from sink")
+			
+		# Want an ack after writing the buffer to sensor
+		code = readAck(ser,logger)			
+		if code==0x00:
+			logger.info("FROM SENSOR: Normal ACK -- transaction completed");
+		else:
+			logger.exception("Protocol error: ACK with code 0x%.2x" % code)
+			raise Exception("Protocol error: CODE: 0x%.2x" % code)
+							
+def handleDebugPacketFromSensor(ser):
+	slen = ser.read(1)
+	length = ord(slen[0]);
+	idstr = ser.read(length);
+	slen = ser.read(2)
+	length = ord(slen[0]) + (ord(slen[1])<<8);
+	buf = ser.read(length)
+	print "** DEBUG PACKET FROM SENSOR OF LEN=%d: %s\n%s\n" % (length,idstr,hexstr(buf))
+
 def main(argv=None):
 	global usb_conn_str
 	global usb_baud_rate
