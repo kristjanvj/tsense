@@ -15,7 +15,7 @@ RTUs sometimes employ cryptographic primitives to end-to-end secure communicatio
 
 In this work, we explore the concept of a trusted sensor -- a small self-contained network with very limited communications capabilities. The premise is a small and cheap sensor with minimal communications facilities. Our proof-of-concept prototype, \textit{tsensor},  is a temperature and luminosity meter, embedded with a small microcontroller and basic serial port communications. A production unit would be embedded in a permanently sealed and tamper-proof package, ensuring that manipulation of the unit, including extraction of cryptographic keys, would be infeasible. In contrast, our current prototype is anything but tamperproof, although we demonstrate the feasibility of the architecture. The sensor is attached to a host system via the USB port, transforming that host, although inherently untrusted, into a trustworthy source of measurements for a networked monitoring system.
 %
-Our prototype sensor measures admittedly non-critical values, but the concept can be extended to any type of sensor that can be embedded in a tamperproof package, large enough to house a microcontroller and serial interface. Applying security measures at the very source allows the remainder of the chain, for example PLCs, to be relatively untrusted with regards to the message integrity. One interesting application of such a device is integration with wireless sensor nodes \cite{}. These small and relatively inexpensive devices are generally considered too inexpensive to tamperproof\footnote{This may be a fallacy, as companies such as Freescale have arguably shown the feasibility of tamperproof and cost effective miniature devices.} \cite{}. Authenticity of sensor node measurements could be ensured by the simple means of soldering on a tsensor instead of a regular, unsecured sensor unit.
+Our prototype sensor measures admittedly non-critical values, but the concept can be extended to any type of sensor that can be embedded in a tamperproof package, large enough to house a microcontroller and serial interface. Applying security measures at the very source allows the remainder of the chain, for example PLCs, to be relatively untrusted with regards to the message integrity. One interesting application of such a device is integration with wireless sensor nodes \cite{}. These small and relatively inexpensive devices are generally considered too inexpensive to tamperproof\footnote{This may be a fallacy, as companies such as Freescale\footnote{\url{http://www.freescale.com}} have arguably shown the feasibility of tamper-proof and cost effective miniature devices.} \cite{}. Authenticity of sensor node measurements could be ensured by the simple means of soldering on a tsensor instead of a regular, unsecured sensor unit.
 
 We explore the issues involved in the construction of a sensor, capable of guaranteeing (within computational bounds) end-to-end integrity and confidentiality of measurements between sensor and a trusted sink, regardless of the number of intermediary hops, including the actual hosting computer of the sensor. The construction of the sensor and associated trusted sink is one aspect of the task; another is the necessary supporting systems. Our client/server (sensor/sink) based prototype requires a single supporting node -- an authentication server. Later work will focus on reducing the importance of this unit.
 
@@ -44,6 +44,7 @@ Now, GWW must set up its infrastucture of sink servers, each of which is a reaso
 This example is practically a toy application and certainly not reality, at least at the present time. However, bootstrapping trust by applying cryptographic primitives at the earliest possible point does certainly have applications. We can in this respect mention applications in which safety or finances depend on truthful reporting of values measured by networked sensors.
 
 \section{Security goals and adversarial modeling}
+\label{sec:sec-goals}
 
 The GWW motivating example sketched informally the security requirements and adversarial modeling. Let us now define this more carefully.
 
@@ -93,7 +94,7 @@ Smart card authentication protocols.
 
 GSM/UTMS/LTE key derivation and authentication model.
 
-Paper on tamper-proofness.
+Paper on tamper-proofness -- see \cite{anderson1996}. See \url{http://www.freescale.com} on the Freescale chips.
 
 Bunch of papers on crypto on small devices -- Malan etc.
 
@@ -104,6 +105,28 @@ Bunch of papers on crypto on small devices -- Malan etc.
 \url{http://www.certicom.com/index.php/certicom-advanced-metering-infrastructure-for-the-utility-industry}
 
 Work on securing transport protocols for sensor networks \shortciteA{parno2006} and \shortciteA{luk2007}. Link layer security \cite{karlof2004}.
+
+\cite{anderson2004} -- public key crypto intractable.
+
+SSL -- see \cite{karlof2004}.
+
+Authenticated key exchange -- STS \cite{diffie1992}.
+
+=====
+
+Crypto on Arduino:
+
+\url{http://github.com/Cathedrow/Cryptosuite} SHA-1, SHA-256, HMAC.
+
+\url{http://code.google.com/p/crypto-arduino-library/} XXTEA.
+
+\url{http://github.com/Denhart/TEA-encryption-on-arduino} TEA.
+
+=======
+
+AES implementations: See Gladman \url{http://gladman.plushost.co.uk/oldsite/AES}. Sophisticated AES implementation for a wide variety of platforms. However, we wanted one tailored to the ATmega/Arduino platform. In particular, we wanted the AES lookup tables to reside in EEPROM memory.
+
+
 
 
 

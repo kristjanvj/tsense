@@ -1740,6 +1740,15 @@
   timestamp = {2009.02.13}
 }
 
+@MISC{atmel-atmega-series-2010,
+  author = {Atmel},
+  title = {Data sheet: ATmega48A/48PA/88A/88PA/168A/168PA/328/328P},
+  year = {2010},
+  file = {:atmel-atmega-series-2010.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.02}
+}
+
 @MISC{auger2007,
   author = {Robert Auger},
   title = {The Cross Site Scripting (XSS) FAQ},
@@ -2824,9 +2833,31 @@
   pages = {419--428},
   address = {New York, NY, USA},
   publisher = {ACM},
+  abstract = {We prcscnt a general framework for constructing and analyzing authentication
+	protocols in realistic models of communication networks. This framework
+	provides a sound formalization for the authentication problem and
+	suggests simple and attractive design principles for general authentication
+	and key exchange protocols. The key element in our appronch io a
+	modular treatment of the authentication problem in cryptographic
+	protocols; thii applies to the definition of accurity, to the design
+	of the protocols, and to their analysis. In particulnr, following
+	this modular approach, we show how to systematically transform solutions
+	that work in a model of idaalizcd authenticated communications into
+	solutions that are secure in the realistic setting of communication
+	channels controlled by an active adversary.
+	
+	
+	Using these principles we construct and prove the security of simple
+	and practical authentication and key-exchange protocols. In particular,
+	we provide a security analysis of aomowell-known key exchange protocols
+	(e.g. authenticated Dlfllc-Hcllman key exchange), and of some of
+	the techniques underlying the design of several authentication protocols
+	that are currently being deployed on a large scale for the Intornot
+	Protocol and other applications.},
   doi = {http://doi.acm.org/10.1145/276698.276854},
   file = {bellare1998a.pdf:bellare1998a.pdf:PDF},
   isbn = {0-89791-962-9},
+  keywords = {authentication, key exchange, analysis},
   location = {Dallas, Texas, United States}
 }
 
@@ -2893,6 +2924,26 @@
   timestamp = {2010.06.29}
 }
 
+@MISC{bellare2003,
+  author = {Mihir Bellare and Daniele Micciancio and Bogdan Warinschi},
+  title = {Foundations of Group Signatures: Formal Deﬁnitions, Simpliﬁed Requirements,
+	and a Construction Based on General Assumptions},
+  month = {May},
+  year = {2003},
+  abstract = {This paper provides theoretical foundations for the group signature
+	primitive. We introduce strong, formal deﬁnitions for the core requirements
+	of anonymity and traceability. We then show that these imply the
+	large set of sometimes ambiguous existing informal requirements in
+	the literature, thereby unifying and simplifying the requirements
+	for this primitive. Finally we prove the existence of a construct
+	meeting our deﬁnitions based only on the assumption that trapdoor
+	permutations exist.},
+  file = {bellare2003.pdf:bellare2003.pdf:PDF},
+  keywords = {group signatures, crypto},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
 @MISC{bellare2007,
   author = {Bellare, Mihir and Namprempre, Chanathip},
   title = {Authenticated Encryption: Relations among Notions and Analysis of
@@ -2938,6 +2989,50 @@
   owner = {kristjan},
   review = {This is an older conference version of bellare2007},
   timestamp = {2010.06.10}
+}
+
+@INPROCEEDINGS{bellovin1993,
+  author = {Steven M. Bellovin and Michael Merritt},
+  title = {Augmented Encrypted Key Exchange: a Password-Based Protocol Secure
+	Against Dictionary Attacks and Password File Compromise},
+  booktitle = {Conf. Computer \& Comm. Security},
+  year = {1993},
+  abstract = {The encrypted key exchange (EKE) protocol is augmented so that hosts
+	do not store cleartext passwords. Consequently, adversaries who obtain
+	the one-way encrypted password file may (i) successfully mimic (spoof)
+	the host to the user, and (ii) mount dictionary attacks against the
+	encrypted passwords, but cannot mimic the user to the host. Moreover,
+	the important security properties of EKE are preservedman active
+	network attacker obtains insufficient information to mount dictionary
+	attacks. Two ways to accomplish this are shown, one using digital
+	signatures and one that relies ona family of commutative one-way
+	functions.},
+  file = {bellovin1993.pdf:bellovin1993.pdf:PDF},
+  keywords = {EKE, encrypted key exchange, zero knowledge password proofs},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
+@INPROCEEDINGS{bellovin1992,
+  author = {Steven M. Bellovin and Michael Merritt},
+  title = {Encrypted Key Exchange: Password-Based Protocols Secure Against Dictionary
+	Attacks},
+  booktitle = {{IEEE S\&P}},
+  year = {1992},
+  address = {Oakland},
+  abstract = {Classical cryptographic protocols based on user-chosen keys allow
+	an attacker to mount password-guessing attacks. We introduce a novel
+	combination of asymmetric (public-key) and symmetric (secret-key)
+	cryptography that allow two parties sharing a common password to
+	exchange con dential and authenticated information over an insecure
+	network. These protocols are secure against active attacks, and have
+	the property that the password is protected against online "dictionary"
+	attacks. There are a number of other useful applications as well,
+	including secure public telephones.},
+  file = {bellovin1992.pdf:bellovin1992.pdf:PDF},
+  keywords = {EKE, encrypted key exchange, zero knowledge password proofs},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
 }
 
 @INPROCEEDINGS{ben-david-2008,
@@ -4321,6 +4416,33 @@
   publisher = {ACM}
 }
 
+@INPROCEEDINGS{brickell2004,
+  author = {Ernie Brickell and Jan Camenisch and Liqun Chen},
+  title = {Direct Anonymous Attestation},
+  booktitle = {{CCS'04}},
+  year = {2004},
+  abstract = {This paper describes the direct anonymous attestation scheme (DAA).
+	This scheme was adopted by the Trusted Computing Group (TCG) as the
+	method for remote authentication of a hardware module, called Trusted
+	Platform Module (TPM), while preserving the privacy of the user of
+	the platform that contains the module. DAA can be seen as a group
+	signature without the feature that a signature can be opened, i.e.,
+	the anonymity is not revocable. Moreover, DAA allows for pseudonyms,
+	i.e., for each signature a user (in agreement with the recipient
+	of the signature) can decide whether or not the signature should
+	be linkable to another signature. DAA furthermore allows for detection
+	of “known” keys: if the DAA secret keys are extracted from a TPM
+	and published, a veriﬁer can detect that a signature was produced
+	using these secret keys. The scheme is provably secure in the random
+	oracle model under the strong RSA and the decisional Diﬃe-Hellman
+	assumption.},
+  file = {brickell2004.pdf:brickell2004.pdf:PDF},
+  keywords = {DAA, TCG, TPM, authentication, cryptography, public key crypto},
+  owner = {kristjan},
+  review = {See http://eprint.iacr.org/2004/205/},
+  timestamp = {2010.09.03}
+}
+
 @INCOLLECTION{brickell1987,
   author = {E. Brickell and Y. Yacobi},
   title = {On privacy homomorphisms},
@@ -4334,6 +4456,17 @@
   keywords = {cryptography, cryptanalysis, privacy homomorphism, homomorphic encryption},
   owner = {kristjan},
   timestamp = {2009.10.19}
+}
+
+@MISC{brickell1993,
+  author = {Ernest F. Brickell and Dorothy E. Denning and Stephen T. Kent and
+	David P. Maher and Walter Tuchman},
+  title = {{SKIPJACK} Review. Interim Report. The {SKIPJACK} Algorithm},
+  month = {July},
+  year = {1993},
+  owner = {kristjan},
+  timestamp = {2010.09.03},
+  url = {http://www.cs.georgetown.edu/~denning/crypto/clipper/SKIPJACK.txt}
 }
 
 @INPROCEEDINGS{bridges2000,
@@ -7179,6 +7312,16 @@
   timestamp = {2010.05.16}
 }
 
+@MISC{cohen2001,
+  author = {Bram Cohen and Ben Laurie},
+  title = {{AES}-hash},
+  month = {May},
+  year = {2001},
+  file = {:aeshash.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
 @INPROCEEDINGS{cohen2004,
   author = {Ira Cohen and Jeffery S. Chase},
   title = {Correlating instrumentation data to system states: A building block
@@ -8744,6 +8887,23 @@
   url = {http://www.smartplanet.com/technology/blog/science-scope/building-a-real-world-web-with-smart-dust/1673/}
 }
 
+@MISC{diffie1992,
+  author = {Whitfield Diffie and Paul C. {van Oorschot} and Michael J. Wiener},
+  title = {Authentication and Authenticated Key Exchanges},
+  month = {March},
+  year = {1992},
+  abstract = {We discuss two-party mutual authentication protocols providing authenticated
+	key exchange, focusing on those using asymmetric techniques. A simple,
+	efficient protocol referred to as the station-to-station (STS) protocol
+	is introduced, examined in detail, and considered in relation to
+	existing protocols. The definition of a secure protocol is considered,
+	and desirable characteristics of secure protocols are discussed.},
+  file = {diffie1992.pdf:diffie1992.pdf:PDF},
+  keywords = {STS protocol, cryptography, authentication, key exchange},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
 @ARTICLE{dilman2002,
   author = {D. M. Dilman and Raz},
   title = {Efficient reactive monitoring},
@@ -9271,6 +9431,62 @@
   issn = {0004-5411},
   keywords = {zero knowledge proofs, cryptography, security},
   publisher = {ACM}
+}
+
+@MISC{dworkin2010,
+  author = {Morris Dworkin},
+  title = {{NIST} Special Publication 800-38A (Draft Addendum): Recommendation
+	for Block Cipher Modes of Operation: Three Variants of Ciphertext
+	Stealing for {CBC} Mode},
+  month = {June},
+  year = {2010},
+  file = {:nist-sp-800-38A-draft-addendum.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
+@MISC{dworkin2007,
+  author = {Morris Dworkin},
+  title = {{NIST} Special Publication 800-38D: Recommendation for Block Cipher
+	Modes of Operation: Galois/Counter Mode ({GCM}) and {GMAC}},
+  month = {November},
+  year = {2007},
+  file = {:SP-800-38D.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.02}
+}
+
+@MISC{dworkin2005,
+  author = {Morris Dworkin},
+  title = {{NIST} Special Publication 800-38B: Cipher Modes of Operation: The
+	{CMAC} Mode for Authentication},
+  month = {May},
+  year = {2005},
+  file = {:SP_800-38B.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.02}
+}
+
+@MISC{dworkin2004,
+  author = {Morris Dworkin},
+  title = {{NIST} Special Publication 800-38C: Recommendation for Block Cipher
+	Modes of Operation: The {CCM} Mode for Authentication and Confidentiality},
+  month = {May},
+  year = {2004},
+  file = {:SP800-38C_updated-July20_2007.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.02}
+}
+
+@MISC{dworkin2001,
+  author = {Morris Dworkin},
+  title = {{NIST} Special Publication 800-38A: Recommendation for Block Cipher
+	Modes of Operation: Methods and Techniques},
+  month = {December},
+  year = {2001},
+  file = {:sp800-38a.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
 }
 
 @MISC{Eastlake2001sha1,
@@ -12082,6 +12298,31 @@
   url = {www.whitehatsec.com/downloads/WHXSSThreats.pdf}
 }
 
+@INPROCEEDINGS{gueron2008,
+  author = {Shay Gueron and Michael E. Kounavis},
+  title = {Vortex: A New Family of One-Way Hash Functions Based on {AES} Rounds
+	and Carry-Less Multiplication},
+  booktitle = {{ISC}},
+  year = {2008},
+  abstract = {We present Vortex a new family of one way hash functions that can
+	produce message digests of 256 bits. The main idea behind the design
+	of these hash functions is that we use well known algorithms that
+	can support very fast diffusion in a small number of steps. We also
+	balance the cryptographic strength that comes from iterating block
+	cipher rounds with SBox substitution and diffusion (like Whirlpool)
+	against the need to have a lightweight implementation with as small
+	number of rounds as possible. We use only 3 AES rounds but with a
+	stronger key schedule. Our goal is not to protect a secret symmetric
+	key but to support perfect mixing of the bits of the input into the
+	hash value. Three AES rounds are followed by our variant of Galois
+	Field multiplication. This achieves cross-mixing between 128-bit
+	sets. We present a set of qualitative arguments why we believe Vortex
+	is secure.},
+  file = {gueron2008.pdf:gueron2008.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
 @INPROCEEDINGS{guillou1988,
   author = {Guillou, L. C. and Quisquater, J.-J.},
   title = {A practical zero-knowledge protocol fitted to security microprocessor
@@ -12280,6 +12521,49 @@
   owner = {kristjan},
   review = {Ref'd by du2008 on public key crypto on small devices.},
   timestamp = {2010.04.12}
+}
+
+@MISC{gutterman2006,
+  author = {Zvi Gutterman and Benny Pinkas and Tzachy Reinman},
+  title = {Analysis of the Linux Random Number Generator},
+  month = {March},
+  year = {2006},
+  abstract = {Linux is the most popular open source project. The Linux random number
+	generator is part of the kernel of all
+	
+	Linux distributions and is based on generating randomness from entropy
+	of operating system events. The output of
+	
+	this generator is used for almost every security protocol, including
+	TLS/SSL key generation, choosing TCP sequence
+	
+	numbers, and file system and email encryption. Although the generator
+	is part of an open source project, its source
+	
+	code (about 2500 lines of code) is poorly documented, and patched
+	with hundreds of code patches.
+	
+	
+	    We used dynamic and static reverse engineering to learn the operation
+	of this generator. This paper presents a
+	
+	description of the underlying algorithms and exposes several security
+	vulnerabilities. In particular, we show an attack
+	
+	on the forward security of the generator which enables an adversary
+	who exposes the state of the generator to compute
+	
+	previous states and outputs. In addition we present a few cryptographic
+	flaws in the design of the generator, as well
+	
+	as measurements of the actual entropy collected by it, and a critical
+	analysis of the use of the generator in Linux
+	
+	distributions on disk-less devices.},
+  file = {gutterman2006.pdf:gutterman2006.pdf:PDF},
+  keywords = {linux random number generation, vulnerabilities},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
 }
 
 @INPROCEEDINGS{gyongyi2004,
@@ -14699,6 +14983,27 @@
   timestamp = {2008.09.19}
 }
 
+@TECHREPORT{johnson2001a,
+  author = {Don Johnson and Alfred Menezes and Scott Vanstone},
+  title = {The Elliptic Curve Digital Signature Algorithm ({ECDSA})},
+  institution = {Certicom Corporation},
+  year = {2001},
+  abstract = {The Elliptic Curve Digital Signature Algorithm (ECDSA) is the elliptic
+	curve analogue of the Digital Signature Algorithm (DSA). It was accepted
+	in 1999 as an ANSI standard, and was accepted in 2000 as IEEE and
+	NIST standards. It was also accepted in 1998 as an ISO standard,
+	and is under consideration for inclusion in some other ISO standards.
+	Unlike the ordinary discrete logarithm problem and the integer factorization
+	problem, no subexponential-time algorithm is known for the elliptic
+	curve discrete logarithm problem. For this reason, the strength-per-key-bit
+	is substantially greater in an algorithm that uses elliptic curves.
+	This paper describes the ANSI X9.62 ECDSA, and discusses related
+	security, implementation, and interoperability issues.},
+  file = {:johnson_ecdsa_2001.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
 @INCOLLECTION{Johnson1996,
   author = {David B Johnson and David A Maltz},
   title = {Dynamic Source Routing in Ad Hoc Wireless Networks},
@@ -15048,6 +15353,16 @@
   file = {jurca2009.pdf:jurca2009.pdf:PDF},
   owner = {kristjan},
   timestamp = {2008.09.04}
+}
+
+@MISC{RFC-2315-kaliski-1998,
+  author = {B. Kaliski},
+  title = {{RFC-2315}: {PKCS \#7}: Cryptographic Message Syntax},
+  month = {March},
+  year = {1998},
+  owner = {kristjan},
+  timestamp = {2010.09.02},
+  url = {http://tools.ietf.org/html/rfc2315}
 }
 
 @MISC{Kamkar2005,
@@ -20609,6 +20924,15 @@
   timestamp = {2010.05.19}
 }
 
+@BOOK{menezes1996,
+  title = {Handbook of Applied Cryptography},
+  publisher = {CRC Press},
+  year = {1996},
+  author = {Alfred J. Menezes and Paul C. van Oorschot and Scott A. Vanstone},
+  owner = {kristjan},
+  timestamp = {2010.09.02}
+}
+
 @ARTICLE{merkel2009,
   author = {Dirk Merkel},
   title = {Yubikey One-Time Password Authentication},
@@ -22396,6 +22720,7 @@
   number = {1},
   address = {New York, NY, USA},
   doi = {http://doi.acm.org/10.1145/24592.24593},
+  file = {needham1987.pdf:needham1987.pdf:PDF},
   issn = {0163-5980},
   publisher = {ACM}
 }
@@ -22701,6 +23026,18 @@
   owner = {kristjan},
   timestamp = {2008.09.19},
   url = {http://www.ietf.org/rfc/rfc4287}
+}
+
+@MISC{skipjack-1998,
+  author = {{NSA}},
+  title = {{SKIPJACK} and {KEA} Algorithm Specifications},
+  month = {May},
+  year = {1998},
+  note = {Version 2},
+  file = {skipjack-1998.pdf:skipjack-1998.pdf:PDF},
+  keywords = {block cipher, Feistel network},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
 }
 
 @INPROCEEDINGS{ntarmors2004,
@@ -27139,6 +27476,26 @@
   location = {New York, NY, USA}
 }
 
+@MISC{rfc-4494-song-2006s,
+  author = {JH. Song and R. Poovendran and J. Lee},
+  title = {{RFC}-4494: The {AES-CMAC-96} Algorithm and Its Use with {IPsec}},
+  month = {June},
+  year = {2006},
+  owner = {kristjan},
+  timestamp = {2010.09.03},
+  url = {http://tools.ietf.org/html/rfc4494}
+}
+
+@MISC{rfc-4493-2006,
+  author = {JH. Song and R. Poovendran and J. Lee and T. Iwata},
+  title = {{RFC} 4493: The {AES-CMAC} Algorithm},
+  month = {June},
+  year = {2006},
+  owner = {kristjan},
+  timestamp = {2010.09.02},
+  url = {http://tools.ietf.org/html/rfc4493}
+}
+
 @ARTICLE{song2005,
   author = {Shanshan Song and Kai Hwang and Runfang Zhou and Yu-Kwong Kwok},
   title = {Trusted P2P Transactions with Fuzzy Reputation Aggregation},
@@ -30577,6 +30934,31 @@
   url = {http://www.sciencedirect.com/science/article/B7576-4K7X875-5/2/dd6a9f51dced7629f3bc1fd4b1799709}
 }
 
+@INPROCEEDINGS{wu1997,
+  author = {Thomas Wu},
+  title = {The Secure Remote Password Protocol},
+  booktitle = {Internet Society Symposium on Network and Distributed System Security},
+  year = {1997},
+  abstract = {This paper presents a new password authentication and key-exchange
+	protocol suitable for authenticating users and exchanging keys over
+	an untrusted network. The new protocol resists dictionary attacks
+	mounted by either passive or active network intruders, allowing,
+	in principle, even weak passphrases to be used safely. It also o
+	ers perfect forward secrecy, which protects past sessions and passwords
+	against future compromises. Finally, user passwords are stored in
+	a form that is not plaintext-equivalent to the password itself, so
+	an attacker who captures the password database cannot use it directly
+	to compromise security and gain immediate access to the host. This
+	new protocol combines techniques of zero-knowledge proofs with asymmetric
+	key exchange protocols and o ers signi cantly improved performance
+	over comparably strong extended methods that resist stolen-veri er
+	attacks such as Augmented EKE or B-SPEKE.},
+  file = {wu1997.pdf:wu1997.pdf:PDF},
+  keywords = {password authentication, key exchange, zero knowledge password proof},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
+}
+
 @ARTICLE{wuhib2008,
   author = {Fetahi Wuhib and Mads Dam and Rolf Stadler},
   title = {Decentralized Detection of Global Threshold Crossings Using Aggregation
@@ -32620,6 +33002,17 @@
   url = {citeseer.ist.psu.edu/zhou01multiqueue.html}
 }
 
+@MISC{rfc-4556-2006,
+  author = {L. Zhu and B. Tung},
+  title = {RFC-4556; Public Key Cryptography for Initial Authentication in {Kerberos
+	(PKINIT)}},
+  month = {June},
+  year = {2006},
+  owner = {kristjan},
+  timestamp = {2010.09.02},
+  url = {http://www.ietf.org/rfc/rfc4556.txt}
+}
+
 @ARTICLE{zhu2006,
   author = {Sencun Zhu and Sanjeev Setia and Sushil Jajodia},
   title = {{LEAP+}: Efficient security mechanisms for large-scale distributed
@@ -33240,6 +33633,15 @@
   year = {2006},
   owner = {kristjan},
   timestamp = {2008.11.27}
+}
+
+@MISC{NIST-recommended-elliptic-curves-1999,
+  title = {RECOMMENDED ELLIPTIC CURVES FOR FEDERAL GOVERNMENT USE},
+  month = {July},
+  year = {1999},
+  file = {NIST-recommended-elliptic-curves-1999.pdf:NIST-recommended-elliptic-curves-1999.pdf:PDF},
+  owner = {kristjan},
+  timestamp = {2010.09.03}
 }
 
 @comment{jabref-meta: selector_publisher:}

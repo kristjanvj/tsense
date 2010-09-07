@@ -22,7 +22,8 @@ TODO: Conclusions and future work.
 
 Discuss how our initial goals were met by the implementation. Decided to use only private (symmetric) crypto as this is more in the spirit of the project -- small resource constrained devices. Discuss assumptions such as tamper-proofness.
 
-Future work: Public key crypto or zero-knowledge proofs for identification and key exchange instead of symmetric. The weaknesses of this system are the single point of failure and compromise in form of $A$. Scalability becomes an issue in a large system, as $A$ is bound to be loaded. Storage requirements on $A$ are considerable, especially since it is required to keep state on each sensor (last counter, last seen, ...). All this should be considered.
+Future work: Public key crypto or zero-knowledge proofs for identification and key exchange instead of symmetric. The weaknesses of this system are the single point of failure and compromise in form of $A$. Scalability becomes an issue in a large system, as $A$ is bound to be loaded. Storage requirements on $A$ are considerable, especially since it is required to keep state on each sensor (last counter, last seen, ...). All this should be considered. See \cite{rfc-4556-2006} on using public keys for initial key exchange.
+See \cite{bellovin1992}, \cite{bellovin1993} on EKE, \cite{wu1997} on zero-knowledge password proofs. 
 
 Should also discuss here reasonable security levels. We are not talking about a system of extreme importance, such as credit card chip systems which must be unbreakable (or nearly so). Rather, we really dont care about compromise, as long as the number of compromised nodes is low enough to maintain the required confidence level in the system.
 
@@ -32,3 +33,26 @@ The choice of cipher algorithms also plays a part in performance. One may for ex
 =======
 
 \textbf{Formal verification of cryptographic protocols, e.g.\ using the automatic verification tool ProVerif\footnote{\url{http://www.proverif.ens.fr}}.}
+
+
+======
+
+Strengthen permanent secret keys by using AES-256. Costs space in terms of EEPROM storage but would be sufficient to use this longer variant for session key establishment.
+
+======
+
+Cutting down message size by truncating MAC and using ciphertext stealing. See also \cite{karlof2004} on this.
+Efficiency in transmitted size can be increased by using a cipher with a shorter blocklength -- see XTEA and Skipjack.
+
+====
+
+Cipher-independence.
+
+====
+
+\textbf{Dont implement a secure hash function -- see \cite{cohen2001} on possible implementation based on AES. Also Vortex \cite{gueron2008}.}
+
+
+=====
+
+\cite{bellare1998a} on modular analysis of authentication and key exchange protocols.
