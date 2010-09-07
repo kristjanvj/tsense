@@ -123,17 +123,23 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, const u_int32
   msg->msgtype = MSG_T_KEY_TO_SINK;
   cBuffer[0] = MSG_T_KEY_TO_SINK;
 
+  // NEW: Place the sensor ID in the message.
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE+i] = msg->pID[i];
+  }
+  
   // Place the key in the "plaintext" to the sink. (SSLed)
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    cBuffer[MSGTYPE_SIZE+i] = msg->key[i];
+    cBuffer[MSGTYPE_SIZE+ID_SIZE+i] = msg->key[i];
   }
 
   // t_ST, expiration time. u_int32
   byte_ard* pTimer = (byte_ard*)&msg->timer;
   for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
-    cBuffer[MSGTYPE_SIZE+KEY_BYTES+i] = pTimer[i];
+    cBuffer[MSGTYPE_SIZE+ID_SIZE+KEY_BYTES+i] = pTimer[i];
   }
 
   // Create the buffer that is to be ciphered
@@ -159,20 +165,20 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, const u_int32
   }
 
   // Cipher
-  CBCEncrypt((void*)temp, (void*)cipher_buff, (NONCE_SIZE + KEY_BYTES + TIMER_SIZE),
-             KEYTOSINK_PADLEN, pKeys, (const u_int16_ard*)IV);
+  CBCEncrypt((void*)temp, (void*)cipher_buff, (NONCE_SIZE + ID_SIZE + KEY_BYTES + TIMER_SIZE),
+             AUTOPAD, pKeys, (const u_int16_ard*)IV);
   aesCMac(pCmacKeys, cipher_buff, KEYTOSINK_CRYPTSIZE, msg->cmac);
 
   // Put the cipherstuff into the buffer
   for (u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
   {
-    cBuffer[MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + i] = cipher_buff[i];
+    cBuffer[MSGTYPE_SIZE + ID_SIZE + KEY_BYTES + TIMER_SIZE + i] = cipher_buff[i];
   }
 
   // Hash
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
-    cBuffer[MSGTYPE_SIZE+KEY_BYTES+TIMER_SIZE+KEYTOSINK_CRYPTSIZE+i] = msg->cmac[i];
+    cBuffer[MSGTYPE_SIZE+ID_SIZE+KEY_BYTES+TIMER_SIZE+KEYTOSINK_CRYPTSIZE+i] = msg->cmac[i];
   }
 }
 
@@ -182,17 +188,23 @@ void unpack_keytosink(void *pStream, struct message* msg)
   // Assumes one byte for msgtype
   msg->msgtype = cStream[0];
 
+  // NEW: The ID is here .
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    msg->pID[i] = cStream[MSGTYPE_SIZE + i];
+  }
+  
   // Key
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    msg->key[i] = cStream[MSGTYPE_SIZE+i];
+    msg->key[i] = cStream[MSGTYPE_SIZE+ID_SIZE+i];
   }
 
   // Timer
   byte_ard* temp = (byte_ard*)malloc(TIMER_SIZE);
   for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
-    temp[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + i];
+    temp[i] = cStream[MSGTYPE_SIZE + ID_SIZE + KEY_BYTES + i];
   }
   msg->timer = (u_int32_ard)*temp;
   free(temp);
@@ -204,11 +216,11 @@ void unpack_keytosink(void *pStream, struct message* msg)
 
   for(u_int16_ard i = 0; i < KEYTOSINK_CRYPTSIZE; i++)
   {
-    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + i];
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + ID_SIZE + TIMER_SIZE + i];
   }
   for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
-    msg->cmac[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + TIMER_SIZE + KEYTOSINK_CRYPTSIZE + i];
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + KEY_BYTES + ID_SIZE + TIMER_SIZE + KEYTOSINK_CRYPTSIZE + i];
   }
   
 }

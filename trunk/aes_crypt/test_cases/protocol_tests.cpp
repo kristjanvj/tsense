@@ -118,48 +118,12 @@ int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
   pack_keytosink(&sendmsg, (const u_int32_ard*)Keys, (const u_int32_ard*)CmacKeys, buff);
 
   struct message recvmsg;
+  recvmsg.pID = (byte_ard*)malloc(ID_SIZE);
   recvmsg.key = (byte_ard*)malloc(KEY_BYTES);
   recvmsg.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
 
   // UNPACK
   unpack_keytosink((void*)buff, &recvmsg);
-  /*
-  // To verify the ciphered stream (that the Sink is unable to decipher, and
-  // that is why unpack_keytosink() doesnt take in the pointer to the key schedule.
-  byte_ard temp[NONCE_SIZE + KEY_BYTES + TIMER_SIZE];
-  byte_ard ctext[KEYTOSINK_CRYPTSIZE];
-
-  byte_ard* pNonce = (byte_ard*)&n; // recvmsg doesnt contain the nonce because its
-                                     // only sent ciphered
-  byte_ard* pTimer = (byte_ard*)&recvmsg.timer;
-  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
-  {
-    temp[i] = pNonce[i];
-  }
-  for(u_int16_ard i = 0; i < KEY_BYTES; i++)
-  {
-    temp[NONCE_SIZE + i] = recvmsg.key[i];
-  }
-  for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
-  {
-    temp[NONCE_SIZE + KEY_BYTES + i] = pTimer[i];
-  }
-
-  byte_ard IV[] = {
-  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,  0x30, 0x30 
-};
-h
-  CBCEncrypt((void*)temp, (void*)ctext, 24,
-             8, (const u_int32_ard*)Keys, (const u_int16_ard*)IV);
-
- 
-  printf("\nplaintext bytes: \n");
-  printBytes2((byte_ard*)temp, 24);
-  printf("\n protocol_tests.cpp:\n");
-  printBytes2((byte_ard*)ctext, KEYTOSINK_CRYPTSIZE, 16);
-  printf("recvmsg.ciphertext:\n ");
-  printBytes2((byte_ard*)recvmsg.ciphertext, KEYTOSINK_CRYPTSIZE, 16);
-  */
 
   if (recvmsg.msgtype == 0x11)
   {
@@ -167,8 +131,15 @@ h
     {
       if (recvmsg.timer == t)
       {
-        printf("Checks out! (Timer : %d)\n", recvmsg.timer);
-        retval = 0;
+        if (strncmp((const char*)recvmsg.pID, (const char*)id, ID_SIZE) == 0)
+        {
+          printf("Checks out! (Timer : %d)\n", recvmsg.timer);
+          retval = 0;
+        }
+        else
+        {
+          fprintf(stderr, "Failed: ID!\n");
+        }
       }
       else
       {
@@ -191,6 +162,7 @@ h
   //free(recvmsg.pCipherID);
   free(recvmsg.key);
   free(recvmsg.ciphertext);
+  free(recvmsg.pID);
 
 
   return retval;
@@ -221,6 +193,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
   // Now we will unpack that message in order to grab the ciphertext. The appropiate
   // memeory still has to be allocated to prevent buffer overflows.
   struct message sink_recv;
+  sink_recv.pID = (byte_ard*)malloc(ID_SIZE);
   sink_recv.key = (byte_ard*)malloc(KEY_BYTES);
   sink_recv.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
   // the cmac memory is staticly allocated. Maybe that was a stupid move that leads
@@ -239,6 +212,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
 
   free (sink_recv.ciphertext);
   free (sink_recv.key);
+  free (sink_recv.pID);
 
 
   // Now read the message packed by pack_keytosense
