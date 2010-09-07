@@ -20,7 +20,7 @@ mkdir tmp
 # Run the python utility to generate cpp source file. tspcgen (tsensor program code generator) generates
 # a C program for the Arduino which will initialize the device EEPROM on initialization.
 #
-python tspcgen.py -o tmp/tsexec.cpp -i [$1,$2] -m ["TSG","ALPHA"]
+python tspcgen.py -o tmp/tsexec.cpp -i [1,$1] -m ["TSG","ALPHA"]
 
 #
 # Now, compile the source file for the Arduino and do all the necessary woodoo.

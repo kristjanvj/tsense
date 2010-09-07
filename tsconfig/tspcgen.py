@@ -214,7 +214,7 @@ def main(argv=None):
 			if o in ("-o", "--output-file"):
 				output_file=a
 
-	print "\n\ntsclient"
+	print "\n\ntspcgen"
 	print "========\n"
 
 	try:
