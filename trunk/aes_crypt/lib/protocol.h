@@ -28,7 +28,7 @@
 #define ID_SIZE 6
 #define MSGTYPE_SIZE 1
 #define NONCE_SIZE 2
-#define TIMER_SIZE 4
+#define TIMER_SIZE 2
 #define RAND_SIZE 2
 
 /*
@@ -77,14 +77,14 @@
  */
 struct message
 {
-  byte_ard msgtype;               // The hex code declaring what type of message (see wiki)
-  byte_ard* pID;                  // Pointer to the ID sent in plaintext
-  u_int16_ard nonce;              // The nonce
-  byte_ard cmac[BLOCK_BYTE_SIZE]; // The cmac of the ciphertext
-  byte_ard* key;                  // The key sent in key exchange and re-keying
-  byte_ard* ciphertext;           // When forwarding ciphertext
-  u_int32_ard timer;              // re-keying timer
-  u_int16_ard rand;               // Random number (the new key-material)
+  byte_ard msgtype;                // The hex code declaring what type of message (see wiki)
+  byte_ard* pID;                   // Pointer to the ID sent in plaintext
+  u_int16_ard nonce;               // The nonce
+  byte_ard cmac[BLOCK_BYTE_SIZE];  // The cmac of the ciphertext
+  byte_ard* key;                   // The key sent in key exchange and re-keying
+  byte_ard* ciphertext;            // When forwarding ciphertext
+  u_int16_ard renewal_timer;       // re-keying timer
+  u_int16_ard rand;                // Random number (the new key-material)
 };
 
 /*

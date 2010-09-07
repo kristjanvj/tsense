@@ -98,7 +98,7 @@ int idmsgtest(byte_ard* id, u_int16_ard n)
   return retval;
 }
 
-int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
+int keytosinktest(u_int16_ard n, u_int16_ard t, byte_ard* id)
 {
   printf("keytosink: ");
   int retval = 1;
@@ -109,7 +109,7 @@ int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
 
   struct message sendmsg;
   sendmsg.pID = id;
-  sendmsg.timer = t;
+  sendmsg.renewal_timer = t;
   sendmsg.nonce = n;
   sendmsg.key = (byte_ard*)newkey;
   
@@ -129,11 +129,11 @@ int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
   {
     if (strncmp((const char*)recvmsg.key, (const char*)newkey, KEY_BYTES) == 0)
     {
-      if (recvmsg.timer == t)
+      if (recvmsg.renewal_timer == t)
       {
         if (strncmp((const char*)recvmsg.pID, (const char*)id, ID_SIZE) == 0)
         {
-          printf("Checks out! (Timer : %d)\n", recvmsg.timer);
+          printf("Checks out! (Key renwal timer : %d)\n", recvmsg.renewal_timer);
           retval = 0;
         }
         else
@@ -143,7 +143,7 @@ int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
       }
       else
       {
-        fprintf(stderr, "Failed timer\n");
+        fprintf(stderr, "Failed key renewal timer\n");
       }
     }
     else
@@ -168,7 +168,7 @@ int keytosinktest(u_int16_ard n, unsigned int t, byte_ard* id)
   return retval;
 }
 
-int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id) 
+int keytosensetest(u_int16_ard n, u_int16_ard t, byte_ard* id) 
 {
   // Because pack_keytosens() is designed to forward the ciphertext from
   // keytosink, we will first create the keytosink package.
@@ -182,7 +182,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
 
   struct message sendmsg;
   sendmsg.pID = id;
-  sendmsg.timer = t;
+  sendmsg.renewal_timer = t;
   sendmsg.nonce = n;
   sendmsg.key = (byte_ard*)newkey;
 
@@ -228,7 +228,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
   printf("keytosense: ");
   if (senserecv.nonce == n)
   {
-    if (senserecv.timer == t)
+    if (senserecv.renewal_timer == t)
     {
       if (strncmp((const char*)newkey, (const char*)senserecv.key, KEY_BYTES) == 0)
       {
@@ -255,7 +255,7 @@ int keytosensetest(u_int16_ard n, unsigned int t, byte_ard* id)
     }
     else
     {
-      fprintf(stderr, "Failed timer doesnt match!\n");
+      fprintf(stderr, "Failed key renewal timer doesnt match!\n");
     }
   }
   else
@@ -331,7 +331,7 @@ int newkeytest(byte_ard* id, u_int16_ard n, u_int16_ard r, u_int16_ard t)
   sendmsg.pID = id;
   sendmsg.nonce = n;
   sendmsg.rand = r;
-  sendmsg.timer = t;
+  sendmsg.renewal_timer = t;
 
   byte_ard buffer[NEWKEY_FULLSIZE];
 
@@ -356,7 +356,7 @@ int newkeytest(byte_ard* id, u_int16_ard n, u_int16_ard r, u_int16_ard t)
     {
       if (recvmsg.nonce == n)
       {
-        if (recvmsg.timer == t)
+        if (recvmsg.renewal_timer == t)
         {
           if (recvmsg.rand == r)
           {
@@ -370,7 +370,7 @@ int newkeytest(byte_ard* id, u_int16_ard n, u_int16_ard r, u_int16_ard t)
         }
         else
         {
-          fprintf(stderr, "Failed: timer\n");
+          fprintf(stderr, "Failed: key renewal timer\n");
         }
       }
       else

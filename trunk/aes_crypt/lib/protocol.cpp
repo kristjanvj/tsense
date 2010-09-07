@@ -136,7 +136,7 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, const u_int32
   }
 
   // t_ST, expiration time. u_int32
-  byte_ard* pTimer = (byte_ard*)&msg->timer;
+  byte_ard* pTimer = (byte_ard*)&msg->renewal_timer;
   for (u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
     cBuffer[MSGTYPE_SIZE+ID_SIZE+KEY_BYTES+i] = pTimer[i];
@@ -206,7 +206,7 @@ void unpack_keytosink(void *pStream, struct message* msg)
   {
     temp[i] = cStream[MSGTYPE_SIZE + ID_SIZE + KEY_BYTES + i];
   }
-  msg->timer = (u_int32_ard)*temp;
+  msg->renewal_timer = (u_int32_ard)*temp;
   free(temp);
 
   // Since this method unpacks the stream on the Sink, it cannot decipher
@@ -283,7 +283,7 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
   {
     timertemp[i] = plainbuff[NONCE_SIZE + KEY_BYTES + i];
   }
-  msg->timer = (u_int32_ard)*timertemp;
+  msg->renewal_timer = (u_int32_ard)*timertemp;
 }
 
 /*
@@ -412,7 +412,7 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
     temp[ID_SIZE + NONCE_SIZE + i] = temp_rand[i];
   }
   
-  byte_ard* temp_timer = (byte_ard*)&msg->timer;
+  byte_ard* temp_timer = (byte_ard*)&msg->renewal_timer;
   for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
     temp[ID_SIZE + NONCE_SIZE + RAND_SIZE + i] = temp_timer[i];
@@ -487,7 +487,7 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
   {
     temp_timer[i] = plainbuff[ID_SIZE + NONCE_SIZE + RAND_SIZE + i];
   }
-  msg->timer = (u_int32_ard)*temp_timer;
+  msg->renewal_timer = (u_int32_ard)*temp_timer;
   free(temp_timer);
 
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
