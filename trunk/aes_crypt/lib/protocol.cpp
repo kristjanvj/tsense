@@ -507,9 +507,11 @@ void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
  *
  * The method intended for the Sink to send the new key to the sensor.
  *
- * Name:    
- * Bytes:
- * Data;
+ * Name:   MSG Code | Ciphertext                                                  | CMAC    
+ * Bytes:  1        | 32                                                          | 16
+ * Data:   0x32     | Public ID, Nonce, Rand key material, Renewal timer, Padding |
+ *
+ * Total bytecount: 49 bytes
  */
 
 void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
@@ -524,7 +526,7 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
   }
 
   // Construct the ciphertext
-  byte_ard temp[ID_SIZE + NONCE_SIZE + RAND_SIZE + TIMER_SIZE];
+  byte_ard temp[ID_SIZE + NONCE_SIZE + KEY_BYTES + TIMER_SIZE];
   
   for (u_int16_ard i = 0; i < ID_SIZE; i++)
   {
@@ -537,23 +539,22 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
     temp[ID_SIZE + i] = temp_nonce[i];
   }
   
-  byte_ard* temp_rand = (byte_ard*)&msg->rand;
-  for(u_int16_ard i = 0; i < RAND_SIZE; i++)
+  for(u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    temp[ID_SIZE + NONCE_SIZE + i] = temp_rand[i];
+    temp[ID_SIZE + NONCE_SIZE + i] = msg->rand[i];
   }
   
   byte_ard* temp_timer = (byte_ard*)&msg->renewal_timer;
   for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
-    temp[ID_SIZE + NONCE_SIZE + RAND_SIZE + i] = temp_timer[i];
+    temp[ID_SIZE + NONCE_SIZE + KEY_BYTES + i] = temp_timer[i];
   }
 
   byte_ard cipher_buff[NEWKEY_CRYPTSIZE];
 
   // Cipher
   CBCEncrypt((void*)temp, (void*)cipher_buff,
-             (ID_SIZE+NONCE_SIZE+RAND_SIZE+TIMER_SIZE), AUTOPAD,
+             (ID_SIZE+NONCE_SIZE+KEY_BYTES+TIMER_SIZE), AUTOPAD,
              pKeys, (const u_int16_ard*)IV);
   // Stick it in the buffer
   for (u_int16_ard i = 0; i < NEWKEY_CRYPTSIZE; i++)
@@ -570,6 +571,23 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
   }
   
 }
+
+/**
+ * unpack_newkey()
+ *
+ * Unpacks the new session key (following rekeying) at the sensor.
+ * Populated struct:
+ *
+ *    Name          | Summary                          | Data
+ *    ----------------------------------------------------------------
+ *    msgtype       | Message type code                | 0x32
+ *    ciphertext    | The ciphertext from stream       |
+ *    cmac          | The CMAC from stream             |
+ *    pID           | The public ID                    |
+ *    nonce         | A nonce from S                   |
+ *    rand          | The new key material             |
+ *    renewal_timer | The key renewal timer            |
+ */
 
 void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
 {
@@ -604,19 +622,16 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
   free(temp_nonce);
 
   // Ciphertext part 3 - Random
-  byte_ard* temp_rand = (byte_ard*)malloc(NONCE_SIZE);
-  for (u_int16_ard i = 0; i < RAND_SIZE; i++)
+  for (u_int16_ard i = 0; i < KEY_BYTES; i++)
   {
-    temp_nonce[i] = plainbuff[ID_SIZE + NONCE_SIZE + i];
+    msg->rand[i] = plainbuff[ID_SIZE + NONCE_SIZE + i];
   }
-  msg->rand = (u_int16_ard)*temp_rand;
-  free(temp_rand);
 
   // Ciphertext part 4 - Timer
   byte_ard* temp_timer = (byte_ard*)malloc(TIMER_SIZE);
   for(u_int16_ard i = 0; i < TIMER_SIZE; i++)
   {
-    temp_timer[i] = plainbuff[ID_SIZE + NONCE_SIZE + RAND_SIZE + i];
+    temp_timer[i] = plainbuff[ID_SIZE + NONCE_SIZE + KEY_BYTES + i];
   }
   msg->renewal_timer = (u_int32_ard)*temp_timer;
   free(temp_timer);
