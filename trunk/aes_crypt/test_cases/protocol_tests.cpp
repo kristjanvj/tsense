@@ -322,7 +322,7 @@ int rekeytest(u_int16_ard n, byte_ard* id)
   return retval;
 }
 
-int newkeytest(byte_ard* id, u_int16_ard n, u_int16_ard r, u_int16_ard t)
+int newkeytest(byte_ard* id, u_int16_ard n, byte_ard* r, u_int16_ard t)
 {
   int retval = 1;
   printf("newkey: ");
@@ -330,7 +330,7 @@ int newkeytest(byte_ard* id, u_int16_ard n, u_int16_ard r, u_int16_ard t)
   struct message sendmsg;
   sendmsg.pID = id;
   sendmsg.nonce = n;
-  sendmsg.rand = r;
+  strncpy((char*)sendmsg.rand, (const char*)r, KEY_BYTES);
   sendmsg.renewal_timer = t;
 
   byte_ard buffer[NEWKEY_FULLSIZE];
@@ -358,14 +358,14 @@ int newkeytest(byte_ard* id, u_int16_ard n, u_int16_ard r, u_int16_ard t)
       {
         if (recvmsg.renewal_timer == t)
         {
-          if (recvmsg.rand == r)
+          if (strncmp((const char*)recvmsg.rand, (const char*)r, KEY_BYTES) == 0)
           {
-            printf("Checks out! (Nonce: %d)\n", recvmsg.nonce);
+            printf("Checks out! (Nonce: %d and one byte of rand: 0x%x)\n", recvmsg.nonce, recvmsg.rand[0]);
             retval = 0;
           }
           else
           {
-            fprintf(stderr, "Failed: random\n");
+            fprintf(stderr, "Failed: random (key material)\n");
           }
         }
         else
@@ -413,7 +413,10 @@ int main(int argc, char* argv[])
 
   // Sample id: 000:001 (including null char)
   byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
-
+  // Sample random (not really random).
+  byte_ard rand[KEY_BYTES] = { 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38,
+                               0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38 };
+  
   printf("TSense protocol tests\n");
   printf("\n  The values in paranthesis are read from the ciphertext and are printed to \n  make it easier for humans to make sure garbage isn't being read and compared\n\n");
 
@@ -422,7 +425,7 @@ int main(int argc, char* argv[])
   int test3 = keytosensetest(1, 2, (byte_ard*)id);
   printf("\n");
   int test4 = rekeytest(9, (byte_ard*)id);
-  int test5 = newkeytest((byte_ard*)id, 2, 3, 4);
+  int test5 = newkeytest((byte_ard*)id, 2, rand, 4);
 
 
   if ((test1+test2+test3+test4+test5) == 0) // SUM
