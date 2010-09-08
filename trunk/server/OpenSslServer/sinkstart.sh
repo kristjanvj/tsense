@@ -27,7 +27,7 @@ while getopts "a:s:h" flag
 	esac
 done
 
-echo ./tssinkd \
+./tssinkd \
 	--workdir /home/kr/tsense/server/OpenSslServer/ \
 	--lockdir /home/kr/tsense/server/OpenSslServer/ \
 	--auaddr auth.tsense.sudo.is \
