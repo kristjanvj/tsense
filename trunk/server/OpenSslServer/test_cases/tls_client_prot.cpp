@@ -6,6 +6,8 @@
 
 #include "common.h"
 #include "tsense_keypair.h"
+#include "aes_constants.h"
+#include "aes_utils.h"
 #include <iostream>
 
 #define I_BUF_LEN 80
@@ -33,6 +35,7 @@ byte_ard key[] = {  0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
 					0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
 
 TSenseKeyPair *K_at;
+TSenseKeyPair *K_st;
 
 void do_client_loop(BIO *conn){
     int err;
@@ -45,7 +48,7 @@ void do_client_loop(BIO *conn){
 	// proxy client.
 
 	// Sample id: 000:001 (including null char)
-	byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x00};
+	byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x31, 0x31, 0x00};
 
 	// Create the struct, allocate neccesary memory and write sample data.
 	struct message idmsg;
@@ -57,11 +60,11 @@ void do_client_loop(BIO *conn){
 
 	printf("\n");
 
-	printf("Constructed an encrypted idresponse package:\n");
-	printf("--------------------------------------------\n");
-	printf("idmsg.msgtype:          %x\n", idmsg.msgtype);
-	printf("idmsg.nonce:           %x\n", idmsg.nonce);
-	printf("\n");
+	//printf("Constructed an encrypted idresponse package:\n");
+	//printf("--------------------------------------------\n");
+	//printf("idmsg.msgtype:          %x\n", idmsg.msgtype);
+	//printf("idmsg.nonce:           %x\n", idmsg.nonce);
+	//printf("\n");
 
 	
 	pack_idresponse(&idmsg, (const u_int32_ard*) (K_at->getCryptoKeySched()),
@@ -73,14 +76,14 @@ void do_client_loop(BIO *conn){
 	// Write idresponse messsage to sink server
     err = BIO_write(conn, (void*)idResponseBuf, IDMSG_FULLSIZE);
 
-    printf("Done writing encrypted packet\n");
+    //printf("Done writing idresponse packet\n");
 
     byte_ard keyToSensBuf[KEYTOSENS_FULLSIZE];
 
 	// Read keytosense message from sink server.
     err = BIO_read(conn, (void*)keyToSensBuf, KEYTOSENS_FULLSIZE);
 
-	printf("\n");
+	//printf("\n");
 
 	// Unpack keytosens message ------------------------------------------------
 
@@ -96,6 +99,7 @@ void do_client_loop(BIO *conn){
 	//byte_ard cmac_buff[BLOCK_BYTE_SIZE];
 	//aesCMac((const u_int32_ard*)Keys, senserecv.ciphertext, 32, cmac_buff);
 
+ 	printf("Verifying CMAC on keytosens message.\n");
 	int validMac = verifyAesCMac((const u_int32_ard*) (K_at->getMacKeySched()),
 									senserecv.ciphertext,
 									KEYTOSINK_CRYPTSIZE,
@@ -114,10 +118,53 @@ void do_client_loop(BIO *conn){
 	printf("senserecv.cmac:\n");
 	printBytes2(senserecv.cmac, KEY_BYTES); 
 
+
+    //byte_ard beta[] = {	0x10, 0x9b, 0x58, 0xba, 0x59, 0xe0, 0xd6, 0x6e,
+	//					0xe9, 0xf7, 0x35, 0xab, 0x6a, 0x99, 0xe3, 0x61 };
+
+	K_st = new TSenseKeyPair(senserecv.key, cBeta);
+
 	free(senserecv.ciphertext);
 	free(senserecv.key);
 
 	// Done unpacking keytosens message ----------------------------------------
+
+	// The server disconnects after each request so we reconnect.
+	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
+
+	// Pack rekey message ------------------------------------------------------
+
+	printf("\nPacking rekey message:\n");
+	printf("----------------------\n");
+	struct message rekeymsg;
+	rekeymsg.pID = id;
+	rekeymsg.nonce = 0xff;
+
+	// Set the correct MSG type if you are doing a handshake
+	rekeymsg.msgtype = MSG_T_REKEY_HANDSHAKE;
+
+    // Generate the buffer to write the packet into
+    byte_ard reKeyBuf[REKEY_FULLSIZE];
+	pack_rekey(	&rekeymsg, 
+				(const u_int32_ard*) (K_st->getCryptoKeySched()),
+				(const u_int32_ard*) (K_st->getMacKeySched()),
+				reKeyBuf);
+
+
+	printByteArd(K_st->getCryptoKeySched(), KEY_BYTES*11, 16);
+
+	printf("\n");
+
+	printByteArd(K_st->getMacKeySched(), KEY_BYTES*11, 16);
+
+	printf("\n");
+
+	printByteArd(reKeyBuf, REKEY_FULLSIZE, 16);
+
+
+    err = BIO_write(conn, (void*)reKeyBuf, REKEY_FULLSIZE);
+
+    printf("Done writing rekey pakcet: %d\n", err);
 }
 
 int main(int argc, char *argv[]){

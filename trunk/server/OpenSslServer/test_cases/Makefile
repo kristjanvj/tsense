@@ -39,6 +39,8 @@ CLIPROT_CC =	$(CC) -D_$(ARCH) $(LFLAGS) $(IFLAGS) \
 				$(PROT_DIR)protocol.cpp \
 				$(CRYPT_DIR)aes_cmac.cpp \
 				$(CRYPT_DIR)aes_crypt.cpp \
+				$(CRYPT_DIR)aes_constants.cpp \
+				$(CRYPT_DIR)aes_utils.cpp \
 				-o $(CLIPROT)
 
 MSG = "Compiling PROT client:\n----------------------"
