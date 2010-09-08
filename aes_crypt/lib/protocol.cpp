@@ -641,3 +641,74 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
     msg->cmac[i] = cStream[MSGTYPE_SIZE + ID_SIZE + NEWKEY_CRYPTSIZE + i];
   }
 }
+
+/**
+ * pack_data()
+ * 
+ * Packs the measurment data collected by the tsensor. Right now,
+ * data is assumed to reside inside a byte_ard array.
+ *
+ * Name:    MSG Code | Ciphertext                                            | Cmac 
+ * Bytes:   1        | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 
+ * Data:    0x01     | Public ID, Msg Time, Buffer length, Data                   
+ */
+
+void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
+{
+  byte_ard* cBuffer = (byte_ard*)pBuffer;
+  cBuffer[0] = MSG_T_DATA_SEND;
+
+  /* NOTE: Here we use integer division to figure out how many blocks
+   * we need for the ciphertext. In future versions every method in
+   * the Tsense protocol will use this method instead of the retarded
+   * constants.
+   *
+   * The +1 (in plainsize) is for the buffer length on the stream
+   */
+  
+  u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + (u_int16_ard) msg->buff_len;
+  u_int16_ard cryptsize = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;  
+  
+  /* Malloc is needed because we don't know the exact size
+   */
+  byte_ard* plaintext = (byte_ard*)malloc(plainsize);
+
+  // Populate plaintext.
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    plaintext[i] = msg->id[i];
+  }
+  byte_ard* temp_msgtime = (byte_ard*)&msg->msgtime;
+  for (u_int16_ard i = 0; i < MSGTIME_SIZE; i++)
+  {
+    plaintext[ID_SIZE + i] = temp_msgtime[i];
+  }
+  // One byte - no loop
+  plaintext[ID_SIZE + MSGTIME_SIZE] = msg->buff_len;
+
+  // Data
+  for(u_int16_ard i = 0; i < (u_int16_ard)msg->buff_len; i++)
+  {
+    plaintext[ID_SIZE + MSGTIME_SIZE + 1 + i] = msg->data[i];
+  }
+
+
+  byte_ard cipher_buff[cryptsize];
+
+  CBCEncrypt((void*)plaintext, (void*)cipher_buff, plainsize, AUTOPAD,
+             pKeys, (const u_int16_ard*)IV);
+  free(plaintext);
+  aesCMac(pCmacKeys, cipher_buff, cryptsize, msg->cmac);
+
+  // Stick it in the buffer
+  for(u_int16_ard i = 0; i < cryptsize; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + i] = cipher_buff[i];
+  }
+
+  for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + cryptsize + i] = msg->cmac[i];
+  }
+}
+
