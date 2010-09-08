@@ -176,43 +176,40 @@ void TsDbSinkSensorProfile::persist(){
 	MYSQL_RES *result;
 	MYSQL_ROW row;
 	int query_state;
-	
+
 	mysql_init(&mysql);
 	connection = mysql_real_connect(&mysql, _hostName, _userName,
-									_passWord, _dbName, 0,0,0);
+					_passWord, _dbName, 0,0,0);
 
 	char b64PID[10];
 	base64Encode(devicePublicId, 6, b64PID);
 
-
 	char b64Kst[KEY_BYTES*2];
 	base64Encode(Kst, KEY_BYTES, b64Kst);
-
 
 	char b64R[KEY_BYTES*2];
 	base64Encode(R, KEY_BYTES, b64R);
 
 	const char *insert = {"insert into sink_state (pid, KST, R)"
-						  " values ('%s', '%s', '%s')"};
-
+				" values ('%s', '%s', '%s')"};
 	const char *update = {"update sink_state set "
-						  "pid='%s', KST='%s', R='%s'"};
+				"KST='%s', R='%s' where pid='%s'"};
 	char query[3000]; 
 
-	const char *sQuery;
-
 	if(profileExists()){
-		sQuery = update;
+		syslog(LOG_NOTICE,"Updating profile for device %s", devicePublicId);
+		int insertLen = snprintf(query,2000,update,b64PID,b64Kst,b64R);
 	} else {
-		sQuery = insert;
+		syslog(LOG_NOTICE,"Inserting profile for device %s", devicePublicId);
+		int insertLen = snprintf(query,2000,insert,b64Kst,b64R,b64PID);
 	}
 
-	int insertLen = snprintf(query, 2000, sQuery, b64PID, b64Kst, b64R);
-
 	query_state = mysql_query(connection, query);
+
 	if (query_state != 0) {
 		char msg[MSGLEN];
 		GET_MSG(msg)
+		syslog(LOG_ERR,"error updating profile for device %s: %s" ,devicePublicId, msg);  
 		throw runtime_error(msg);
 		return;
 	}
