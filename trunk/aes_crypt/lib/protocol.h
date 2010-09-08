@@ -29,6 +29,7 @@
 #define MSGTYPE_SIZE 1
 #define NONCE_SIZE 2
 #define TIMER_SIZE 2
+#define MSGTIME_SIZE 4
 
 /**
  * Some macros to calculate the various lengths of various things.
@@ -38,7 +39,9 @@
  *    _CRYPTSIZE = The length of the crypted size. Divisable by 16.
  *    _FULLSIZE = The length of the full packet, everthing included.
  * 
- *  The _PADLEN macros are sensetive to change. 
+ *  The _PADLEN macros are sensetive to change.
+ *
+ *  TODO: Rewrite this heap of constants with Z/16Z
  */
 #define IDMSG_PADLEN BLOCK_BYTE_SIZE - (ID_SIZE+NONCE_SIZE)
 #define IDMSG_CRYPTSIZE ID_SIZE + NONCE_SIZE + (IDMSG_PADLEN)
@@ -59,8 +62,12 @@
 #define NEWKEY_FULLSIZE MSGTYPE_SIZE + ID_SIZE + NEWKEY_CRYPTSIZE + BLOCK_BYTE_SIZE
 
 /**
- * Defines for message identifiers  
+ * Defines for message identifiers
+ * TODO: cleanup and re-structure. The client and tsensor
+ *       seem to be using 0x40 and onwards through 0x73,
+ *       but skipping 0x60. 
  */
+#define MSG_T_DATA_SEND          0x01
 #define MSG_T_GET_ID_R           0x10
 #define MSG_T_KEY_TO_SINK        0x11
 #define MSG_T_KEY_TO_SENSE       0x12
@@ -72,7 +79,7 @@
 #define MSG_T_ERROR              0xff
 
 /**
- * Struct
+ * Structs
  */
 struct message
 {
@@ -81,10 +88,23 @@ struct message
   u_int16_ard nonce;               // The nonce
   byte_ard cmac[BLOCK_BYTE_SIZE];  // The cmac of the ciphertext
   byte_ard* key;                   // The key sent in key exchange and re-keying
-  byte_ard* ciphertext;            // When forwarding ciphertext
+  byte_ard* ciphertext;            // The ciphertext. This will ONLY be allocated in unpack's. 
   u_int16_ard renewal_timer;       // re-keying timer
-  byte_ard rand[KEY_BYTES];         // New key material 
+  byte_ard rand[KEY_BYTES];        // New key material 
 };
+
+struct data
+{
+  byte_ard msgype;                 // Hex code declaring message type (see wiki)
+  byte_ard id[ID_SIZE];            // The public id
+  u_int32_ard msgtime;             // Seconds since epoch. 32 bit, susceptable to y2k38.
+  byte_ard buff_len;               // Length of the data buffer
+  byte_ard* data;                  // The data itself.
+  byte_ard* ciphertext;            // The ciphertext. This will ONLY be allocated in unpack's
+  byte_ard cmac[BLOCK_BYTE_SIZE];  // CMAC 
+};
+
+
 
 /**
  * Key exchange and Authentication 
@@ -108,5 +128,10 @@ void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
 void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg);
 
+/**
+ * Data transfer protocol
+ */
+
+void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
 
 #endif
