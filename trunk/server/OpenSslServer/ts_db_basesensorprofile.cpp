@@ -123,7 +123,7 @@ bool TsDbSensorProfile::profileExists() {
 	char b64PID[12];
     int b64len = base64Encode(devicePublicId, 6, b64PID);
 
-	const char *queryStr = {"select count(*) from sink_state where pid = '%s'"};
+	const char *queryStr={"select count(*) from sink_state where pid = '%s'"};
 	char query[1000];
 
 	int qLen = sprintf(query, queryStr, b64PID);

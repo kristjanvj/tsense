@@ -14,6 +14,18 @@ using namespace std;
 
 #define BUFSIZE 2048
 
+// The constant used to derive K_STa from K_ST.
+byte_ard cBeta[KEY_BYTES] = { 0x10, 0x9b, 0x58, 0xba, 0x59, 0xe0, 0xd6, 0x6e,
+							  0xe9, 0xf7, 0x35, 0xab, 0x6a, 0x99, 0xe3, 0x61 };
+
+// The constant used to derive K_STe from K_ST.
+byte_ard cGamma[KEY_BYTES] = { 0xf1, 0x15, 0x3e, 0xb6, 0xb0, 0x1f, 0xa8, 0xc7,
+							   0xa2, 0x3b, 0x9f, 0x9b, 0x95, 0x2d, 0xcc, 0x06 };
+
+// The constant  used to derive K_STea from K_STe.
+byte_ard cEpsilon[KEY_BYTES] = { 0x3c, 0xdd, 0x2d, 0x67, 0xdf, 0x88, 0xef, 0xb2,
+					           0xe1, 0x31, 0x33, 0xe7, 0xc9, 0x3a, 0x63, 0xeb };
+
 /* Parameters:
  *  - authServerAddr, IP/FQDN for the authentication server.
  *  - authServerPort,  The port the Auth server listens on.
@@ -29,6 +41,13 @@ TlsSinkServer::TlsSinkServer(	const char *authServerAddr,
 {
 	_authServerAddr = authServerAddr;
 	_authServerPort = authServerPort;
+
+	//R = (byte_ard*)malloc(KEY_BYTES);  // REM?
+
+	dbcd.hostName ="localhost";
+	dbcd.userName = "tssink";
+	dbcd.passWord = "pass";
+	dbcd.dbName = "tsense";
 }
 
 /* Writes a message to the auth server over SSL/TLS and returns the number of
@@ -68,8 +87,13 @@ int TlsSinkServer::handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
 								 byte_ard *readBuf, int readLen)
 {
 	
+	syslog(LOG_NOTICE, "%x", readBuf[0]);
+
 	if(readBuf[0] == 0x10){
 		handleIdResponse(ssl, proxyClientRequestBio, readBuf, readLen);
+	}else if(readBuf[0] == 0x31){ 
+		// Handshake message, regular rekey is ox30.
+		handleRekey(ssl, proxyClientRequestBio, readBuf, readLen);
 	}else{
         log_err_exit("Error, unsupported protocol message.");
 	}
@@ -117,16 +141,47 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 
 	// Done unpacking the keytosink message ------------------------------------
 
-	// Store K_ST.
-	for(int i = 0; i < BLOCK_BYTE_SIZE; i++){
-		K_ST[i] = keyToSinkMsg.key[i];
+	//byte_ard tmpID[] = { 0x30, 0x30, 0x30, 0x30, 0x31, 0x31, 0x00 };
+
+	byte_ard tmpID[10]; 
+	memcpy(tmpID, readBuf+1, 6);
+
+/*
+	syslog(LOG_NOTICE, "tmpID #1:");
+	for(int i = 0; i < 6; i++){
+		syslog(LOG_NOTICE, "%x", tmpID[i]);
+	}											
+*/
+
+	//TsDbSinkSensorProfile(keyToSinkMsg.pPID, keyToSinkMsg.key,dbcd);
+	TsDbSinkSensorProfile tssp(keyToSinkMsg.key, tmpID, dbcd);
+
+	//-----------------------------------
+
+/**/
+	syslog(LOG_NOTICE, "KST1");
+	for(int i = 0; i < KEY_BYTES*11; i++){
+		syslog(LOG_NOTICE, "%x", tssp.getKstSched()[i]);
 	}
 
-	// Does this vary from T to T?
-	byte_ard beta[] = { 0xc7, 0x46, 0xe9, 0x64, 0x72, 0x3a, 0x21, 0x47,
-						 0xa2, 0x47, 0x30, 0x1a, 0xb9, 0x6b, 0x54, 0xde };
+	syslog(LOG_NOTICE, "KST1a");
+	for(int i = 0; i < KEY_BYTES*11; i++){
+		syslog(LOG_NOTICE, "%x", tssp.getKstaSched()[i]);
+	}
 
-	K_st = new TSenseKeyPair(keyToSinkMsg.key, beta);
+	syslog(LOG_NOTICE, "KST1e");
+	for(int i = 0; i < KEY_BYTES*11; i++){
+		syslog(LOG_NOTICE, "%x", tssp.getKsteSched()[i]);
+	}
+
+	syslog(LOG_NOTICE, "KST1ea");
+	for(int i = 0; i < KEY_BYTES*11; i++){
+		syslog(LOG_NOTICE, "%x", tssp.getKsteaSched()[i]);
+	}
+/**/
+	//-----------------------------------
+
+	tssp.persist();
 
 	// Pack keytosense message -------------------------------------------------
 
@@ -147,6 +202,94 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 	// Close connection to proxy client.
 	BIO_free(proxyClientRequestBio);
 	ERR_remove_state(0);
+}
+
+void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
+                                      byte_ard* readBuf, int readLen)
+{
+	
+	byte_ard tmpID[10]; 
+	memcpy(tmpID, readBuf+1, 6);
+
+/*
+	syslog(LOG_NOTICE, "tmpID #2:");
+	for(int i = 0; i < 6; i++){
+		syslog(LOG_NOTICE, "%x", tmpID[i]);
+	}											
+*/
+
+	try {
+		TsDbSinkSensorProfile *tssp = new TsDbSinkSensorProfile(tmpID, dbcd);
+
+/*
+		syslog(LOG_NOTICE, "KST2");
+		for(int i = 0; i < KEY_BYTES*11; i++){
+			syslog(LOG_NOTICE, "%x", tssp->getKstSched()[i]);
+		}
+
+		syslog(LOG_NOTICE, "KST2a");
+		for(int i = 0; i < KEY_BYTES*11; i++){
+			syslog(LOG_NOTICE, "%x", tssp->getKstaSched()[i]);
+		}
+
+		syslog(LOG_NOTICE, "KST2e");
+		for(int i = 0; i < KEY_BYTES*11; i++){
+			syslog(LOG_NOTICE, "%x", tssp->getKsteSched()[i]);
+		}
+
+		syslog(LOG_NOTICE, "KST2ea");
+		for(int i = 0; i < KEY_BYTES*11; i++){
+			syslog(LOG_NOTICE, "%x", tssp->getKsteaSched()[i]);
+		}
+
+		syslog(LOG_NOTICE, "readBuf");
+		for(int i = 0; i < REKEY_FULLSIZE; i++){
+			syslog(LOG_NOTICE, "%x", readBuf[i]);
+		}
+*/
+
+		// Unpack newkey message -----------------------------------------------
+
+		// Create the struct the recieve the packet to and malloc memory.
+		struct message newkeymsg;
+		newkeymsg.pID = (byte_ard*)malloc(ID_SIZE+1);  // Null term.
+		newkeymsg.ciphertext = (byte_ard*)malloc(REKEY_CRYPTSIZE);
+
+		// Put the data in the struct
+		unpack_rekey(readBuf, (const u_int32_ard*) (tssp->getKstSched()), 
+						&newkeymsg);
+
+
+		int validMac = verifyAesCMac((const u_int32_ard*)(tssp->getKstaSched()),
+										newkeymsg.ciphertext,
+										REKEY_CRYPTSIZE,
+										newkeymsg.cmac);
+
+		syslog(LOG_NOTICE, "nonce:  %x", newkeymsg.nonce);
+
+		if(validMac == 0){
+			log_err_exit("Mac of incoming keytosens message did not match");
+		}
+
+		// Done unpacking newkey message ---------------------------------------
+
+
+		// Pack rekey ----------------------------------------------------------
+
+		// Done packing rekey --------------------------------------------------
+
+		free (newkeymsg.pID);
+		free (newkeymsg.ciphertext);
+
+		// Close connection to proxy client.
+		BIO_free(proxyClientRequestBio);
+		ERR_remove_state(0);
+
+		delete tssp;
+
+	} catch(runtime_error rex) {
+		syslog(LOG_ERR, "%s", rex.what());
+	}
 }
 
 /* This method is called after a BIO channel connection from the proxy client 
@@ -295,11 +438,15 @@ void TlsSinkServer::serverMain(){
 	int err;
 	while(true){
 
+		syslog(LOG_NOTICE, "Waiting for new BIO connection.");
+
 		// ... subsequent calls to BIO_do_accept cause the program to stop and
 		// wait for an incoming connection from a client.
 		if(BIO_do_accept(proxyClientAcceptBio) <= 0){
 			log_err_exit("Error accepting proxy cilent connection");
 		}
+
+		syslog(LOG_NOTICE, "Accepted new BIO connection.");
 
 		// Pop a BIO channel for an incoming connection off the accept BIO.
 		proxyClientRequestBio = BIO_pop(proxyClientAcceptBio);

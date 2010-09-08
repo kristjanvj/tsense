@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <string>
+#include <syslog.h>
 #include "ts_db_sinksensorprofile.h"
 
 using namespace std;
@@ -15,11 +16,17 @@ using namespace std;
  * object, the device public-id and key schedules the objec contains,  must 
  * be persisted to the database by calling the persist() method.
  */
+
+//byte_ard R[KEY_BYTES] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+//						  0x38, 0x39, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45 };
+
 TsDbSinkSensorProfile::TsDbSinkSensorProfile(byte_ard * K_ST,  byte_ard * pID,
 							dbConnectData dbcd) :
 						TsDbSensorProfile(	pID, dbcd)
 {
-	generateKeyScheds(K_ST);
+    generateKey(R);
+	memcpy(Kst, K_ST, KEY_BYTES);
+	generateKeyScheds();
 }
 
 /* Attempts to intialize it self from DB. If no profile corresponding to 
@@ -30,6 +37,9 @@ TsDbSinkSensorProfile::TsDbSinkSensorProfile(byte_ard * pID,
 							dbConnectData dbcd) :
 						TsDbSensorProfile(pID, dbcd)
 {
+	memset(Kst,0x0, KEY_BYTES);
+	memset(R,0x0, KEY_BYTES);
+
 	memset(Kst_Sched,0x0, KEY_BYTES*11);
 	memset(Ksta_Sched,0x0, KEY_BYTES*11);
 	memset(Kste_Sched,0x0, KEY_BYTES*11);
@@ -68,20 +78,18 @@ byte_ard *TsDbSinkSensorProfile::getKsteaSched(){
 	return Kstea_Sched;
 }
 
+
 /* Generate the keys K_sta, K_ste and K_stea given K_st and store the key 
  * key schedules for these keys in the relavant class internal variables.
  */
-void TsDbSinkSensorProfile::generateKeyScheds(byte_ard *K_ST){
-
-	byte_ard R[KEY_BYTES];
+void TsDbSinkSensorProfile::generateKeyScheds(){
 
 	byte_ard gammaKeySched[KEY_BYTES*11];
 
 	// Create a  K_ST object and use Beta to derive K_STa. Both
 	// will then be stored in the key schedule list.
-    deriveKeyScheds(K_ST, cBeta, Kst_Sched, Ksta_Sched);
+    deriveKeyScheds(Kst, cBeta, Kst_Sched, Ksta_Sched);
 
-    generateKey(R);
 
     KeyExpansion(cGamma, gammaKeySched);
 
@@ -135,15 +143,20 @@ void TsDbSinkSensorProfile::retrieve(){
 
 	row = mysql_fetch_row(result);
 
+	//printf("%s\n", row[0]);
+	//printf("%s\n", row[1]);
+	//printf("%s\n", row[2]);
+
 	base64Decode(row[0], strlen(row[0]), devicePublicId);
 
-	base64Decode(row[1], strlen(row[1]), Kst_Sched);
+	base64Decode(row[1], strlen(row[1]), Kst);
 
-	base64Decode(row[2], strlen(row[2]), Ksta_Sched);
+	base64Decode(row[2], strlen(row[2]), R);
 
-	base64Decode(row[3], strlen(row[3]), Kste_Sched);
 
-	base64Decode(row[4], strlen(row[4]), Kstea_Sched);
+	printProfile();
+	
+	generateKeyScheds();
 
 	mysql_free_result(result);
 	mysql_close(connection);
@@ -172,35 +185,18 @@ void TsDbSinkSensorProfile::persist(){
 	base64Encode(devicePublicId, 6, b64PID);
 
 
-	char b64Kst_Sched[KEY_BYTES*17];
-	base64Encode(Kst_Sched, KEY_BYTES*11, b64Kst_Sched);
+	char b64Kst[KEY_BYTES*2];
+	base64Encode(Kst, KEY_BYTES, b64Kst);
 
 
-	char b64Ksta_Sched[KEY_BYTES*17];
-	base64Encode(Ksta_Sched, KEY_BYTES*11, b64Ksta_Sched);
+	char b64R[KEY_BYTES*2];
+	base64Encode(R, KEY_BYTES, b64R);
 
-
-	char b64Kste_Sched[KEY_BYTES*17];
-	base64Encode(Kste_Sched, KEY_BYTES*11, b64Kste_Sched);
-
-
-	char b64Kstea_Sched[KEY_BYTES*17];
-	base64Encode(Kstea_Sched, KEY_BYTES*11, b64Kstea_Sched);
-
-	//cout << "persist()" << endl;
-	//cout << "----------" << endl;
-	//cout << "b64 PID:        " << endl << b64PID << endl << endl;
-	//cout << "b64Kst_Sched:   " << endl << b64Kst_Sched << endl << endl;
-	//cout << "b64Ksta_Sched:  " << endl << b64Ksta_Sched << endl << endl;
-	//cout << "b64Kste_Sched:  " << endl << b64Kste_Sched << endl << endl;
-	//cout << "b64Kstea_Sched: " << endl << b64Kstea_Sched << endl << endl;
-
-	const char *insert = {"insert into sink_state (pid, KST, KSTa, KSTe, KSTea)"
-						  " values ('%s', '%s', '%s', '%s', '%s')"};
+	const char *insert = {"insert into sink_state (pid, KST, R)"
+						  " values ('%s', '%s', '%s')"};
 
 	const char *update = {"update sink_state set "
-						  "pid='%s', KST='%s', KSTa='%s', "
-						  "KSTe='%s', KSTea='%s'"};
+						  "pid='%s', KST='%s', R='%s'"};
 	char query[3000]; 
 
 	const char *sQuery;
@@ -211,8 +207,7 @@ void TsDbSinkSensorProfile::persist(){
 		sQuery = insert;
 	}
 
-	int insertLen = snprintf(query, 2000, sQuery, b64PID, b64Kst_Sched,
-							b64Ksta_Sched, b64Kste_Sched, b64Kstea_Sched);
+	int insertLen = snprintf(query, 2000, sQuery, b64PID, b64Kst, b64R);
 
 	query_state = mysql_query(connection, query);
 	if (query_state != 0) {
@@ -222,7 +217,7 @@ void TsDbSinkSensorProfile::persist(){
 		return;
 	}
 
-	mysql_free_result(result);
+	//mysql_free_result(result);
 	mysql_close(connection);
 }
 
@@ -230,6 +225,14 @@ void TsDbSinkSensorProfile::printProfile(){
 
 	cout << "pid:" << endl;
 	printByteArd(Kst_Sched, 6, 16);
+	cout << endl;
+
+	cout << "Kst:" << endl;
+	printByteArd(Kst, KEY_BYTES, 16);
+	cout << endl;
+
+	cout << "R:" << endl;
+	printByteArd(R, KEY_BYTES, 16);
 	cout << endl;
 
 	cout << "Kst_Sched:" << endl;
