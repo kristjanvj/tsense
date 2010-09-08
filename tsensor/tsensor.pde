@@ -123,16 +123,6 @@ void operator delete(void* ptr) { free(ptr); }
 #define MSG_ACK_RUN_ERROR        0x10
 
 //
-// The sensor state word bit definitions TODO: EXPAND TO FULL BYTE
-//
-//#define STATE_BIT_RUNNING 0   // Set to 1 when capture running -- sensor fully initialized
-//#define STATE_BIT_ERROR   1   // Set to 1 if error occurs
-// State bit 2 is reserved
-//#define STATE_BIT_BLINK   3   // Utility bit to blink status led in standby mode
-//#define STATE_BIT_MASK    0x07
-//#define STATE_ERR_CODE_OFFSET 4
-
-//
 // Error code definitions
 //
 #define ERR_CODE_OK                      		0x00
@@ -145,7 +135,7 @@ void operator delete(void* ptr) { free(ptr); }
 //
 #define ERR_CODE_KEYTOSENSE_UNEXPECTED			0x10
 #define ERR_CODE_KEYTOSENSE_MAC_FAILED			0x11
-#define ERR_CODE_KEYTOSENSE_STALE_ID_MESSAGE	        0x12
+#define ERR_CODE_KEYTOSENSE_STALE_NONCE_MESSAGE	        0x12
 //
 #define ERR_CODE_REKEYRESPONSE_UNEXPECTED		0x20
 #define ERR_CODE_REKEYRESPONSE_MAC_FAILED		0x21
@@ -234,23 +224,7 @@ void setup(void)
   // Initialize the serial port
   Serial.begin(9600);
   Serial.flush();
-    
-  #ifdef verbose    
-  // Delay for a bit and blink the status led
-  for(int i=0; i<5; i++)
-  {
-    digitalWrite(LED_STATUS,HIGH);
-    delay(500);
-    digitalWrite(LED_STATUS,LOW);
-    delay(500);
-  } 
-  // Print the initial greeting
-  Serial.println("\n\n------------------------");
-  Serial.println("Initializing Tsensor");
-  Serial.print("Free memory = ");
-  Serial.println(freeMemory());
-  Serial.println("------------------------\n\n");  
-  #endif
+  delay(1000);
 }
 
 /**
@@ -283,13 +257,10 @@ void loop(void)
       setProtocolState(PROT_STATE_STANDBY);
       sendAck(ERR_CODE_TIMEOUT);
     }  
-  }
+  }  
   
-  if( Serial.available() ) 
-  {
-    // First, check if there is a pending command but only if not in error mode.
-    getCommand();  
-  }
+  // Handle any waiting commands on the serial line
+  getCommand();  
 
   if ( protocolState == PROT_STATE_RUNNING ) // Bit 0 is the running bit
   {
@@ -335,80 +306,76 @@ void loop(void)
  */
 void getCommand() 
 {   
-  // Check if there is waiting data.
-  if ( Serial.available() > 0 )
-  {    
-    // Read the first byte -- the message identifier
-    byte_ard cmdCode = Serial.read(); // Read one byte
+  // Read the first byte -- the message identifier.
+  byte_ard cmdCode = Serial.read();
+  if ( cmdCode==0xFF )
+    return;   // -1 (0xFF) means no data available.
 
-    // Handle all possible protocol messages that the sensor can receive here based on the 1 byte message ID.
-    // Note: Handlers read the bytes expected by the protocol from the serial port.    
-    switch( cmdCode )
-    {
-      case MSG_T_GET_ID_Q:  // ID query received from client C
-        handleDeviceIdQuery();
-        break;
-      case MSG_T_ID_RESPONSE_ERROR:
-        handleIdResponseError();
-        break;
-      case MSG_T_KEY_TO_SENSE:       // New (encrypted) session key package received from authentication server                                
-        handleKeyToSense();          // via S and C.
-        break;
-      case MSG_T_REKEY_RESPONSE:
-        handleRekeyResponse();
-        break;
-      case MSG_T_FINISH:
-        handleFinish();
-        break;
-      case MSG_T_ERROR:
-        handleGeneralProtocolError();
-        break;
-      case MSG_T_START_CMD:
-        doStart(); // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
-        break;
-      case MSG_T_STOP_CMD: // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
-        doStop();
-        break;
-      case MSG_T_FREE_MEM_Q:
-        sendFreeMemory();
-        break;
-      case MSG_T_STATE_Q:
-        sendCurrentState();
-        break;    
-      case MSG_T_VERSION_Q:
-        handleVersionQuery();
-        break;
-      case MSG_T_STARTUP_ID_Q:
-        handleStartupIdQuery();
-        break;
-      case MSG_T_CUR_TIME_Q:
-        handleCurTimeQuery();
-        break;
-      case MSG_T_RUN_TEST_CMD:
-        doEncryptDecryptTest();     
-        break;
-      case MSG_T_SET_TIME_CMD:
-        handleSetTimeCmd();
-        break;
-      case MSG_T_SET_SAMLPLE_INTERVAL_CMD:
-        handleSetSamplingRateCmd();
-        break;
-      case MSG_T_SET_SAMPLE_BUF_SIZE_CMD:        
-        handleSetSampleBufferSizeCmd();
-        break;
-      case MSG_T_PRIVATE_KEY_Q:
-        handlePrivateKeyQuery();
-        break;
-      case MSG_T_EEPROM_DUMP_Q:
-        handleEepromDumpQuery();
-        return;        
-      default:
-        Serial.flush(); // Crear the crud
-        sendAck(MSG_ACK_UNKNOWN_MESSAGE);
-        break;
-      // TODO: Other possible messages include:
-      //  -  update current time
-    }
+  // Handle all possible protocol messages that the sensor can receive here based on the 1 byte message ID.
+  // Note: Handlers read the bytes expected by the protocol from the serial port.    
+  switch( cmdCode )
+  {
+    case MSG_T_GET_ID_Q:  // ID query received from client C
+      handleDeviceIdQuery();
+      break;
+    case MSG_T_ID_RESPONSE_ERROR:
+      handleIdResponseError();
+      break;
+    case MSG_T_KEY_TO_SENSE:       // New (encrypted) session key package received from authentication server                                
+      handleKeyToSense();          // via S and C.
+      break;
+    case MSG_T_REKEY_RESPONSE:
+      handleRekeyResponse();
+      break;
+    case MSG_T_FINISH:
+      handleFinish();
+      break;
+    case MSG_T_ERROR:
+      handleGeneralProtocolError();
+      break;
+/*    case MSG_T_START_CMD:
+      doStart(); // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
+      break;
+    case MSG_T_STOP_CMD: // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
+      doStop();
+      break; */
+    case MSG_T_FREE_MEM_Q:
+      sendFreeMemory();
+      break;
+    case MSG_T_STATE_Q:
+      sendCurrentState();
+      break;    
+    case MSG_T_VERSION_Q:
+      handleVersionQuery();
+      break;
+    case MSG_T_STARTUP_ID_Q:
+      handleStartupIdQuery();
+      break;
+    case MSG_T_CUR_TIME_Q:
+      handleCurTimeQuery();
+      break;
+    case MSG_T_RUN_TEST_CMD:
+      doEncryptDecryptTest();     
+      break;
+    case MSG_T_SET_TIME_CMD:
+      handleSetTimeCmd();
+      break;
+    case MSG_T_SET_SAMLPLE_INTERVAL_CMD:
+      handleSetSamplingRateCmd();
+      break;
+    case MSG_T_SET_SAMPLE_BUF_SIZE_CMD:        
+      handleSetSampleBufferSizeCmd();
+      break;
+    case MSG_T_PRIVATE_KEY_Q:
+      handlePrivateKeyQuery();
+      break;
+    case MSG_T_EEPROM_DUMP_Q:
+      handleEepromDumpQuery();
+      return;        
+    default:
+      Serial.flush(); // Crear the crud
+      sendAck(MSG_ACK_UNKNOWN_MESSAGE);
+      break;
   }
 }
 
@@ -455,16 +422,7 @@ void handleDeviceIdQuery()
   // See protocol.cpp for details. Encrypts and MACs the message and returns in pBuffer.
   pack_idresponse( &msg, (const u_int32_ard *)masterKeys.getCryptoKeySched(),
                    (const u_int32_ard *)masterKeys.getMacKeySched(), (void *)pBuffer);
-   
-//  sendDebugPacket("MASTER KEY",masterKeys.getCryptoKey(),16);     
-   
-  /*
-  byte_ard tempbuf[10];
-  tempbuf[0]=lowByte(idNonce);
-  tempbuf[1]=highByte(idNonce);
-  sendDebugPacket("IDNONCE",tempbuf,2);  
-  */
-  
+     
   // Write the crypto buffer to the serial port
   Serial.write(pBuffer,IDMSG_FULLSIZE);
   Serial.flush();
@@ -524,8 +482,12 @@ void handleKeyToSense()
     return; 
   }
    
-  /* NOTE: Problems with unpack method from protocol -- fixed code below to avoid having to change
-     the protocol at this point */
+  // Allocate memory for the unpacked message
+  struct message senserecv;
+  senserecv.key = (byte_ard*)malloc(KEY_BYTES);
+  senserecv.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
+  // Unpack
+  unpack_keytosens((void*)pCommandBuffer, (const u_int32_ard *)masterKeys.getCryptoKeySched(), &senserecv);
 
   // Validate the MAC  
   int validMac = verifyAesCMac( (const u_int32_ard *)masterKeys.getMacKeySched(), 
@@ -537,36 +499,51 @@ void handleKeyToSense()
     return;     
   }
 
-  // TODO: Do something about the IV
-  byte_ard IV[] = {
-    0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30 
-  };
+  // TODO: CHECK NONCE PROBLEMS!!!
 
-  // Allocate a decrypt buffer and decrypt the message
-  byte_ard plainBuf[KEYTOSINK_CRYPTSIZE];
-  CBCDecrypt(pCommandBuffer+1, (void*)plainBuf, KEYTOSINK_CRYPTSIZE,
-             (const u_int32_ard *)masterKeys.getCryptoKeySched(), (const u_int16_ard*)IV);
-    
-  // Process the nonce and timer
-  u_int16_ard rnonce = plainBuf[0] + (plainBuf[1]<<8);
-  u_int32_ard rt = plainBuf[18] + (plainBuf[19]<<8)  + (plainBuf[20]<<16)  + (plainBuf[21]<<24); 
+/*  
+  // Validate the nonce
+  if ( senserecv.nonce != idNonce ) // TODO: Use some allowable range for nonces
+  {
+    setWarningState( ERR_CODE_KEYTOSENSE_STALE_NONCE_MESSAGE );
+    sendAck(errorCode);
+    return;  
+  }
+*/
+
+  // TODO: Validate the ID -- requires protocol changes
   
   // Store the session key in a keypair object
   if (sessionKeys!=NULL)
     delete sessionKeys;
-  sessionKeys = new TSenseKeyPair(plainBuf+2,cBeta);  // Use the key derivation constant
-  if ( rt==0 )
+  sessionKeys = new TSenseKeyPair(senserecv.key,cBeta);  // Use the key derivation constant
+  if ( senserecv.renewal_timer=0 )
     rekeyInterval=DEFAULT_REKEY_INTERVAL;
   else
-    rekeyInterval=rt;
+    rekeyInterval=senserecv.renewal_timer;
   sessionKeyUseCounter=0; // Set the session key use counter to zero since we have a fresh key
+      
+  // Cleanup
+  free(senserecv.ciphertext);
+  // When you don't need the key anymore
+  free(senserecv.key);            
       
   // Update the protocol state and ack to indicate to client that all is OK.
   setProtocolState(PROT_STATE_SESSION_KEY_SET);        
   sendAck(ERR_CODE_OK);
 
+  sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);  // TESTING ONLY
+  sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);  // TESTING ONLY
+  
+  byte_ard temp[4];
+  temp[0] = lowByte(idNonce);
+  temp[1] = highByte(idNonce);
+  temp[2] = lowByte(senserecv.nonce);
+  temp[3] = highByte(senserecv.nonce);
+  sendDebugPacket("NONCES",temp,4);
+
   // Send a rekey request to the associated S
-  sendRekeyRequest();  
+//  sendRekeyRequest();                                    // TESTING ONLY 
 }
 
 /**
@@ -633,7 +610,10 @@ void handleRekeyResponse()
 
   // Unpack the raw buffer into a message struct
   message msg; 
-  unpack_newkey(pCommandBuffer,(const u_int32_ard *)sessionKeys->getCryptoKeySched(),&msg);   // TODO: Should this be unpack_newkey ???
+  msg.ciphertext = (byte_ard*)malloc(NEWKEY_CRYPTSIZE);
+  msg.pID = (byte_ard*)malloc(6);
+  
+  unpack_newkey(pCommandBuffer,(const u_int32_ard *)sessionKeys->getCryptoKeySched(),&msg);
   free(pCommandBuffer);
 
   // Check the MAC against the encrypted data
@@ -672,16 +652,17 @@ void handleRekeyResponse()
   byte_ard pTransportKey[KEY_BYTES];  // Allocate temporary buffer for the transport encryption key
   byte_ard* pDerivKeys[KEY_BYTES*11]; 
   KeyExpansion(cGamma,pDerivKeys);      // Expand the derivation key schedule for random -> K_STe
-  byte_ard randArray[KEY_BYTES];
-  randArray[0] = lowByte(msg.rand); // Temporary fix to use 16-bit random number. Should be 128-bit value.
-  randArray[1] = highByte(msg.rand);
-  aesCMac((const u_int32_ard *)pDerivKeys,randArray,KEY_BYTES,pTransportKey); // CMAC the random number to get K_STe
+//  byte_ard randArray[KEY_BYTES];
+//  randArray[0] = lowByte(msg.rand); // Temporary fix to use 16-bit random number. Should be 128-bit value.
+//  randArray[1] = highByte(msg.rand);
+  aesCMac((const u_int32_ard *)pDerivKeys,msg.rand,KEY_BYTES,pTransportKey); // CMAC the random number to get K_STe
 
   // Set the re-key interval as specified by sink (delivered in t (timer) field in protocol)
-  u_int32_ard timer = msg.timer;  
-  rekeyInterval = timer; // Set the re-key interval -- timer is a bit of a misnomer
-    
-  // Save the transport key -- cEpsilon is the constant for authentication key derivation
+  rekeyInterval = msg.renewal_timer; // Set the re-key interval -- timer is a bit of a misnomer
+
+  // Save the transport key -- cEpsilon is the constant for authentication key derivation    
+  if ( transportKeys != NULL )
+    delete transportKeys;
   transportKeys = new TSenseKeyPair(pTransportKey,cEpsilon);
   // Reset the rekey counter since we have a fresh key
   transportKeyUseCounter=0; 
@@ -691,6 +672,13 @@ void handleRekeyResponse()
   setProtocolState(PROT_STATE_KEY_READY);
   
   sendAck(ERR_CODE_OK);
+  
+  sendDebugPacket("RAND",msg.rand,16);
+  sendDebugPacket("CKEY",transportKeys->getCryptoKey(),16);
+  sendDebugPacket("MKEY",transportKeys->getMacKey(),16);
+  
+  free(msg.ciphertext);
+  free(msg.pID);
 }
  
 /**
