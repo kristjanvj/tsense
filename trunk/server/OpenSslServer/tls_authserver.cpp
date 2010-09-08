@@ -19,35 +19,14 @@ using namespace std;
  *   - serverAddr, the authorization servers own FQDN.
  *   - serverListenPort, the port on which the authorization server listens.
  */
-TlsAuthServer::TlsAuthServer(	const char* sinkServerAddr,
-								const char *serverAddr,
-								const char *serverListenPort) : 
-							TlsBaseServer(	SERVER_MODE,
-											serverAddr, 
-											serverListenPort)
+TlsAuthServer::TlsAuthServer( 	const char* sinkServerAddr,
+				const char *serverAddr,
+				const char *serverListenPort) : 
+				TlsBaseServer(	SERVER_MODE,
+						serverAddr, 
+						serverListenPort)
 {
-	
-	// FIXME, At the moment this only allows for the handling of a single 
-	// sensor whose keys and constants are hardcoded here. This infromation
-	// should be read from a file or a database and there should be a map
-	// container or a database table that contains the sesnor profiles.
-
 	_sinkServerAddr = sinkServerAddr;
-
-	// Hardcode a  profile for test sensor -------------------------------------
-
-	byte_ard K_AT[] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf }; // #2
-	//byte_ard K_AT[] = {0xcf, 0xb5, 0x08, 0x8d, 0xc6, 0x11, 0x06, 0x24, 0xc1, 0x38, 0x62, 0x41, 0x6f, 0xc0, 0x13, 0xaa }; // #4
-
-	// Does this vary from T to T?
-	byte_ard alpha[] = { 0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
-
-	K_at = new TSenseKeyPair(K_AT, alpha);
-
-	for ( int i=0; i<16; i++ )
-		syslog(LOG_NOTICE, "crypto: 0x%.2x", K_at->getCryptoKey()[i]);
-	for ( int i=0; i<16; i++)
-		syslog(LOG_NOTICE, "mac: 0x%.2x", K_at->getMacKey()[i]);
 }
 
 TlsAuthServer::~TlsAuthServer(){
@@ -74,25 +53,56 @@ void TlsAuthServer::handleMessage(SSL *ssl) {
 	}
 }
 
-void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, 
-										int readLen) 
+void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int readLen) 
 {
+	// Start sensor identification -----------------------------------------
+
+	byte_ard sensorId[ID_SIZE];
+	memcpy(sensorId,idResponseBuf+1,ID_SIZE);
+
+	// This is the plaintext sensor id. Now, lets see if we know the corresponding secret key
+	syslog(LOG_NOTICE,"Received id message from tsensor %d%d-%d%d%d%d", 
+				sensorId[0],sensorId[1],sensorId[2],sensorId[3],sensorId[4],sensorId[5]);
+
+	byte_ard K_AT[KEY_BYTES];
+
+	// This is the alpha for deriving the MAC key. FIXME Can be removed once the key derivation header has been included.
+	byte_ard alpha[] = { 0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
+
+	// Here are some hardcoded encryption keys -- private sensor IDs.
+	// FIXME Eventually read from file or database. 
+	byte_ard K_AT_2[] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf }; // #2
+	byte_ard K_AT_4[] = { 0xcf, 0xb5, 0x08, 0x8d, 0xc6, 0x11, 0x06, 0x24, 0xc1, 0x38, 0x62, 0x41, 0x6f, 0xc0, 0x13, 0xaa }; // #4
+
+	// For now, using the last byte as unique sensor identifier does the trick.
+	switch(sensorId[5])
+	{
+		case 2:
+			syslog(LOG_NOTICE,"Using keyset 2");
+			memcpy(K_AT,K_AT_2,KEY_BYTES);
+			break;
+		case 4:
+			syslog(LOG_NOTICE,"Using keyset 4");
+			memcpy(K_AT,K_AT_4,KEY_BYTES);
+			break;
+		default:
+			syslog(LOG_ERR,"UNKNOWN TSENSOR");
+			return; // TODO: Handle better
+	}
+
+	// Construct the encryption and MAC key pair.
+	K_at = new TSenseKeyPair(K_AT, alpha);
+	
 	// Start unpack idresponse -------------------------------------------------
-
+	
+	// Allocate memory for the ID and '\0'	
 	struct message recv_id;
-
-    // Allocate memory for the ID and '\0'
-    recv_id.pID = (byte_ard*)malloc(ID_SIZE+1);
-    recv_id.ciphertext = (byte_ard*)malloc(IDMSG_CRYPTSIZE);
-
-    unpack_idresponse(	(void*) idResponseBuf,
-						(const u_int32_ard*) (K_at->getCryptoKeySched()),
-						&recv_id);
-
-    syslog(LOG_NOTICE,"Received id message from: %d%d-%d%d%d%d", recv_id.pID[0],recv_id.pID[1],recv_id.pID[2],recv_id.pID[3],recv_id.pID[4],recv_id.pID[5]);
-    syslog(LOG_NOTICE,"Nonce: %d", recv_id.nonce);
-
-    printf("Done unpacking encrypted packet:\n");
+	recv_id.pID = (byte_ard*)malloc(ID_SIZE+1);
+	recv_id.ciphertext = (byte_ard*)malloc(IDMSG_CRYPTSIZE);
+	// Unpack and decrypt the message
+	unpack_idresponse((void*) idResponseBuf,
+			  (const u_int32_ard*) (K_at->getCryptoKeySched()),
+			  &recv_id);
 
 	// Check the cMAC on the incoming idresponse
 	int validMac = verifyAesCMac((const u_int32_ard*) (K_at->getMacKeySched()),
@@ -119,8 +129,6 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 		syslog(LOG_NOTICE, "%s", "The idresponse cmac checked out ok!");
 	}
 
-//    free(recv_id.pID);
-    free(recv_id.ciphertext);
 
 	// End unpack idresponse ---------------------------------------------------
 
@@ -140,7 +148,9 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 	struct message sendmsg;
 	sendmsg.renewal_timer = 0; 				// Not using this at present.
 	sendmsg.nonce = recv_id.nonce;	// Pass on the nonce from T.
-        sendmsg.pID = recv_id.pID;
+        sendmsg.pID = (byte_ard*)malloc(ID_SIZE);
+
+	memcpy(sendmsg.pID,recv_id.pID,ID_SIZE);
 
 	sendmsg.key =  K_ST;
 
@@ -151,12 +161,16 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 					(const u_int32_ard*) (K_at->getMacKeySched()), 
 					keyToSinkBuf);
 
+    	free(recv_id.ciphertext); // Remember to clean up all malloced
 	free(recv_id.pID);
 
 	// Done packing the keytosikn message --------------------------------------
 
 	// Dispatch ketosink message to sink.
 	writeToSink(ssl, keyToSinkBuf, KEYTOSINK_FULLSIZE);
+
+	syslog(LOG_NOTICE,"Session key package for sensor %d%d-%d%d%d%d dispatched to sink",
+				sensorId[0],sensorId[1],sensorId[2],sensorId[3],sensorId[4],sensorId[5]);
 
 	int status = (SSL_get_shutdown(ssl) & SSL_RECEIVED_SHUTDOWN)? 1 : 0;
 
