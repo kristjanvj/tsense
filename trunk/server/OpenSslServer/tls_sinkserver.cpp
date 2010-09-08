@@ -87,7 +87,7 @@ int TlsSinkServer::handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
 								 byte_ard *readBuf, int readLen)
 {
 	
-	syslog(LOG_NOTICE, "%x", readBuf[0]);
+	//syslog(LOG_NOTICE, "%x", readBuf[0]);
 
 	if(readBuf[0] == 0x10){
 		handleIdResponse(ssl, proxyClientRequestBio, readBuf, readLen);
@@ -108,6 +108,8 @@ int TlsSinkServer::handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
 void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio, 
 									  byte_ard* readBuf, int readLen)
 {
+	syslog(LOG_NOTICE,"Handling incoming idresponse message. PID:%d%d-%d%d%d%d", 
+				readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
 
 	byte_ard keyToSinkBuf[KEYTOSINK_FULLSIZE];
 
@@ -129,12 +131,10 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 
 	// Unpack the key to sink message ------------------------------------------
 
-	byte_ard pID[6];
-
 	struct message keyToSinkMsg;
 	keyToSinkMsg.key = (byte_ard*)malloc(KEY_BYTES);
 	keyToSinkMsg.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
-	keyToSinkMsg.pID=pID;
+	keyToSinkMsg.pID=(byte_ard*)malloc(ID_SIZE);
  
 	unpack_keytosink((void*)keyToSinkBuf, &keyToSinkMsg);
 
@@ -142,12 +142,13 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 		log_err_exit("Authentication server didn't accept the ID/Cipher!");
 	}
 
+	syslog(LOG_NOTICE,"Authentication server accepted sensor with ID %d%d-%d%d%d%d",
+				readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
+
 	// Done unpacking the keytosink message ------------------------------------
 
-	//byte_ard tmpID[] = { 0x30, 0x30, 0x30, 0x30, 0x31, 0x31, 0x00 };
-
 	byte_ard tmpID[10]; 
-	memcpy(tmpID, readBuf+1, 6);
+	memcpy(tmpID, keyToSinkMsg.pID, ID_SIZE);
 
 /*
 	syslog(LOG_NOTICE, "tmpID #1:");
@@ -161,7 +162,7 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 
 	//-----------------------------------
 
-/**/
+/*
 	syslog(LOG_NOTICE, "KST1");
 	for(int i = 0; i < KEY_BYTES*11; i++){
 		syslog(LOG_NOTICE, "%x", tssp.getKstSched()[i]);
@@ -181,7 +182,7 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 	for(int i = 0; i < KEY_BYTES*11; i++){
 		syslog(LOG_NOTICE, "%x", tssp.getKsteaSched()[i]);
 	}
-/**/
+*/
 	//-----------------------------------
 
 	tssp.persist();
@@ -191,6 +192,9 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 	byte_ard keyToSenseBuf[KEYTOSENS_FULLSIZE];
 
 	pack_keytosens(&keyToSinkMsg, keyToSenseBuf);
+
+	syslog(LOG_NOTICE,"Dispatching session key packet to tsensor %d%d-%d%d%d%d",
+				readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
 
 	// Send keytosense message to sensor.
 	// ----------------------------------
