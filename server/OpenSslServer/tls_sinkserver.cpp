@@ -129,9 +129,12 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 
 	// Unpack the key to sink message ------------------------------------------
 
+	byte_ard pID[6];
+
 	struct message keyToSinkMsg;
 	keyToSinkMsg.key = (byte_ard*)malloc(KEY_BYTES);
 	keyToSinkMsg.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
+	keyToSinkMsg.pID=pID;
  
 	unpack_keytosink((void*)keyToSinkBuf, &keyToSinkMsg);
 
