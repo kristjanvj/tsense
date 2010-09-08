@@ -36,14 +36,18 @@ TlsAuthServer::TlsAuthServer(	const char* sinkServerAddr,
 
 	// Hardcode a  profile for test sensor -------------------------------------
 
-	byte_ard K_AT[] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-						0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+	byte_ard K_AT[] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf }; // #2
+	//byte_ard K_AT[] = {0xcf, 0xb5, 0x08, 0x8d, 0xc6, 0x11, 0x06, 0x24, 0xc1, 0x38, 0x62, 0x41, 0x6f, 0xc0, 0x13, 0xaa }; // #4
 
 	// Does this vary from T to T?
-	byte_ard alpha[] = { 0xc7, 0x46, 0xe9, 0x64, 0x72, 0x3a, 0x21, 0x47,
-						 0xa2, 0x47, 0x30, 0x1a, 0xb9, 0x6b, 0x54, 0xde };
+	byte_ard alpha[] = { 0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
 
 	K_at = new TSenseKeyPair(K_AT, alpha);
+
+	for ( int i=0; i<16; i++ )
+		syslog(LOG_NOTICE, "crypto: 0x%.2x", K_at->getCryptoKey()[i]);
+	for ( int i=0; i<16; i++)
+		syslog(LOG_NOTICE, "mac: 0x%.2x", K_at->getMacKey()[i]);
 }
 
 TlsAuthServer::~TlsAuthServer(){
@@ -85,6 +89,9 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 						(const u_int32_ard*) (K_at->getCryptoKeySched()),
 						&recv_id);
 
+    syslog(LOG_NOTICE,"Received id message from: %d%d-%d%d%d%d", recv_id.pID[0],recv_id.pID[1],recv_id.pID[2],recv_id.pID[3],recv_id.pID[4],recv_id.pID[5]);
+    syslog(LOG_NOTICE,"Nonce: %d", recv_id.nonce);
+
     printf("Done unpacking encrypted packet:\n");
 
 	// Check the cMAC on the incoming idresponse
@@ -108,8 +115,11 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 		//	SSL_clear(ssl);
 		//}
 	}
+        else {
+		syslog(LOG_NOTICE, "%s", "The idresponse cmac checked out ok!");
+	}
 
-    free(recv_id.pID);
+//    free(recv_id.pID);
     free(recv_id.ciphertext);
 
 	// End unpack idresponse ---------------------------------------------------
@@ -128,8 +138,9 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 	// Pack the keytosink message ----------------------------------------------
 
 	struct message sendmsg;
-	sendmsg.timer = 0; 				// Not using this at present.
+	sendmsg.renewal_timer = 0; 				// Not using this at present.
 	sendmsg.nonce = recv_id.nonce;	// Pass on the nonce from T.
+        sendmsg.pID = recv_id.pID;
 
 	sendmsg.key =  K_ST;
 
@@ -139,6 +150,8 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 					(const u_int32_ard*) (K_at->getCryptoKeySched()),
 					(const u_int32_ard*) (K_at->getMacKeySched()), 
 					keyToSinkBuf);
+
+	free(recv_id.pID);
 
 	// Done packing the keytosikn message --------------------------------------
 
