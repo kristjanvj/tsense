@@ -1,8 +1,9 @@
 
 CC = g++
 CFLAGS = 
-LFLAGS = -lssl -lcrypto
-IFLAGS = -I/usr/include/ -I../common/ -I../../aes_crypt/lib/
+LFLAGS = -lssl -lcrypto -lmysqlclient
+IFLAGS = -I/usr/include/ -I../common/ -I../../aes_crypt/lib/ \
+		-I/usr/include/mysql/
 RM = /bin/rm
 CAT = /bin/cat
 OPENSSL = /usr/bin/openssl
@@ -50,9 +51,11 @@ SINK_MSG = "Compiling sink server:\n-----------------------"
 SINK_DD =	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tssinkdaemon.cpp \
 			$(COMM_DIR)BDaemon.cpp \
 			tls_baseserver.cpp tls_sinkserver.cpp tsense_keypair.cpp \
+			ts_db_sinksensorprofile.cpp ts_db_basesensorprofile.cpp\
 			$(CRYPT_DIR)protocol.cpp \
 			$(CRYPT_DIR)aes_cmac.cpp \
 			$(CRYPT_DIR)aes_crypt.cpp \
+			$(CRYPT_DIR)aes_utils.cpp \
 			-o $(SINKDNAME)
 
 sink_i32: ARCH=INTEL_32

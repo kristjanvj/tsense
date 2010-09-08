@@ -17,10 +17,17 @@
 class TsDbSinkSensorProfile : public TsDbSensorProfile {
 
 protected:
+	byte_ard Kst[KEY_BYTES];
+	byte_ard R[KEY_BYTES];
+
 	byte_ard Kst_Sched[KEY_BYTES*11];
 	byte_ard Ksta_Sched[KEY_BYTES*11];
 	byte_ard Kste_Sched[KEY_BYTES*11];
 	byte_ard Kstea_Sched[KEY_BYTES*11];
+
+	void retrieve();
+
+	void generateKeyScheds();
 
 public:
 	TsDbSinkSensorProfile(byte_ard *K_ST, byte_ard *pID, dbConnectData dbcd);
@@ -31,9 +38,6 @@ public:
 	byte_ard *getKsteSched();
 	byte_ard *getKsteaSched();
 
-	void generateKeyScheds(byte_ard *K_ST);
-
-	void retrieve();
 	void persist();
 
 	void testEncoding();

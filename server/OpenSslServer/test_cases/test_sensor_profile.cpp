@@ -7,7 +7,7 @@
 #include <iostream>
 #include <string>
 #include "ts_db_basesensorprofile.h"
-#include "ts_db_sinksensorprofile.h"
+#include "ts_db_sinksensorprofile2.h"
 
 #include <mysql.h>
 
@@ -52,11 +52,13 @@ int main() {
 	memcpy(Kste_SchedExpected, stdbsp->getKsteSched(), KEY_BYTES*11);
 	memcpy(Kstea_SchedExpected, stdbsp->getKsteaSched(), KEY_BYTES*11);
 
-	//stdbsp->printProfile();
+	cout << endl;
+	cout << "Generated locally from Kst and R:" << endl;
+	cout << endl;
+	stdbsp->printProfile();
 
 	// Store thhe key schedules in the database.
 	stdbsp->persist();
-
 
 	// Just to be sure overwrite the locally generated key schedules with zero.
 	memset(stdbsp->getKstSched(), 0x0, KEY_BYTES*11);
@@ -64,10 +66,13 @@ int main() {
 	memset(stdbsp->getKsteSched(), 0x0, KEY_BYTES*11);
 	memset(stdbsp->getKsteaSched(), 0x0, KEY_BYTES*11);
 
-	//stdbsp->printProfile();
-
 	// Retrieve the key schedules from the database 
 	stdbsp->retrieve();
+
+	cout << endl;
+	cout << "Generated from keys retrieved from DB:" << endl;
+	cout << endl;
+	stdbsp->printProfile();
 
 	// If all base64 conversions were done correctly the key schedules
 	// retrieved from the db and the ones mecpy'ed above should match.
@@ -113,9 +118,7 @@ int main() {
 		}
 	}
 
-	//stdbsp->printProfile();
-
-
+	cout << endl;
 	cout << "All schedules retrieved were identical to those sent..." << endl;
 
 	//--------------------------------------------------------------------------
@@ -170,6 +173,12 @@ int main() {
 		}
 	}
 
+	cout << endl;
+	cout << "Created solely based on keys retrieved from DB" << endl;
+	cout << endl;
+	stdbsp2->printProfile();
+
+	cout << endl;
 	cout << "All schedules retrieved from DB were matched those"  << 
 			" generated locally..." << endl;
 
@@ -227,6 +236,12 @@ int main() {
 			exit(1);
 		}
 	}
+
+	cout << endl;
+	cout << "Created with no entry in DB for this PID." << endl;
+	cout << "Keys, schedules and pid should be all zero."<<endl;
+	cout << endl;
+	stdbsp3->printProfile();
 
 	cout << "All schedules were set to 0x0..." << endl;
 

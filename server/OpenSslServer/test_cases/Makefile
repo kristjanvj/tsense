@@ -16,6 +16,7 @@ OPENSSL = /usr/bin/openssl
 CLIBIO=clibio
 CLISSL=clissl
 CLIPROT=cliprot
+SENSORPROFILE=test_sensor_profile
 
 $(CLIBIO):
 	@echo "Compiling BIO client:"
@@ -52,5 +53,32 @@ cliprot_i64:
 	@echo $(MSG)
 	$(CLIPROT_CC)
 
+IFLAGS += -I/usr/include/mysql/ 
+LFLAGS += -lmysqlclient
+
+SENSOR_PROFILE_CC =	$(CC) $(CFLAGS) -D_$(ARCH) $(IFLAGS) \
+					$(LFLAGS) \
+					$(CRYPT_DIR)aes_crypt.cpp \
+					$(CRYPT_DIR)aes_cmac.cpp \
+					$(CRYPT_DIR)aes_utils.cpp \
+					$(CRYPT_DIR)aes_constants.cpp \
+					$(SERVER_DIR)ts_db_basesensorprofile.cpp \
+					$(SERVER_DIR)ts_db_sinksensorprofile2.cpp \
+					$(SERVER_DIR)tsense_keypair.cpp \
+					test_sensor_profile.cpp \
+					-o $(SENSORPROFILE) \
+
+MSG= "Compiling sensor profile test:\n------------------------------"
+
+sp_test_i32: ARCH=INTEL_32
+sp_test_i32:
+	@echo $(MSG)
+	$(SENSOR_PROFILE_CC)
+
+sp_test_i64: ARCH=INTEL_64
+sp_test_i64:
+	@echo $(MSG)
+	$(SENSOR_PROFILE_CC)
+
 clean:
-	$(RM) -f $(CLIBIO) $(CLISSL) $(CLIPROT)
+	$(RM) -f $(CLIBIO) $(CLISSL) $(CLIPROT) $(SENSORPROFILE)
