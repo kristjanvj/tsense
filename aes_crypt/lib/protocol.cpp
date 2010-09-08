@@ -649,8 +649,8 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
  * data is assumed to reside inside a byte_ard array.
  *
  * Name:    MSG Code | Ciphertext                                            | Cmac 
- * Bytes:   1        | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 
- * Data:    0x01     | Public ID, Msg Time, Buffer length, Data                   
+ * Bytes:   1        | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 16
+ * Data:    0x01     | Public ID, Msg Time, Buffer length, Data              |      
  */
 
 void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
