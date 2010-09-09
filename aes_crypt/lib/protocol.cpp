@@ -638,9 +638,9 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
  * Packs the measurment data collected by the tsensor. Right now,
  * data is assumed to reside inside a byte_ard array.
  *
- * Name:    MSG Code | Ciphertext                                            | Cmac 
- * Bytes:   1        | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 16
- * Data:    0x01     | Public ID, Msg Time, Buffer length, Data              |      
+ * Name:    MSG Code | Cipher Length | Ciphertext                                            | Cmac 
+ * Bytes:   1        | 1             | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 16
+ * Data:    0x01     |               | Public ID, Msg Time, Buffer length, Data              |      
  */
 
 void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
@@ -648,18 +648,25 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
   byte_ard* cBuffer = (byte_ard*)pBuffer;
   cBuffer[0] = MSG_T_DATA_SEND;
 
-  /* NOTE: Here we use integer division to figure out how many blocks
+  /**
+   * NOTE: Here we use integer division to figure out how many blocks
    * we need for the ciphertext. In future versions every method in
    * the Tsense protocol will use this method instead of the retarded
    * constants.
    *
-   * The +1 (in plainsize) is for the buffer length on the stream
+   * The +1's is for the the two length indicators. One is on the
+   * ciphered stream, indicating the length of the buffer that holds
+   * the measurment data and the other one is on the plaintext part
+   * indidating how long the crypto part of the packet is.
    */
   
   u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + (u_int16_ard) msg->buff_len;
-  u_int16_ard cryptsize = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;  
-  
-  /* Malloc is needed because we don't know the exact size
+  byte_ard cryptsize = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
+
+  cBuffer[MSGTYPE_SIZE] = cryptsize;
+
+  /*
+   * Malloc is needed because we don't know the exact size
    */
   byte_ard* plaintext = (byte_ard*)malloc(plainsize);
 
@@ -683,22 +690,31 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
   }
 
 
-  byte_ard cipher_buff[cryptsize];
+  byte_ard cipher_buff[(u_int16_ard)cryptsize];
 
   CBCEncrypt((void*)plaintext, (void*)cipher_buff, plainsize, AUTOPAD,
              pKeys, (const u_int16_ard*)IV);
   free(plaintext);
-  aesCMac(pCmacKeys, cipher_buff, cryptsize, msg->cmac);
+  aesCMac(pCmacKeys, cipher_buff, (u_int16_ard)cryptsize, msg->cmac);
 
   // Stick it in the buffer
-  for(u_int16_ard i = 0; i < cryptsize; i++)
+  for(u_int16_ard i = 0; i < (u_int16_ard)cryptsize; i++)
   {
-    cBuffer[MSGTYPE_SIZE + i] = cipher_buff[i];
+    // +1 to accomendate for the crypto length indicator. 
+    cBuffer[MSGTYPE_SIZE + 1 + i] = cipher_buff[i];
   }
 
   for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
-    cBuffer[MSGTYPE_SIZE + cryptsize + i] = msg->cmac[i];
+    cBuffer[MSGTYPE_SIZE + 1 + (u_int16_ard)cryptsize + i] = msg->cmac[i];
   }
 }
+
+/**
+ * unpack_data()
+ *
+ * Reads bytestream from pack_data(). Retrieves the ciphered-and-maced
+ * measurment data with the session key. Runs on a regular
+ * architecture so wasting ram here is ok.
+ */
 
