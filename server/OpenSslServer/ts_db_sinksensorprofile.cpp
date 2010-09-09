@@ -198,10 +198,10 @@ void TsDbSinkSensorProfile::persist(){
 
 	if(profileExists()){
 		syslog(LOG_NOTICE,"Updating profile for device %s", devicePublicId);
-		int insertLen = snprintf(query,2000,update,b64PID,b64Kst,b64R);
+		int insertLen = snprintf(query,2000,update,b64Kst,b64R,b64PID);
 	} else {
 		syslog(LOG_NOTICE,"Inserting profile for device %s", devicePublicId);
-		int insertLen = snprintf(query,2000,insert,b64Kst,b64R,b64PID);
+		int insertLen = snprintf(query,2000,insert,b64PID,b64Kst,b64R);
 	}
 
 	query_state = mysql_query(connection, query);
