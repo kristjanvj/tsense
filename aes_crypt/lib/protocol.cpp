@@ -122,14 +122,10 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   }
   //msg->pID[ID_SIZE] = '\0';
 
-  // Get the nonce into the struct, cast to int again. 
-  byte_ard* temp = (byte_ard*)malloc(NONCE_SIZE);
+  // Get the nonce into the struct, cast to int again.
+  msg->nonce=0;
   for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
-  {
-    temp[i] = plain_buff[ID_SIZE+i];
-  }
-  msg->nonce = (u_int16_ard)*temp;
-  free(temp);
+    msg->nonce+=plain_buff[ID_SIZE+i]<<(i*8);
 
   // Get the cmac into the struct.
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
