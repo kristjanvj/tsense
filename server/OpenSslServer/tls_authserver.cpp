@@ -60,9 +60,11 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int read
 	byte_ard sensorId[ID_SIZE];
 	memcpy(sensorId,idResponseBuf+1,ID_SIZE);
 
+	char szSensorId[20];
+	sprintf(szSensorId,"%d%d-%d%d%d%d",sensorId[0],sensorId[1],sensorId[2],sensorId[3],sensorId[4],sensorId[5]);
+
 	// This is the plaintext sensor id. Now, lets see if we know the corresponding secret key
-	syslog(LOG_NOTICE,"Received id message from tsensor %d%d-%d%d%d%d", 
-				sensorId[0],sensorId[1],sensorId[2],sensorId[3],sensorId[4],sensorId[5]);
+	syslog(LOG_NOTICE,"Received id message from tsensor %s",szSensorId); 
 
 	byte_ard K_AT[KEY_BYTES];
 
@@ -132,6 +134,16 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int read
 
 	// End unpack idresponse ---------------------------------------------------
 
+	
+	// Check the nonce ---------------------------------------------------------
+
+	syslog(LOG_NOTICE,"Nonce received from %s: %d", szSensorId, recv_id.nonce);
+	// TODO: Store the nonce along with sensor profile and check for consistency,
+	//       replays etc.
+	// Also keep track of the last authentication time etc.
+
+	// Generate the session key ------------------------------------------------
+
 	// TODO: Use /dev/urandom
 
 	// Generate K_ST.
@@ -140,8 +152,14 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int read
 	byte_ard K_ST[BLOCK_BYTE_SIZE];
 	for(int i=0; i<BLOCK_BYTE_SIZE; i++){
 		K_ST[i] = (rand() % 0x1ff);
-		syslog(LOG_NOTICE, "KS_T %x", K_ST[i]);
 	}
+
+	char szKeyStr[50];
+	sprintf(szKeyStr,"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+			K_ST[0], K_ST[1], K_ST[2], K_ST[3], K_ST[4], K_ST[5], K_ST[6], K_ST[7],
+			K_ST[8], K_ST[9], K_ST[10], K_ST[11], K_ST[12], K_ST[13], K_ST[14], K_ST[15] );
+
+	syslog(LOG_NOTICE,"Session key for %s: %s", szSensorId, szKeyStr);
 
 	// Pack the keytosink message ----------------------------------------------
 
@@ -169,8 +187,7 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int read
 	// Dispatch ketosink message to sink.
 	writeToSink(ssl, keyToSinkBuf, KEYTOSINK_FULLSIZE);
 
-	syslog(LOG_NOTICE,"Session key package for sensor %d%d-%d%d%d%d dispatched to sink",
-				sensorId[0],sensorId[1],sensorId[2],sensorId[3],sensorId[4],sensorId[5]);
+	syslog(LOG_NOTICE,"Session key package for sensor %s dispatched to sink", szSensorId);
 
 	int status = (SSL_get_shutdown(ssl) & SSL_RECEIVED_SHUTDOWN)? 1 : 0;
 
