@@ -110,8 +110,6 @@ void operator delete(void* ptr) { free(ptr); }
 #define MSG_T_EEPROM_DUMP_Q      0x5C  // and should not be included in a 
 #define MSG_T_EEPROM_DUMP_R      0x5D  // production device. For development only!
 //
-#define MSG_T_START_CMD                0x71  // To manually start the data acquisition -- testing only
-#define MSG_T_STOP_CMD                 0x72  // To manually stop the data acquisition -- testing only
 #define MSG_T_RUN_TEST_CMD             0x73  // Run a crypto test using the FIPS test vectors
 #define MSG_T_SET_TIME_CMD             0x74  // Set the current time
 #define MSG_T_SET_SAMLPLE_INTERVAL_CMD 0x75
@@ -135,7 +133,7 @@ void operator delete(void* ptr) { free(ptr); }
 //
 #define ERR_CODE_KEYTOSENSE_UNEXPECTED			0x10
 #define ERR_CODE_KEYTOSENSE_MAC_FAILED			0x11
-#define ERR_CODE_KEYTOSENSE_STALE_NONCE_MESSAGE	        0x12
+#define ERR_CODE_KEYTOSENSE_NONCE_FAILED	        0x12
 //
 #define ERR_CODE_REKEYRESPONSE_UNEXPECTED		0x20
 #define ERR_CODE_REKEYRESPONSE_MAC_FAILED		0x21
@@ -333,12 +331,6 @@ void getCommand()
     case MSG_T_ERROR:
       handleGeneralProtocolError();
       break;
-/*    case MSG_T_START_CMD:
-      doStart(); // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
-      break;
-    case MSG_T_STOP_CMD: // The start and stop commands are only temporary for debug. TODO: REMOVE EVENTUALLY.
-      doStop();
-      break; */
     case MSG_T_FREE_MEM_Q:
       sendFreeMemory();
       break;
@@ -499,17 +491,13 @@ void handleKeyToSense()
     return;     
   }
 
-  // TODO: CHECK NONCE PROBLEMS!!!
-
-/*  
   // Validate the nonce
   if ( senserecv.nonce != idNonce ) // TODO: Use some allowable range for nonces
   {
-    setWarningState( ERR_CODE_KEYTOSENSE_STALE_NONCE_MESSAGE );
+    setWarningState( ERR_CODE_KEYTOSENSE_NONCE_FAILED );
     sendAck(errorCode);
     return;  
   }
-*/
 
   // TODO: Validate the ID -- requires protocol changes
   
@@ -533,17 +521,20 @@ void handleKeyToSense()
   sendAck(ERR_CODE_OK);
 
   sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);  // TESTING ONLY
-  sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);  // TESTING ONLY
-  
-  byte_ard temp[4];
-  temp[0] = lowByte(idNonce);
-  temp[1] = highByte(idNonce);
-  temp[2] = lowByte(senserecv.nonce);
-  temp[3] = highByte(senserecv.nonce);
-  sendDebugPacket("NONCES",temp,4);
+/**  sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);  // TESTING ONLY  **/
+
+/*  
+  byte_ard tempBuf[10];
+
+  tempBuf[0] = lowByte(idNonce);
+  tempBuf[1] = highByte(idNonce);
+  tempBuf[2] = lowByte(senserecv.nonce);
+  tempBuf[3] = highByte(senserecv.nonce);
+  sendDebugPacket("NONCES",tempBuf,4);  
+*/
 
   // Send a rekey request to the associated S
-//  sendRekeyRequest();                                    // TESTING ONLY 
+  sendRekeyRequest();                                   
 }
 
 /**
@@ -652,9 +643,6 @@ void handleRekeyResponse()
   byte_ard pTransportKey[KEY_BYTES];  // Allocate temporary buffer for the transport encryption key
   byte_ard* pDerivKeys[KEY_BYTES*11]; 
   KeyExpansion(cGamma,pDerivKeys);      // Expand the derivation key schedule for random -> K_STe
-//  byte_ard randArray[KEY_BYTES];
-//  randArray[0] = lowByte(msg.rand); // Temporary fix to use 16-bit random number. Should be 128-bit value.
-//  randArray[1] = highByte(msg.rand);
   aesCMac((const u_int32_ard *)pDerivKeys,msg.rand,KEY_BYTES,pTransportKey); // CMAC the random number to get K_STe
 
   // Set the re-key interval as specified by sink (delivered in t (timer) field in protocol)
@@ -701,7 +689,6 @@ void handleFinish()
  */
 void handleGeneralProtocolError()
 {
-  doStop();
   setErrorState(ERR_CODE_GEN_PROTOCOL_ERROR);  
   // TODO: Other cleanup;
 }
@@ -943,75 +930,6 @@ void sampleAndReport()
   delay(samplingInterval*1000); // Delay for the sampling interval (in msec)
   digitalWrite(LED_SIGNAL_SAMPLE,LOW);
   digitalWrite(LED_SIGNAL_TX,LOW);  
-}
-
-/**
- *  doStart
- *
- *  Handle a start command received from the host. Takes a character buffer of parameters.
- */
-void doStart()
-{
-  if( protocolState == PROT_STATE_RUNNING )
-    return; // Dont execute if already running
-#ifdef debug
-  Serial.println("\n-----------------------");
-  Serial.println("Data acquisition begins");
-  Serial.println("-----------------------\n");
-  Serial.print("Set time: ");
-  Serial.println(valBuffer);
-  Serial.println("Push mode");      // The default (currently only) mode of operatioin
-  Serial.print("Sampling interval: ");
-  Serial.print(samplingInterval);
-  Serial.println(" sec");
-  Serial.print("Buffer size: ");
-  Serial.println(measBufferSize);
-  Serial.print("\n");
-#endif
-  // We expect the sampling rate as a byte, followed by the current time (4 bytes ll to hh)
-  // Set the sampling parameters of the board
-  samplingInterval = Serial.read();
-  byte_ard samples = Serial.read(); // The size of the measurement buffer in bytes per interface
-  byte_ard t_ll = Serial.read();
-  byte_ard t_lh = Serial.read();
-  byte_ard t_hl = Serial.read();
-  byte_ard t_hh = Serial.read();
-  currentTime = t_ll + t_lh<<8 + t_hl<<16 + t_hh << 24;
-  
-  // Allocate the measurement buffer -- use the samples specified in the start message.
-  measBufferSize = samples;
-  if ( !allocateMeasBuffer() )
-  {
-    setErrorState(ERR_CODE_BUF_ALLOCATION);
-    sendAck(MSG_ACK_RUN_ERROR); // Error
-    return;
-  }
-  measBufferCount = 0; // Zero the current buffer size
-  
-  // set the board in run state and return an ok ack
-  setProtocolState( PROT_STATE_RUNNING );
-  sendAck(MSG_ACK_NORMAL);
-}
-
-/**
- *  doStop
- *
- *  Handle a stop command received from the host. Stops the capture.
- *
- *  TODO: Perhaps flush the buffer to the host before deallocating?
- */
-void doStop()
-{
-  if( protocolState != PROT_STATE_RUNNING )
-    return; // Dont execute if already running  
-  #ifdef debug
-  Serial.println("\n------------------------");
-  Serial.println("Data acquisition stopped");
-  Serial.println("------------------------\n");  
-  #endif
-  deallocateMeasBuffer();
-  setProtocolState( PROT_STATE_STANDBY );
-  sendAck(MSG_ACK_NORMAL);  
 }
 
 /**
@@ -1335,11 +1253,9 @@ void printEEPROMBytes(int start, int dLength)
  */
 void setWarningState( byte_ard code )
 {
-  doStop();
   errorCode = code;  
 //  setProtocolState( PROT_STATE_STANDBY );
-  setProtocolState( PROT_STATE_ERROR ); // TODO: 
-//  sendWarningReport(code);  
+  setProtocolState( PROT_STATE_ERROR ); // TODO: CHECK HANDLING
 }
 
 
@@ -1350,10 +1266,8 @@ void setWarningState( byte_ard code )
  */
 void setErrorState( byte_ard code )
 {
-  doStop();
   errorCode = code;
   setProtocolState( PROT_STATE_ERROR );
-//  sendErrorReport(code);
 }
 
 /**
@@ -1364,11 +1278,6 @@ void setErrorState( byte_ard code )
  */
 int readFromSerial(byte_ard *buf, u_int16_ard length)
 {
-  /*
-  for(int i=0; i<length; i++)
-    buf[i]=Serial.read();
-  return length;
-  */
   if ( Serial.available() < 1 )
     return -1;
   int tries=0;
