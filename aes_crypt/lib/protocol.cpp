@@ -45,7 +45,7 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, const u_int3
   }
   for(u_int32_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp[ID_SIZE + i] = pNonce[i];
+    temp[ID_SIZE + i] = ( msg->nonce >> (i*8) ) & 0xFF;
   }
 
   // Encrypt-then-MAC (Bellare and Namprempre)
@@ -122,10 +122,12 @@ void unpack_idresponse(void* pStream, const u_int32_ard* pKeys,
   }
   //msg->pID[ID_SIZE] = '\0';
 
-  // Get the nonce into the struct, cast to int again.
+  // Get the nonce into the struct, cast to int again. 
   msg->nonce=0;
   for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
-    msg->nonce+=plain_buff[ID_SIZE+i]<<(i*8);
+  {
+    msg->nonce += (plain_buff[ID_SIZE+i] << (i*8));
+  }
 
   // Get the cmac into the struct.
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
@@ -184,11 +186,9 @@ void pack_keytosink(struct message* msg, const u_int32_ard* pKeys, const u_int32
   byte_ard temp[NONCE_SIZE+KEY_BYTES+TIMER_SIZE];
   byte_ard cipher_buff[KEYTOSINK_CRYPTSIZE];
 
-  byte_ard* pNonce = (byte_ard*)&msg->nonce;
-  // N_T
-  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
+  for(u_int32_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp[i] = pNonce[i];
+    temp[i] = ( msg->nonce >> (i*8) ) & 0xFF;
   }
   
   // Key
@@ -352,12 +352,11 @@ void unpack_keytosens(void *pStream, const u_int32_ard* pKeys, struct message* m
              pKeys, (const u_int16_ard*)IV);
 
   // 1 - nonce
-  byte_ard noncetemp[NONCE_SIZE];
+  msg->nonce=0;
   for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
-    noncetemp[i] = plainbuff[i];
+    msg->nonce += plainbuff[i]<<(i*8);
   }
-  msg->nonce = (u_int16_ard)*noncetemp;
 
   // 2 - key
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
@@ -414,11 +413,11 @@ void pack_rekey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ard
     temp[i] = msg->pID[i];
   }
   // Nonce
-  byte_ard* pNonce = (byte_ard*)&msg->nonce;
-  for(u_int16_ard i = 0; i < NONCE_SIZE; i++)
+  for(u_int32_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp[ID_SIZE + i] = pNonce[i];
+    temp[ID_SIZE+i] = ( msg->nonce >> (i*8) ) & 0xFF;
   }
+
   byte_ard cipher_buff[REKEY_CRYPTSIZE];
 
   // Cipher
@@ -489,13 +488,11 @@ void unpack_rekey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
   msg->pID[ID_SIZE] = '\0';
 
   // Extract the Nonce from the ciphertext
-  byte_ard* temp_nonce = (byte_ard*)malloc(NONCE_SIZE);
-  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  msg->nonce=0;
+  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp_nonce[i] = plainbuff[ID_SIZE + i];
+    msg->nonce += (plainbuff[ID_SIZE+i] << (i*8));
   }
-  msg->nonce = (u_int16_ard)*temp_nonce;
-  free(temp_nonce);
 }
 
 /**
@@ -529,10 +526,9 @@ void pack_newkey(struct message* msg, const u_int32_ard* pKeys, const u_int32_ar
     temp[i] = msg->pID[i];
   }
   
-  byte_ard* temp_nonce = (byte_ard*)&msg->nonce;
-  for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
+  for(u_int32_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp[ID_SIZE + i] = temp_nonce[i];
+    temp[ID_SIZE+i] = ( msg->nonce >> (i*8) ) & 0xFF;
   }
   
   for(u_int16_ard i = 0; i < KEY_BYTES; i++)
@@ -609,13 +605,11 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
   }
   
   // Ciphertext part 2 - Nonce
-  byte_ard* temp_nonce = (byte_ard*)malloc(NONCE_SIZE);
+  msg->nonce=0;
   for (u_int16_ard i = 0; i < NONCE_SIZE; i++)
   {
-    temp_nonce[i] = plainbuff[ID_SIZE + i];
+    msg->nonce += (plainbuff[ID_SIZE+i] << (i*8));
   }
-  msg->nonce = (u_int16_ard)*temp_nonce;
-  free(temp_nonce);
 
   // Ciphertext part 3 - Random
   for (u_int16_ard i = 0; i < KEY_BYTES; i++)
