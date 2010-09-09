@@ -55,8 +55,8 @@ cliprot_i64:
 	@echo $(MSG)
 	$(CLIPROT_CC)
 
-IFLAGS += -I/usr/include/mysql/ 
-LFLAGS += -lmysqlclient
+#IFLAGS += -I/usr/include/mysql/ 
+#LFLAGS += -lmysqlclient
 
 SENSOR_PROFILE_CC =	$(CC) $(CFLAGS) -D_$(ARCH) $(IFLAGS) \
 					$(LFLAGS) \
