@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 			sinkDaemon.setWorkDir(cwd);
 		}
 
-
+		cout << "Running sink daemon" << endl;
 		sinkDaemon.run();
 	}
 

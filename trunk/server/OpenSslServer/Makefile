@@ -1,7 +1,7 @@
 
 CC = g++
 CFLAGS = 
-LFLAGS = -lssl -lcrypto -lmysqlclient
+LFLAGS = -lssl -lcrypto
 IFLAGS = -I/usr/include/ -I../common/ -I../../aes_crypt/lib/ \
 		-I/usr/include/mysql/
 RM = /bin/rm
@@ -43,7 +43,6 @@ auth_i64:
 	$(AUTH_DD)
 	@echo
 
-
 SINKDNAME = tssinkd
 
 SINK_MSG = "Compiling sink server:\n-----------------------"
@@ -58,13 +57,15 @@ SINK_DD =	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tssinkdaemon.cpp \
 			$(CRYPT_DIR)aes_utils.cpp \
 			-o $(SINKDNAME)
 
-sink_i32: ARCH=INTEL_32
-sink_i32:
+#LFLAGS := $(LFLAGS) -lmysqlclient
+
+sink_i32: ARCH=INTEL_32 LFLAGS = $(LFLAGS) -lmysqlclient
+sink_i32: 
 	@echo $(SINK_MSG)
 	$(SINK_DD)
 	@echo
 
-sink_i64: ARCH=INTEL_64
+sink_i64: ARCH=INTEL_64 LFLAGS = $(LFLAGS) -lmysqlclient
 sink_i64:
 	@echo $(SINK_MSG)
 	$(SINK_DD)
