@@ -108,8 +108,10 @@ int TlsSinkServer::handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
 void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio, 
 									  byte_ard* readBuf, int readLen)
 {
-	syslog(LOG_NOTICE,"Handling incoming idresponse message. PID:%d%d-%d%d%d%d", 
-				readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
+	char szPid[20];
+	sprintf(szPid,"%d%d-%d%d%d%d",readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
+
+	syslog(LOG_NOTICE,"Handling incoming idresponse message. PID: %s",szPid); 
 
 	byte_ard keyToSinkBuf[KEYTOSINK_FULLSIZE];
 
@@ -142,8 +144,7 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 		log_err_exit("Authentication server didn't accept the ID/Cipher!");
 	}
 
-	syslog(LOG_NOTICE,"Authentication server accepted sensor with ID %d%d-%d%d%d%d",
-				readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
+	syslog(LOG_NOTICE,"Authentication server accepted sensor with ID %s",szPid);
 
 	// Done unpacking the keytosink message ------------------------------------
 
@@ -193,8 +194,7 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 
 	pack_keytosens(&keyToSinkMsg, keyToSenseBuf);
 
-	syslog(LOG_NOTICE,"Dispatching session key packet to tsensor %d%d-%d%d%d%d",
-				readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
+	syslog(LOG_NOTICE,"Dispatching session key packet to tsensor %s",szPid);
 
 	// Send keytosense message to sensor.
 	// ----------------------------------
@@ -218,12 +218,16 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 	byte_ard tmpID[10]; 
 	memcpy(tmpID, readBuf+1, 6);
 
+	char szPid[20];
+	sprintf(szPid,"%d%d-%d%d%d%d",readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
 /*
 	syslog(LOG_NOTICE, "tmpID #2:");
 	for(int i = 0; i < 6; i++){
 		syslog(LOG_NOTICE, "%x", tmpID[i]);
 	}											
 */
+
+	syslog(LOG_NOTICE,"Rekey request received from device %s",szPid);
 
 	try {
 		TsDbSinkSensorProfile *tssp = new TsDbSinkSensorProfile(tmpID, dbcd);
@@ -262,22 +266,39 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		newkeymsg.pID = (byte_ard*)malloc(ID_SIZE+1);  // Null term.
 		newkeymsg.ciphertext = (byte_ard*)malloc(REKEY_CRYPTSIZE);
 
+		
+		byte_ard K_ST[KEY_BYTES];
+		memcpy(K_ST,tssp->getKstSched(),KEY_BYTES);
+		char szKeyStr[40];
+
+		sprintf(szKeyStr,"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+                        K_ST[0], K_ST[1], K_ST[2], K_ST[3], K_ST[4], K_ST[5], K_ST[6], K_ST[7],
+                        K_ST[8], K_ST[9], K_ST[10], K_ST[11], K_ST[12], K_ST[13], K_ST[14], K_ST[15] );
+
+		syslog(LOG_NOTICE,"Session key is %s",szKeyStr);
+
 		// Put the data in the struct
 		unpack_rekey(readBuf, (const u_int32_ard*) (tssp->getKstSched()), 
 						&newkeymsg);
 
 
+		char szCryptedPid[20];
+		sprintf(szCryptedPid,"%d%d-%d%d%d%d",
+			newkeymsg.pID[1],newkeymsg.pID[2],newkeymsg.pID[3],newkeymsg.pID[4],newkeymsg.pID[5],newkeymsg.pID[6]);
+		
 		int validMac = verifyAesCMac((const u_int32_ard*)(tssp->getKstaSched()),
 										newkeymsg.ciphertext,
 										REKEY_CRYPTSIZE,
 										newkeymsg.cmac);
-
-		syslog(LOG_NOTICE, "nonce:  %x", newkeymsg.nonce);
-
 		if(validMac == 0){
 			log_err_exit("Mac of incoming keytosens message did not match");
 		}
 
+		syslog(LOG_NOTICE,"Crypted id is %s", szCryptedPid);
+
+		syslog(LOG_NOTICE, "nonce:  %x", newkeymsg.nonce);		
+		// TODO: Make the nonce part of the device profile. Keep track to prevent replays and fiddling.
+		
 		// Done unpacking newkey message ---------------------------------------
 
 
