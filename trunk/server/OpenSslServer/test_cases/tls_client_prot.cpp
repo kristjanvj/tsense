@@ -42,71 +42,80 @@ void do_client_loop(BIO *conn){
 
 	// Pack idresponse message -------------------------------------------------
 
-    byte_ard idResponseBuf[IDMSG_FULLSIZE];
+	printf("Packing and sending idresponse message\n");
 
-	// id_response packet sent as response to a get ID request from the
-	// proxy client.
+	byte_ard pBuffer[IDMSG_FULLSIZE];
 
-	// Sample id: 000:001 (including null char)
-	byte_ard id[ID_SIZE+1] = {0x30, 0x30, 0x30, 0x30, 0x31, 0x31, 0x00};
+	// Get the private key from the EEPROM
+	byte_ard masterKeyBuf[KEY_BYTES] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
+	// Expand the masterkey (temporarily) to get encryption and authentication schedules.
+	// Use the public constant for derivation of authentication key.
+	TSenseKeyPair masterKeys(masterKeyBuf,cAlpha);
 
-	// Create the struct, allocate neccesary memory and write sample data.
-	struct message idmsg;
-	idmsg.msgtype = 0x10;   // This line is optional. pack_idresponse() will
-							// set the proper msgtype. It can be useful for 
-							// verification purposes to declare it.
-	idmsg.pID = (byte_ard*)id;
-	idmsg.nonce = 3;
+	// Get the public id from EEPROM
+	byte_ard idbuf[6] = {0x00,0x01,0x00,0x00,0x00,0x02};
 
-	printf("\n");
+	u_int16_ard idNonce = 518;
 
-	//printf("Constructed an encrypted idresponse package:\n");
-	//printf("--------------------------------------------\n");
-	//printf("idmsg.msgtype:          %x\n", idmsg.msgtype);
-	//printf("idmsg.nonce:           %x\n", idmsg.nonce);
-	//printf("\n");
+	// Create the input struct and populate  
+	message msg;
+	msg.msgtype=0x10;
+	msg.pID=idbuf;
+	msg.nonce=idNonce;   
 
-	
-	pack_idresponse(&idmsg, (const u_int32_ard*) (K_at->getCryptoKeySched()),
-							(const u_int32_ard*) (K_at->getMacKeySched()),
-							(void*)idResponseBuf);
+	byte_ard idResponseBuf[IDMSG_FULLSIZE];
+	// Call the pack function to construct the message
+	// See protocol.cpp for details. Encrypts and MACs the message and returns in pBuffer.
+	pack_idresponse( &msg, (const u_int32_ard *)masterKeys.getCryptoKeySched(),
+			       (const u_int32_ard *)masterKeys.getMacKeySched(), (void *)idResponseBuf);
 
 	// Done packing idresponse message -----------------------------------------
 
 	// Write idresponse messsage to sink server
     err = BIO_write(conn, (void*)idResponseBuf, IDMSG_FULLSIZE);
 
-    //printf("Done writing idresponse packet\n");
+    printf("Done writing idresponse packet\n");
 
     byte_ard keyToSensBuf[KEYTOSENS_FULLSIZE];
 
 	// Read keytosense message from sink server.
     err = BIO_read(conn, (void*)keyToSensBuf, KEYTOSENS_FULLSIZE);
 
-	//printf("\n");
+	printf("\n");
 
 	// Unpack keytosens message ------------------------------------------------
+    
+	printf("Unpacking a keytosens message\n");
 
+	// Allocate memory for the unpacked message
 	struct message senserecv;
 	senserecv.key = (byte_ard*)malloc(KEY_BYTES);
 	senserecv.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
+	// Unpack
+	unpack_keytosens((void*)keyToSensBuf, (const u_int32_ard *)masterKeys.getCryptoKeySched(), &senserecv);
 
-	
-	unpack_keytosens((void*)keyToSensBuf, 
-					 (const u_int32_ard*) (K_at->getCryptoKeySched()),
-					 &senserecv);
-	
-	//byte_ard cmac_buff[BLOCK_BYTE_SIZE];
-	//aesCMac((const u_int32_ard*)Keys, senserecv.ciphertext, 32, cmac_buff);
+	// Validate the MAC  
+	int validMac = verifyAesCMac( (const u_int32_ard *)masterKeys.getMacKeySched(), 
+		                        senserecv.ciphertext, KEYTOSINK_CRYPTSIZE, senserecv.cmac );
+	if ( validMac==0 )                                                              
+	{
+		printf("MAC failed");
+		return;     
+	}
+	else
+	{
+		printf("MAC OK\n");
+	}
 
- 	printf("Verifying CMAC on keytosens message.\n");
-	int validMac = verifyAesCMac((const u_int32_ard*) (K_at->getMacKeySched()),
-									senserecv.ciphertext,
-									KEYTOSINK_CRYPTSIZE,
-									senserecv.cmac);
-
-	if(validMac == 0){
-		int_error("Mac of incoming keytosens message did not match");
+	// Validate the nonce
+	if ( senserecv.nonce != idNonce )
+	{
+		printf("Nonce failed");
+		return;  
+	}
+	else
+	{
+		printf("Nonce %d matches", idNonce);
 	}
 
 	printf("Recieved an encrypted keytoens package:\n");
@@ -118,10 +127,6 @@ void do_client_loop(BIO *conn){
 	printf("senserecv.cmac:\n");
 	printBytes2(senserecv.cmac, KEY_BYTES); 
 
-
-    //byte_ard beta[] = {	0x10, 0x9b, 0x58, 0xba, 0x59, 0xe0, 0xd6, 0x6e,
-	//					0xe9, 0xf7, 0x35, 0xab, 0x6a, 0x99, 0xe3, 0x61 };
-
 	K_st = new TSenseKeyPair(senserecv.key, cBeta);
 
 	free(senserecv.ciphertext);
@@ -130,15 +135,16 @@ void do_client_loop(BIO *conn){
 	// Done unpacking keytosens message ----------------------------------------
 
 	// The server disconnects after each request so we reconnect.
-	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
+	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:7001");
 
 	// Pack rekey message ------------------------------------------------------
 
+	u_int16_ard rekeyNonce = 765;
 	printf("\nPacking rekey message:\n");
 	printf("----------------------\n");
 	struct message rekeymsg;
-	rekeymsg.pID = id;
-	rekeymsg.nonce = 0xff;
+	rekeymsg.pID = idbuf;
+	rekeymsg.nonce = rekeyNonce;
 
 	// Set the correct MSG type if you are doing a handshake
 	rekeymsg.msgtype = MSG_T_REKEY_HANDSHAKE;
@@ -150,38 +156,97 @@ void do_client_loop(BIO *conn){
 				(const u_int32_ard*) (K_st->getMacKeySched()),
 				reKeyBuf);
 
-
+	printf("K_st crypto key schedule:\n");
 	printByteArd(K_st->getCryptoKeySched(), KEY_BYTES*11, 16);
-
 	printf("\n");
-
+	
+	printf("K_st MAC key schedule:\n");
 	printByteArd(K_st->getMacKeySched(), KEY_BYTES*11, 16);
-
 	printf("\n");
 
+	printf("Rekey buffer:\n");
 	printByteArd(reKeyBuf, REKEY_FULLSIZE, 16);
-
 
     err = BIO_write(conn, (void*)reKeyBuf, REKEY_FULLSIZE);
 
-    printf("Done writing rekey pakcet: %d\n", err);
+    printf("Done writing rekey packet: %d\n", err);
+
+	// -----------------------------------------------
+
+	printf("\nRead newkey packet\n");
+	printf("-------------------\n\n");
+
+	byte_ard newkeybuf[NEWKEY_FULLSIZE];
+	err = BIO_read(conn, (void*)newkeybuf, NEWKEY_FULLSIZE);
+
+	// Unpack the raw buffer into a message struct
+	message newkeyresp; 
+	newkeyresp.ciphertext = (byte_ard*)malloc(NEWKEY_CRYPTSIZE);
+	newkeyresp.pID = (byte_ard*)malloc(6);
+  
+  	unpack_newkey(newkeybuf,(const u_int32_ard *)K_st->getCryptoKeySched(),&newkeyresp);
+
+	// Check the MAC against the encrypted data
+	if ( !verifyAesCMac( (const u_int32_ard *)K_st->getMacKeySched(), newkeyresp.ciphertext, NEWKEY_CRYPTSIZE, newkeyresp.cmac ) )
+	{
+		printf("MAC failed\n");
+		return;     
+	}
+	else
+	{
+		printf("MAC OK\n");
+	}
+    
+	//
+	// Get the data available from the rekey message
+	//  
+  
+	// Get the device id in the message and compare with my own
+	if ( strncmp((const char *)newkeyresp.pID,(const char *)idbuf,ID_SIZE) != 0 )
+	{
+		printf("ID mismatch in rekey\n");
+		return;         
+	}
+	else
+	{
+		printf("ID matches\n");
+	}
+
+	// Compare the nonce with my current one
+	if ( newkeyresp.nonce != rekeyNonce )
+	{
+		printf("Nonce mismatch on rekey");
+		return;         
+	}
+	else
+	{
+		printf("Nonce %d matches\n", rekeyNonce);
+	}
+
+	printf("Random number (key material):\n");
+	printBytes2(newkeyresp.rand,16);
+  
+	free(newkeyresp.ciphertext);
+	free(newkeyresp.pID);
+
+	printf("Done handling newkey message from sink\n\n");
 }
 
 int main(int argc, char *argv[]){
 
     BIO *conn;
 
-	byte_ard K_AT[] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-                        0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+	byte_ard K_AT[] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 
+                        0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
 
-    byte_ard alpha[] = { 0xc7, 0x46, 0xe9, 0x64, 0x72, 0x3a, 0x21, 0x47,
-                         0xa2, 0x47, 0x30, 0x1a, 0xb9, 0x6b, 0x54, 0xde };
+    byte_ard alpha[] = { 0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 
+                         0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
 
 	K_at = new TSenseKeyPair(K_AT, alpha);
 
     init_OpenSSL();
 	
-	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
+	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:7001");
 
     if(!conn){
         int_error("Error createing connection BIO");
