@@ -142,7 +142,7 @@ void do_client_loop(BIO *conn){
 	// Done unpacking keytosens message ----------------------------------------
 
 	// The server disconnects after each request so we reconnect.
-	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:7001");
+	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
 
 	// Pack rekey message ------------------------------------------------------
 
@@ -258,7 +258,7 @@ int main(int argc, char *argv[]){
 
     init_OpenSSL();
 	
-	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:7001");
+	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
 
     if(!conn){
         int_error("Error createing connection BIO");
