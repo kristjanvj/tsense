@@ -153,9 +153,14 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 	byte_ard tmpID[10]; 
 	memcpy(tmpID, keyToSinkMsg.pID, ID_SIZE);
 
-	TsDbSinkSensorProfile tssp(keyToSinkMsg.key, tmpID, dbcd);
+	try {
+		TsDbSinkSensorProfile tssp(keyToSinkMsg.key, tmpID, dbcd);
 
-	tssp.persist();
+		tssp.persist();
+
+	} catch(runtime_error rex) {
+		log_err_exit(rex.what());
+	}
 
 	// Pack keytosense message -------------------------------------------------
 
@@ -292,7 +297,7 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		free (rekeymsg.ciphertext);
 
 	} catch(runtime_error rex) {
-		syslog(LOG_ERR, "%s", rex.what());
+		log_err_exit(rex.what());
 	}
 }
 
