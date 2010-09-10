@@ -37,6 +37,8 @@ public:
 	byte_ard *getKstaSched();
 	byte_ard *getKsteSched();
 	byte_ard *getKsteaSched();
+	byte_ard *getKst();
+	byte_ard *getR();
 
 	void persist();
 

@@ -78,6 +78,13 @@ byte_ard *TsDbSinkSensorProfile::getKsteaSched(){
 	return Kstea_Sched;
 }
 
+byte_ard *TsDbSinkSensorProfile::getKst(){
+	return Kst;
+}
+
+byte_ard *TsDbSinkSensorProfile::getR(){
+	return R;
+}
 
 /* Generate the keys K_sta, K_ste and K_stea given K_st and store the key 
  * key schedules for these keys in the relavant class internal variables.
