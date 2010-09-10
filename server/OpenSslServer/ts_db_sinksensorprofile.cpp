@@ -160,7 +160,6 @@ void TsDbSinkSensorProfile::retrieve(){
 
 	base64Decode(row[2], strlen(row[2]), R);
 
-
 	printProfile();
 	
 	generateKeyScheds();
@@ -199,6 +198,7 @@ void TsDbSinkSensorProfile::persist(){
 
 	const char *insert = {"insert into sink_state (pid, KST, R)"
 				" values ('%s', '%s', '%s')"};
+
 	const char *update = {"update sink_state set "
 				"KST='%s', R='%s' where pid='%s'"};
 	char query[3000]; 
@@ -216,12 +216,10 @@ void TsDbSinkSensorProfile::persist(){
 	if (query_state != 0) {
 		char msg[MSGLEN];
 		GET_MSG(msg)
-		syslog(LOG_ERR,"error updating profile for device %s: %s" ,devicePublicId, msg);  
 		throw runtime_error(msg);
 		return;
 	}
 
-	//mysql_free_result(result);
 	mysql_close(connection);
 }
 

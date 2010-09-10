@@ -47,9 +47,12 @@ void do_client_loop(BIO *conn){
 	byte_ard pBuffer[IDMSG_FULLSIZE];
 
 	// Get the private key from the EEPROM
-	byte_ard masterKeyBuf[KEY_BYTES] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
-	// Expand the masterkey (temporarily) to get encryption and authentication schedules.
-	// Use the public constant for derivation of authentication key.
+	byte_ard masterKeyBuf[KEY_BYTES] = 
+		{ 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 
+		  0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
+
+	// Expand the masterkey (temporarily) to get encryption and authentication 
+	// schedules. Use the public constant for derivation of authentication key.
 	TSenseKeyPair masterKeys(masterKeyBuf,cAlpha);
 
 	// Get the public id from EEPROM
@@ -64,10 +67,13 @@ void do_client_loop(BIO *conn){
 	msg.nonce=idNonce;   
 
 	byte_ard idResponseBuf[IDMSG_FULLSIZE];
-	// Call the pack function to construct the message
-	// See protocol.cpp for details. Encrypts and MACs the message and returns in pBuffer.
-	pack_idresponse( &msg, (const u_int32_ard *)masterKeys.getCryptoKeySched(),
-			       (const u_int32_ard *)masterKeys.getMacKeySched(), (void *)idResponseBuf);
+
+	// Pack ID response. See protocol.cpp for details. Encrypts and MACs the 
+	// message and returns in pBuffer.
+	pack_idresponse( &msg, 
+					(const u_int32_ard *)masterKeys.getCryptoKeySched(),
+					(const u_int32_ard *)masterKeys.getMacKeySched(),
+					(void *)idResponseBuf);
 
 	// Done packing idresponse message -----------------------------------------
 
@@ -91,30 +97,31 @@ void do_client_loop(BIO *conn){
 	struct message senserecv;
 	senserecv.key = (byte_ard*)malloc(KEY_BYTES);
 	senserecv.ciphertext = (byte_ard*)malloc(KEYTOSINK_CRYPTSIZE);
+
 	// Unpack
-	unpack_keytosens((void*)keyToSensBuf, (const u_int32_ard *)masterKeys.getCryptoKeySched(), &senserecv);
+	unpack_keytosens((void*)keyToSensBuf,
+					 (const u_int32_ard *)masterKeys.getCryptoKeySched(), 
+					 &senserecv);
 
 	// Validate the MAC  
-	int validMac = verifyAesCMac( (const u_int32_ard *)masterKeys.getMacKeySched(), 
-		                        senserecv.ciphertext, KEYTOSINK_CRYPTSIZE, senserecv.cmac );
-	if ( validMac==0 )                                                              
-	{
+	int validMac = verifyAesCMac( 
+						(const u_int32_ard *)masterKeys.getMacKeySched(), 
+						senserecv.ciphertext, 
+						KEYTOSINK_CRYPTSIZE, 
+						senserecv.cmac );
+
+	if ( validMac==0 ) {
 		printf("MAC failed");
 		return;     
-	}
-	else
-	{
+	} else {
 		printf("MAC OK\n");
 	}
 
 	// Validate the nonce
-	if ( senserecv.nonce != idNonce )
-	{
+	if ( senserecv.nonce != idNonce ) {
 		printf("Nonce failed");
 		return;  
-	}
-	else
-	{
+	} else {
 		printf("Nonce %d matches", idNonce);
 	}
 
@@ -140,8 +147,11 @@ void do_client_loop(BIO *conn){
 	// Pack rekey message ------------------------------------------------------
 
 	u_int16_ard rekeyNonce = 765;
-	printf("\nPacking rekey message:\n");
+
+	printf("\n");
+	printf("Packing rekey message:\n");
 	printf("----------------------\n");
+
 	struct message rekeymsg;
 	rekeymsg.pID = idbuf;
 	rekeymsg.nonce = rekeyNonce;
@@ -167,13 +177,16 @@ void do_client_loop(BIO *conn){
 	printf("Rekey buffer:\n");
 	printByteArd(reKeyBuf, REKEY_FULLSIZE, 16);
 
+	// Done packing rekey message ----------------------------------------------
+
     err = BIO_write(conn, (void*)reKeyBuf, REKEY_FULLSIZE);
 
     printf("Done writing rekey packet: %d\n", err);
 
-	// -----------------------------------------------
+	// unpacking newkey  message -----------------------------------------------
 
-	printf("\nRead newkey packet\n");
+	printf("\n");
+	printf("Read newkey packet\n");
 	printf("-------------------\n\n");
 
 	byte_ard newkeybuf[NEWKEY_FULLSIZE];
@@ -184,42 +197,41 @@ void do_client_loop(BIO *conn){
 	newkeyresp.ciphertext = (byte_ard*)malloc(NEWKEY_CRYPTSIZE);
 	newkeyresp.pID = (byte_ard*)malloc(6);
   
-  	unpack_newkey(newkeybuf,(const u_int32_ard *)K_st->getCryptoKeySched(),&newkeyresp);
+  	unpack_newkey(newkeybuf,
+				  (const u_int32_ard *)K_st->getCryptoKeySched(),
+				  &newkeyresp);
 
 	// Check the MAC against the encrypted data
-	if ( !verifyAesCMac( (const u_int32_ard *)K_st->getMacKeySched(), newkeyresp.ciphertext, NEWKEY_CRYPTSIZE, newkeyresp.cmac ) )
-	{
+
+	validMac = verifyAesCMac((const u_int32_ard *)K_st->getMacKeySched(),
+							 newkeyresp.ciphertext, 
+							 NEWKEY_CRYPTSIZE,
+							 newkeyresp.cmac );
+
+	if ( validMac = 0) {
 		printf("MAC failed\n");
 		return;     
-	}
-	else
-	{
+	} else {
 		printf("MAC OK\n");
 	}
     
-	//
 	// Get the data available from the rekey message
-	//  
   
 	// Get the device id in the message and compare with my own
-	if ( strncmp((const char *)newkeyresp.pID,(const char *)idbuf,ID_SIZE) != 0 )
+	if (strncmp((const char *)newkeyresp.pID,
+		(const char *)idbuf,ID_SIZE) != 0 )
 	{
 		printf("ID mismatch in rekey\n");
 		return;         
-	}
-	else
-	{
+	} else {
 		printf("ID matches\n");
 	}
 
 	// Compare the nonce with my current one
-	if ( newkeyresp.nonce != rekeyNonce )
-	{
+	if ( newkeyresp.nonce != rekeyNonce ) {
 		printf("Nonce mismatch on rekey");
 		return;         
-	}
-	else
-	{
+	} else {
 		printf("Nonce %d matches\n", rekeyNonce);
 	}
 
