@@ -95,10 +95,11 @@ struct message
 
 struct data
 {
-  byte_ard msgype;                 // Hex code declaring message type (see wiki)
+  byte_ard msgtype;                // Hex code declaring message type (see wiki)
   byte_ard id[ID_SIZE];            // The public id
   u_int32_ard msgtime;             // Seconds since epoch. 32 bit, susceptable to y2k38.
-  byte_ard buff_len;               // Length of the data buffer
+  byte_ard data_len;               // Length of the data buffer
+  byte_ard cipher_len;             // Length of the cipher part (ID + data_len + msgtime + data + padding)
   byte_ard* data;                  // The data itself.
   byte_ard* ciphertext;            // The ciphertext. This will ONLY be allocated in unpack's
   byte_ard cmac[BLOCK_BYTE_SIZE];  // CMAC 

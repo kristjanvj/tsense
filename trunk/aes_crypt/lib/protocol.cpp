@@ -1,13 +1,26 @@
 /**
-   Benedikt Kristinsson, 2010
-
-   (GPL here)
-
-   Tsense Protocol methods. Written in C++ to ensure comptability with Arduino
-   Wiring, but made to be compilable with gcc and g++.
-
-   For documentation, please see ldsswiki.ru.is
-
+ *  Benedikt Kristinsson, 2010
+ *
+ *  Tsense Protocol methods. Written in C++ to ensure comptability with Arduino
+ *  Wiring, but made to be compilable with gcc and g++.
+ *
+ *  For documentation, please see ldsswiki.ru.is
+ *
+ *    This file is part of the Trusted Sensors Research Project (TSense).
+ *
+ *  TSense is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  TSense is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with the TSense code.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 #include "protocol.h"
@@ -37,7 +50,6 @@ void pack_idresponse(struct message* msg, const u_int32_ard* pKeys, const u_int3
   byte_ard crypt_buff[IDMSG_CRYPTSIZE];
   byte_ard cmac_buff[IDMSG_CRYPTSIZE];
   byte_ard temp[ID_SIZE + NONCE_SIZE];
-  byte_ard* pNonce = (byte_ard*)&msg->nonce;
   
   for (u_int32_ard i = 0; i < ID_SIZE; i++)
   {
@@ -660,10 +672,12 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
    * indidating how long the crypto part of the packet is.
    */
   
-  u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + (u_int16_ard) msg->buff_len;
-  byte_ard cryptsize = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
+  u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + (u_int16_ard) msg->data_len;
+  // Since cipher_len is always going to be congruent to 16 in modulus 16, we can
+  // use it to indicate much larger ciphertext then 127 if we use that fact. 
+  msg->cipher_len = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
 
-  cBuffer[MSGTYPE_SIZE] = cryptsize;
+  cBuffer[MSGTYPE_SIZE] = msg->cipher_len;
 
   /*
    * Malloc is needed because we don't know the exact size
@@ -681,24 +695,23 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
     plaintext[ID_SIZE + i] = temp_msgtime[i];
   }
   // One byte - no loop
-  plaintext[ID_SIZE + MSGTIME_SIZE] = msg->buff_len;
+  plaintext[ID_SIZE + MSGTIME_SIZE] = msg->data_len;
 
   // Data
-  for(u_int16_ard i = 0; i < (u_int16_ard)msg->buff_len; i++)
+  for(u_int16_ard i = 0; i < (u_int16_ard)msg->data_len; i++)
   {
     plaintext[ID_SIZE + MSGTIME_SIZE + 1 + i] = msg->data[i];
   }
 
-
-  byte_ard cipher_buff[(u_int16_ard)cryptsize];
+  byte_ard cipher_buff[(u_int16_ard)msg->cipher_len];
 
   CBCEncrypt((void*)plaintext, (void*)cipher_buff, plainsize, AUTOPAD,
              pKeys, (const u_int16_ard*)IV);
   free(plaintext);
-  aesCMac(pCmacKeys, cipher_buff, (u_int16_ard)cryptsize, msg->cmac);
+  aesCMac(pCmacKeys, cipher_buff, (u_int16_ard)msg->cipher_len, msg->cmac);
 
   // Stick it in the buffer
-  for(u_int16_ard i = 0; i < (u_int16_ard)cryptsize; i++)
+  for(u_int16_ard i = 0; i < (u_int16_ard)msg->cipher_len; i++)
   {
     // +1 to accomendate for the crypto length indicator. 
     cBuffer[MSGTYPE_SIZE + 1 + i] = cipher_buff[i];
@@ -706,7 +719,7 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
 
   for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
-    cBuffer[MSGTYPE_SIZE + 1 + (u_int16_ard)cryptsize + i] = msg->cmac[i];
+    cBuffer[MSGTYPE_SIZE + 1 + (u_int16_ard)msg->cipher_len + i] = msg->cmac[i];
   }
 }
 
@@ -716,5 +729,83 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
  * Reads bytestream from pack_data(). Retrieves the ciphered-and-maced
  * measurment data with the session key. Runs on a regular
  * architecture so wasting ram here is ok.
+ *
+ * NOTE: Does malloc() on msg->ciphertext and msg->data !
+ *
+ *    Name          | Summary                            | Data
+ *    ------------------------------------------------------------------
+ *    msgtype       | 1-byte message code                | 0x01
+ *    id            | 6-byte public id                   |
+ *    msgtime       | 4-byte unix time in u_int          |
+ *    data_len      | 1-byte denotes length of data      |
+ *    cipher_len    | 1-byte denotes length of ciphertext|
+ *    data          | Data itself. data-len bytes.       |
+ *    ciphertext    | Ciphertext read. cipher-len bytes  |
+ *    cmac          | The CMAC. 
+ *
  */
 
+void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
+{
+  byte_ard* cStream = (byte_ard*)pStream;
+  
+  msg->msgtype = cStream[0];
+  msg->cipher_len = cStream[1];
+
+  // Store the cipher length in a usigned 16-bit int so we don't have to typecast
+  // all the time.
+  u_int16_ard cipherlen = (u_int16_ard)msg->cipher_len;
+  
+  // NOTE: Malloc, Needs to be set free!!
+  msg->ciphertext = (byte_ard*)malloc(cipherlen);
+
+  // Read the ciphertext
+  for (u_int16_ard i = 0; i < cipherlen; i++)
+  {
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + 1];
+  }
+
+  // .. and cmac
+  for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
+  {
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + 1 + cipherlen + i];
+  }
+
+  // Decrypt
+  // Malloc, is free'd in the end of unpack_data()
+  byte_ard* plainbuff = (byte_ard*)malloc(cipherlen);
+  
+  CBCDecrypt((void*)msg->ciphertext, (void*)plainbuff, cipherlen, pKeys,
+           (const u_int16_ard*)IV);
+
+  // ID
+  for (u_int16_ard i = 0; i < ID_SIZE; i ++)
+  {
+    msg->id[i] = plainbuff[i];
+  }
+
+  // Msg time (Unix time)
+  // Malloc, free'd a few lines below
+  byte_ard* temp_msgtime = (byte_ard*)malloc(MSGTIME_SIZE);
+  for(u_int16_ard i = 0; i < MSGTIME_SIZE; i++)
+  {
+    temp_msgtime[i] = plainbuff[ID_SIZE + i];
+  }
+  msg->msgtime = (u_int32_ard)*temp_msgtime;
+  free(temp_msgtime);
+
+  // Buffer length
+  msg->data_len = plainbuff[ID_SIZE + MSGTIME_SIZE];
+  u_int16_ard datalen = (u_int16_ard)msg->data_len;
+  
+  // NOTE: msg->data is malloced. NEEDS TO BE SET FREE 
+  msg->data = (byte_ard*)malloc(datalen);
+  
+  // Data
+  for(u_int16_ard i = 0; i < datalen; i++)
+  {
+    msg->data[i] = plainbuff[ID_SIZE + MSGTIME_SIZE + 1 + i];
+  }
+  
+  free(plainbuff);
+}
