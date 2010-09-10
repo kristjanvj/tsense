@@ -37,7 +37,8 @@ TlsSinkServer::TlsSinkServer(	const char *authServerAddr,
 								const char *authServerPort, 
 					 			const char *serverAddr,
 								const char *serverListenPort) :
-						TlsBaseServer(CLIENT_MODE, serverAddr, serverListenPort)
+								TlsBaseServer(	CLIENT_MODE, serverAddr, 
+												serverListenPort )
 {
 	_authServerAddr = authServerAddr;
 	_authServerPort = authServerPort;
@@ -109,7 +110,8 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 									  byte_ard* readBuf, int readLen)
 {
 	char szPid[20];
-	sprintf(szPid,"%d%d-%d%d%d%d",readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
+	sprintf(szPid,"%d%d-%d%d%d%d",
+			readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
 
 	syslog(LOG_NOTICE,"Handling incoming idresponse message. PID: %s",szPid); 
 
@@ -219,7 +221,8 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 	memcpy(tmpID, readBuf+1, 6);
 
 	char szPid[20];
-	sprintf(szPid,"%d%d-%d%d%d%d",readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
+	sprintf(szPid,"%d%d-%d%d%d%d",
+			readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
 /*
 	syslog(LOG_NOTICE, "tmpID #2:");
 	for(int i = 0; i < 6; i++){
@@ -259,37 +262,45 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		}
 */
 
-		// Unpack newkey message -----------------------------------------------
+		// Unpack rekey message -----------------------------------------------
 
 		// Create the struct the recieve the packet to and malloc memory.
-		struct message newkeymsg;
-		newkeymsg.pID = (byte_ard*)malloc(ID_SIZE+1);  // Null term.
-		newkeymsg.ciphertext = (byte_ard*)malloc(REKEY_CRYPTSIZE);
+		struct message rekeymsg;
+		rekeymsg.pID = (byte_ard*)malloc(ID_SIZE+1);  // Null term.
+		rekeymsg.ciphertext = (byte_ard*)malloc(REKEY_CRYPTSIZE);
 
 		
 		byte_ard K_ST[KEY_BYTES];
 		memcpy(K_ST,tssp->getKstSched(),KEY_BYTES);
 		char szKeyStr[40];
 
-		sprintf(szKeyStr,"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
-                        K_ST[0], K_ST[1], K_ST[2], K_ST[3], K_ST[4], K_ST[5], K_ST[6], K_ST[7],
-                        K_ST[8], K_ST[9], K_ST[10], K_ST[11], K_ST[12], K_ST[13], K_ST[14], K_ST[15] );
+		sprintf(szKeyStr,	"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x" 
+							"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+							K_ST[0], K_ST[1], K_ST[2], K_ST[3], 
+							K_ST[4], K_ST[5], K_ST[6], K_ST[7],
+							K_ST[8], K_ST[9], K_ST[10], K_ST[11], 
+							K_ST[12], K_ST[13], K_ST[14], K_ST[15] );
 
 		syslog(LOG_NOTICE,"Session key is %s",szKeyStr);
 
 		// Put the data in the struct
 		unpack_rekey(readBuf, (const u_int32_ard*) (tssp->getKstSched()), 
-						&newkeymsg);
+						&rekeymsg);
 		
-		syslog(LOG_NOTICE, "nonce:  %x", newkeymsg.nonce);		
+		syslog(LOG_NOTICE, "nonce:  %x", rekeymsg.nonce);		
+		// TODO: Make the nonce part of the device profile. 
+		// Keep track to prevent replays and fiddling.
 		
 		char szCryptedPid[20];
 		sprintf(szCryptedPid,"%d%d-%d%d%d%d",
-			newkeymsg.pID[0],newkeymsg.pID[1],newkeymsg.pID[2],newkeymsg.pID[3],newkeymsg.pID[4],newkeymsg.pID[5]);
+				rekeymsg.pID[0],rekeymsg.pID[1],rekeymsg.pID[2],
+				rekeymsg.pID[3],rekeymsg.pID[4],rekeymsg.pID[5]);
 		
 		syslog(LOG_NOTICE,"Crypted id is %s", szCryptedPid);
+		// TODO: Make sure the plaintext PID and decrypted match.
+		// This is the authenticating feature of the protocol.
 
-
+/*
                syslog(LOG_NOTICE, "KST2a");
                 for(int i = 0; i < KEY_BYTES; i++){
                         syslog(LOG_NOTICE, "%x", tssp->getKstaSched()[i]);
@@ -298,43 +309,71 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
                 for(int i = 0; i < KEY_BYTES; i++){
                         syslog(LOG_NOTICE, "%x", newkeymsg.cmac[i]);
                 }
-		
-
-
+*/		
 		
 		int validMac = verifyAesCMac((const u_int32_ard*)(tssp->getKstaSched()),
-										newkeymsg.ciphertext,
+										rekeymsg.ciphertext,
 										REKEY_CRYPTSIZE,
-										newkeymsg.cmac);
+										rekeymsg.cmac);
 		if(validMac == 0){
-			log_err_exit("Mac of incoming keytosens message did not match");
+			log_err_exit("Mac of incoming rekey message did not match");
 		}
 		else {
 			syslog(LOG_NOTICE,"MAC checked out ok");
 		}
-
-
-		// TODO: Make the nonce part of the device profile. Keep track to prevent replays and fiddling.
 		
-		// Done unpacking newkey message ---------------------------------------
+		// Done unpacking rekey message ---------------------------------------
 
+		// Generate the key material  -----------------------------------------
 
-		// Pack rekey ----------------------------------------------------------
+		// TODO: Use /dev/urandom
 
-	        // Send keytosense message to sensor.
-        	// ----------------------------------
-//	        writeToProxyClient(proxyClientRequestBio, keyToSenseBuf,?);
+		// Generate key material for K_STe, K_STea.
+//		srand((unsigned)time(0));
 
-		// Done packing rekey --------------------------------------------------
+		byte_ard R[BLOCK_BYTE_SIZE];
+//		for(int i=0; i<BLOCK_BYTE_SIZE; i++){
+//			R[i] = (rand() % 0x1ff);
+//		}
+		memcpy( R, tssp->getR(), KEY_BYTES );
 
-		free (newkeymsg.pID);
-		free (newkeymsg.ciphertext);
+		char szRandStr[50];
+		sprintf(szRandStr,
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x"
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+				R[0], R[1], R[2], R[3],	R[4], R[5], R[6], R[7],
+				R[8], R[9], R[10], R[11], R[12], R[13], R[14], R[15] );
+
+		syslog(LOG_NOTICE,"Key material for %s: %s", szPid, szRandStr);
+
+		// Pack newkey --------------------------------------------------------
+
+		message newkeymsg;
+		newkeymsg.pID = rekeymsg.pID;
+		newkeymsg.nonce = rekeymsg.nonce;
+		memcpy(	newkeymsg.rand, R, KEY_BYTES );
+
+		byte_ard newkeybuf[NEWKEY_FULLSIZE]; 
+		pack_newkey(	&newkeymsg, (const u_int32_ard*)tssp->getKstSched(),
+						(const u_int32_ard*)tssp->getKstaSched(), newkeybuf );
+
+		//
+		// TODO: PERSIST R
+		//
+
+		// Done packing newkey ------------------------------------------------
+
+	    // Send newkey message to sensor.
+       	// ----------------------------------
+		writeToProxyClient(proxyClientRequestBio, newkeybuf, NEWKEY_FULLSIZE);
 
 		// Close connection to proxy client.
 		BIO_free(proxyClientRequestBio);
 		ERR_remove_state(0);
 
 		delete tssp;
+		free (rekeymsg.pID);
+		free (rekeymsg.ciphertext);
 
 	} catch(runtime_error rex) {
 		syslog(LOG_ERR, "%s", rex.what());
