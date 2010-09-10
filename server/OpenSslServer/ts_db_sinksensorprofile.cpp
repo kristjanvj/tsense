@@ -196,10 +196,10 @@ void TsDbSinkSensorProfile::persist(){
 	char b64R[KEY_BYTES*2];
 	base64Encode(R, KEY_BYTES, b64R);
 
-	const char *insert = {"insert into stink_state (pid, KST, R)"
+	const char *insert = {"insert into sink_state (pid, KST, R)"
 				" values ('%s', '%s', '%s')"};
 
-	const char *update = {"update stink_state set "
+	const char *update = {"update sink_state set "
 				"KST='%s', R='%s' where pid='%s'"};
 	char query[3000]; 
 
