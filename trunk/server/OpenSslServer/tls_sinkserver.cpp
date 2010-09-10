@@ -153,45 +153,7 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 	byte_ard tmpID[10]; 
 	memcpy(tmpID, keyToSinkMsg.pID, ID_SIZE);
 
-/*
-	syslog(LOG_NOTICE, "tmpID #1:");
-	for(int i = 0; i < 6; i++){
-		syslog(LOG_NOTICE, "%x", tmpID[i]);
-	}											
-*/
-
-	//TsDbSinkSensorProfile(keyToSinkMsg.pPID, keyToSinkMsg.key,dbcd);
 	TsDbSinkSensorProfile tssp(keyToSinkMsg.key, tmpID, dbcd);
-
-	//-----------------------------------
-
- 	syslog(LOG_NOTICE, "R");
-	for(int i = 0; i < KEY_BYTES; i++){
-	         syslog(LOG_NOTICE, "%x", tssp.getR()[i]);
-	}
-
-/*
-	syslog(LOG_NOTICE, "KST1");
-	for(int i = 0; i < KEY_BYTES*11; i++){
-		syslog(LOG_NOTICE, "%x", tssp.getKstSched()[i]);
-	}
-
-	syslog(LOG_NOTICE, "KST1a");
-	for(int i = 0; i < KEY_BYTES*11; i++){
-		syslog(LOG_NOTICE, "%x", tssp.getKstaSched()[i]);
-	}
-
-	syslog(LOG_NOTICE, "KST1e");
-	for(int i = 0; i < KEY_BYTES*11; i++){
-		syslog(LOG_NOTICE, "%x", tssp.getKsteSched()[i]);
-	}
-
-	syslog(LOG_NOTICE, "KST1ea");
-	for(int i = 0; i < KEY_BYTES*11; i++){
-		syslog(LOG_NOTICE, "%x", tssp.getKsteaSched()[i]);
-	}
-*/
-	//-----------------------------------
 
 	tssp.persist();
 
@@ -228,47 +190,12 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 	char szPid[20];
 	sprintf(szPid,"%d%d-%d%d%d%d",
 			readBuf[1],readBuf[2],readBuf[3],readBuf[4],readBuf[5],readBuf[6]);
-/*
-	syslog(LOG_NOTICE, "tmpID #2:");
-	for(int i = 0; i < 6; i++){
-		syslog(LOG_NOTICE, "%x", tmpID[i]);
-	}											
-*/
 
 	syslog(LOG_NOTICE,"Rekey request received from device %s",szPid);
 
 	try {
 		TsDbSinkSensorProfile *tssp = new TsDbSinkSensorProfile(tmpID, dbcd);
 
-
-
-
-/*
-		syslog(LOG_NOTICE, "KST2");
-		for(int i = 0; i < KEY_BYTES*11; i++){
-			syslog(LOG_NOTICE, "%x", tssp->getKstSched()[i]);
-		}
-
-		syslog(LOG_NOTICE, "KST2a");
-		for(int i = 0; i < KEY_BYTES*11; i++){
-			syslog(LOG_NOTICE, "%x", tssp->getKstaSched()[i]);
-		}
-
-		syslog(LOG_NOTICE, "KST2e");
-		for(int i = 0; i < KEY_BYTES*11; i++){
-			syslog(LOG_NOTICE, "%x", tssp->getKsteSched()[i]);
-		}
-
-		syslog(LOG_NOTICE, "KST2ea");
-		for(int i = 0; i < KEY_BYTES*11; i++){
-			syslog(LOG_NOTICE, "%x", tssp->getKsteaSched()[i]);
-		}
-
-		syslog(LOG_NOTICE, "readBuf");
-		for(int i = 0; i < REKEY_FULLSIZE; i++){
-			syslog(LOG_NOTICE, "%x", readBuf[i]);
-		}
-*/
 
 		// Unpack rekey message -----------------------------------------------
 
@@ -277,7 +204,6 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		rekeymsg.pID = (byte_ard*)malloc(ID_SIZE+1);  // Null term.
 		rekeymsg.ciphertext = (byte_ard*)malloc(REKEY_CRYPTSIZE);
 
-		
 		byte_ard K_ST[KEY_BYTES];
 		memcpy(K_ST,tssp->getKstSched(),KEY_BYTES);
 		char szKeyStr[40];
@@ -308,16 +234,6 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		// TODO: Make sure the plaintext PID and decrypted match.
 		// This is the authenticating feature of the protocol.
 
-/*
-               syslog(LOG_NOTICE, "KST2a");
-                for(int i = 0; i < KEY_BYTES; i++){
-                        syslog(LOG_NOTICE, "%x", tssp->getKstaSched()[i]);
-                }
-               syslog(LOG_NOTICE, "MAC");
-                for(int i = 0; i < KEY_BYTES; i++){
-                        syslog(LOG_NOTICE, "%x", newkeymsg.cmac[i]);
-                }
-*/		
 		
 		int validMac = verifyAesCMac((const u_int32_ard*)(tssp->getKstaSched()),
 										rekeymsg.ciphertext,
