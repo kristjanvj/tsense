@@ -280,11 +280,27 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		// Put the data in the struct
 		unpack_rekey(readBuf, (const u_int32_ard*) (tssp->getKstSched()), 
 						&newkeymsg);
-
-
+		
+		syslog(LOG_NOTICE, "nonce:  %x", newkeymsg.nonce);		
+		
 		char szCryptedPid[20];
 		sprintf(szCryptedPid,"%d%d-%d%d%d%d",
-			newkeymsg.pID[1],newkeymsg.pID[2],newkeymsg.pID[3],newkeymsg.pID[4],newkeymsg.pID[5],newkeymsg.pID[6]);
+			newkeymsg.pID[0],newkeymsg.pID[1],newkeymsg.pID[2],newkeymsg.pID[3],newkeymsg.pID[4],newkeymsg.pID[5]);
+		
+		syslog(LOG_NOTICE,"Crypted id is %s", szCryptedPid);
+
+
+               syslog(LOG_NOTICE, "KST2a");
+                for(int i = 0; i < KEY_BYTES; i++){
+                        syslog(LOG_NOTICE, "%x", tssp->getKstaSched()[i]);
+                }
+               syslog(LOG_NOTICE, "MAC");
+                for(int i = 0; i < KEY_BYTES; i++){
+                        syslog(LOG_NOTICE, "%x", newkeymsg.cmac[i]);
+                }
+		
+
+
 		
 		int validMac = verifyAesCMac((const u_int32_ard*)(tssp->getKstaSched()),
 										newkeymsg.ciphertext,
@@ -293,16 +309,21 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		if(validMac == 0){
 			log_err_exit("Mac of incoming keytosens message did not match");
 		}
+		else {
+			syslog(LOG_NOTICE,"MAC checked out ok");
+		}
 
-		syslog(LOG_NOTICE,"Crypted id is %s", szCryptedPid);
 
-		syslog(LOG_NOTICE, "nonce:  %x", newkeymsg.nonce);		
 		// TODO: Make the nonce part of the device profile. Keep track to prevent replays and fiddling.
 		
 		// Done unpacking newkey message ---------------------------------------
 
 
 		// Pack rekey ----------------------------------------------------------
+
+	        // Send keytosense message to sensor.
+        	// ----------------------------------
+//	        writeToProxyClient(proxyClientRequestBio, keyToSenseBuf,?);
 
 		// Done packing rekey --------------------------------------------------
 
