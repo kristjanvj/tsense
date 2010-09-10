@@ -504,6 +504,7 @@ int TlsSinkServer::writeToProxyClient(BIO *proxyClientRequestBio, byte_ard *writ
  * connection attempt to accept.
  */
 void TlsSinkServer::serverMain(){
+	// TODO: Move proxyClientAcceptBio to class variable
     BIO *authServerBio, *proxyClientAcceptBio, *proxyClientRequestBio;
 
 	initOpenSsl();
