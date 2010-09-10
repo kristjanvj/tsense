@@ -165,6 +165,11 @@ void  TlsSinkServer::handleIdResponse(SSL *ssl, BIO* proxyClientRequestBio,
 
 	//-----------------------------------
 
+ 	syslog(LOG_NOTICE, "R");
+	for(int i = 0; i < KEY_BYTES; i++){
+	         syslog(LOG_NOTICE, "%x", tssp.getR()[i]);
+	}
+
 /*
 	syslog(LOG_NOTICE, "KST1");
 	for(int i = 0; i < KEY_BYTES*11; i++){
@@ -234,6 +239,9 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 
 	try {
 		TsDbSinkSensorProfile *tssp = new TsDbSinkSensorProfile(tmpID, dbcd);
+
+
+
 
 /*
 		syslog(LOG_NOTICE, "KST2");
@@ -324,17 +332,12 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		
 		// Done unpacking rekey message ---------------------------------------
 
-		// Generate the key material  -----------------------------------------
 
-		// TODO: Use /dev/urandom
+		// Pack newkey --------------------------------------------------------
 
-		// Generate key material for K_STe, K_STea.
-//		srand((unsigned)time(0));
-
+		// Get the key material for Kste, Kstea
 		byte_ard R[BLOCK_BYTE_SIZE];
-//		for(int i=0; i<BLOCK_BYTE_SIZE; i++){
-//			R[i] = (rand() % 0x1ff);
-//		}
+		// Get from the persistence object
 		memcpy( R, tssp->getR(), KEY_BYTES );
 
 		char szRandStr[50];
@@ -345,21 +348,18 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 				R[8], R[9], R[10], R[11], R[12], R[13], R[14], R[15] );
 
 		syslog(LOG_NOTICE,"Key material for %s: %s", szPid, szRandStr);
-
-		// Pack newkey --------------------------------------------------------
-
+		
+		// Populate the newkey struct
 		message newkeymsg;
 		newkeymsg.pID = rekeymsg.pID;
 		newkeymsg.nonce = rekeymsg.nonce;
 		memcpy(	newkeymsg.rand, R, KEY_BYTES );
 
+		// Pack the newkey message
 		byte_ard newkeybuf[NEWKEY_FULLSIZE]; 
 		pack_newkey(	&newkeymsg, (const u_int32_ard*)tssp->getKstSched(),
 						(const u_int32_ard*)tssp->getKstaSched(), newkeybuf );
 
-		//
-		// TODO: PERSIST R
-		//
 
 		// Done packing newkey ------------------------------------------------
 
