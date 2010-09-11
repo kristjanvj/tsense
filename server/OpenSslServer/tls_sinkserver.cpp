@@ -286,6 +286,17 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 
 		// Done packing newkey ------------------------------------------------
 
+    syslog(LOG_NOTICE, "Kste:");
+    for (int i = 0; i < 16; i++){
+        syslog(LOG_NOTICE, "%x", tssp->getKsteSched()[i]);
+    }
+
+    syslog(LOG_NOTICE, "Kstea:");
+    for (int i = 0; i < 16; i++){
+        syslog(LOG_NOTICE, "%x", tssp->getKsteaSched()[i]);
+    }
+
+
 	    // Send newkey message to sensor.
        	// ----------------------------------
 		writeToProxyClient(proxyClientRequestBio, newkeybuf, NEWKEY_FULLSIZE);
@@ -306,8 +317,15 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
                                       byte_ard* readBuf, int readLen)
 {
+	syslog(LOG_NOTICE, "handleData()");
+
 	byte_ard tmpID[10]; 
 	memcpy(tmpID, readBuf+1, 6);
+
+	for(int i = 0; i < 6; i++) {
+		syslog(LOG_NOTICE, "id:         %x", tmpID[i]);
+	}
+
 
 	TsDbSinkSensorProfile *tssp;
 
@@ -334,6 +352,7 @@ void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
 	syslog(LOG_NOTICE, "cipher_len:   %x", sensorData.cipher_len);
 	// data
 	// ciphertext
+	/*
 	for(int i = 0; i < BLOCK_BYTE_SIZE; i++) {
 		syslog(LOG_NOTICE, "cmac:         %x", sensorData.cmac[i]);
 	}
@@ -341,6 +360,12 @@ void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
 	for(int i = 0; i < sensorData.data_len; i++) {
 		syslog(LOG_NOTICE, "data:         %x", sensorData.data[i]);
 	}
+	*/
+
+	for(int i = 0; i < BLOCK_BYTE_SIZE; i++) {
+		syslog(LOG_NOTICE, "kste:         %x", tssp->getKsteSched()[i]);
+	}
+
 
 	delete tssp;
 }
