@@ -36,6 +36,7 @@ byte_ard key[] = {  0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
 
 TSenseKeyPair *K_at;
 TSenseKeyPair *K_st;
+TSenseKeyPair *K_ste;
 
 void do_client_loop(BIO *conn){
     int err;
@@ -57,7 +58,7 @@ void do_client_loop(BIO *conn){
 
 	// Get the public id from EEPROM
 	byte_ard idbuf[6] = {0x00,0x01,0x00,0x00,0x00,0x02};
-
+////&
 	u_int16_ard idNonce = 518;
 
 	// Create the input struct and populate  
@@ -239,6 +240,25 @@ void do_client_loop(BIO *conn){
 
 	printf("Random number (key material):\n");
 	printBytes2(newkeyresp.rand,16);
+
+	// Derive K_ste ------------------------------------------------------------
+
+	byte_ard K_STe[KEY_BYTES];
+
+	byte_ard gammaKeySched[KEY_BYTES*11];
+
+	KeyExpansion(cGamma, gammaKeySched);
+
+    // Derive K_STe using AES cMAC. The constant is the key and the 
+    // R is the message M that will be cMAC'ed.
+    aesCMac((u_int32_ard*) gammaKeySched,
+        newkeyresp.rand,
+        KEY_BYTES,
+        K_STe);
+
+	K_ste = new TSenseKeyPair(K_STe, cEpsilon);
+
+	// Done deriving K_ste -----------------------------------------------------
   
 	free(newkeyresp.ciphertext);
 	free(newkeyresp.pID);
@@ -248,104 +268,62 @@ void do_client_loop(BIO *conn){
 
 void senddata(BIO *conn)
 {
-  data msg;  // Struct to hold the data messages
-  byte_ard tmpid[] = {0x00,0x01,0x00,0x00,0x00,0x02};
-  memcpy(msg.id,tmpid,6);
-  msg.msgtime = 1234;
-  msg.data_len = 20;
-  msg.data = (byte_ard*)malloc(msg.data_len);
+	data msg;  // Struct to hold the data messages
+	byte_ard tmpid[] = {0x00,0x01,0x00,0x00,0x00,0x02};
+	memcpy(msg.id,tmpid,6);
+	msg.msgtime = 1234;
+	msg.data_len = 20;
+	msg.data = (byte_ard*)malloc(msg.data_len);
 
-  byte_ard measBuffer[20];
-  for (int i=0; i<20; i++)
-	measBuffer[i] = 0x01;
+	byte_ard measBuffer[20];
+	for (int i=0; i<20; i++){
+		measBuffer[i] = 0x01;
+	}
 
-  memcpy(msg.data,measBuffer,msg.data_len);
+	memcpy(msg.data,measBuffer,msg.data_len);
   
-//  u_int16_ard bufsize = 1+1+msg.data_len+16;
+	u_int16_ard plainsize = ID_SIZE+MSGTIME_SIZE+1+(u_int16_ard)msg.data_len;
 
-  u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + (u_int16_ard)msg.data_len;
+	u_int16_ard cipher_len = (1+(plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
+	u_int16_ard bufsize = cipher_len+2+16; // 2 plaintext bytes + cmac
+	byte_ard* databuf = (byte_ard*)malloc(bufsize);
 
-  // Since cipher_len is always going to be congruent to 16 in modulus 16, we can
-  // use it to indicate much larger ciphertext then 127 if we use that fact. 
-  u_int16_ard cipher_len = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
-  u_int16_ard bufsize = cipher_len+2+16; // 2 plaintext bytes + cmac
-  byte_ard* databuf = (byte_ard*)malloc(bufsize);
 
-	// Get the private key from the EEPROM
-	byte_ard keybuf[KEY_BYTES] = 
-		{ 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 
-		  0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
-
-	// Expand the masterkey (temporarily) to get encryption and authentication 
-	// schedules. Use the public constant for derivation of authentication key.
-	TSenseKeyPair KSte(keybuf,cEpsilon);
     
-  pack_data( &msg, (const u_int32_ard*)KSte.getCryptoKeySched(), 
-             (const u_int32_ard*)KSte.getMacKeySched(), databuf );
+	// Use the K_ste derived above to encrypt and mack the data package.
+	pack_data(	&msg, (const u_int32_ard*)K_ste->getCryptoKeySched(), 
+				(const u_int32_ard*)K_ste->getMacKeySched(), databuf );
  
+  	cout << endl;
+ 	cout << "databuf" << endl;
 	printByteArd(databuf,bufsize,16);
 
-/*
+	cout << "K_STe" << endl;
+	printByteArd(K_ste->getCryptoKeySched(), 16, 16);
+
+	cout << "K_STea" << endl;
+	printByteArd(K_ste->getMacKeySched(), 16, 16);
+
 	// The server disconnects after each request so we reconnect.
 	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
 
-     err = BIO_write(conn, (void*)databuf, bufsize);
+	int err;
+	err = BIO_write(conn, (void*)databuf, bufsize);
 
-    BIO_free(conn);
+	BIO_free(conn);
   
-*/  
 
-  // Free
-//  free(databuf);
-//  free(msg.data);
+	// Free
+	free(databuf);
+	free(msg.data);
 
-	// -----------
-
-	byte_ard readBuf[2048];
-	memcpy(readBuf,databuf,bufsize);
-	
-/*
-    TsDbSinkSensorProfile *tssp;
-
-    try {
-        tssp = new TsDbSinkSensorProfile(tmpID, dbcd);
-
-    } catch(runtime_error rex) {
-        log_err_exit(rex.what());
-    }
-*/
-
-    struct data sensorData;
-
-    unpack_data(readBuf,
-                (const u_int32_ard*) KSte.getCryptoKeySched(),
-                &sensorData);
-
-	printByteArd(readBuf,100,16);
-
-    printf( "msg_type:     %x\n", sensorData.msgtype);
-    printf( "cipher_len:   %x\n", sensorData.cipher_len);
-	printByteArd(sensorData.id,ID_SIZE,6);
-    printf( "msg_time:     %u\n", sensorData.msgtime);
-    printf( "data_len:     %x\n", sensorData.data_len);
-	printf("cipher data:\n");
-	printByteArd(sensorData.ciphertext,sensorData.cipher_len,16);
-	printf("data:\n");
-	printByteArd(sensorData.data,sensorData.data_len,16);
-
-    // data
-    // ciphertext
-	printByteArd(sensorData.cmac,16,16);
-
-	free(sensorData.ciphertext);
-	free(sensorData.data);
 }
 
 
 int main(int argc, char *argv[]){
 
     BIO *conn;
-/*
+
 	printf("NEWKEY_FULLSIZE: %d", NEWKEY_FULLSIZE);
 
 	byte_ard K_AT[] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 
@@ -372,9 +350,10 @@ int main(int argc, char *argv[]){
     do_client_loop(conn);
     fprintf(stderr, "Connection closed\n");
 
-    BIO_free(conn);
-*/
 	senddata(conn);
+
+    BIO_free(conn);
+
 
     return 0;
 }
