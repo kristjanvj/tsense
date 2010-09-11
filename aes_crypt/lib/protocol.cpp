@@ -723,6 +723,8 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
   }
 }
 
+#include "aes_utils.h"
+
 /**
  * unpack_data()
  *
@@ -747,6 +749,7 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
 
 void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
 {
+
   byte_ard* cStream = (byte_ard*)pStream;
   
   msg->msgtype = cStream[0];
@@ -762,7 +765,7 @@ void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
   // Read the ciphertext
   for (u_int16_ard i = 0; i < cipherlen; i++)
   {
-    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + 1];
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + 1 + i]; /// ERROR MISSING i
   }
 
   // .. and cmac
@@ -774,9 +777,16 @@ void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
   // Decrypt
   // Malloc, is free'd in the end of unpack_data()
   byte_ard* plainbuff = (byte_ard*)malloc(cipherlen);
+
+//  printf("ciphertext:\n");
+//  printByteArd(msg->ciphertext,cipherlen+10,16); 
   
   CBCDecrypt((void*)msg->ciphertext, (void*)plainbuff, cipherlen, pKeys,
            (const u_int16_ard*)IV);
+
+//  printf("ciphertext:\n");
+//  printByteArd(msg->ciphertext,cipherlen+10,16); 
+//  printf("cipherlen %d\n",cipherlen);
 
   // ID
   for (u_int16_ard i = 0; i < ID_SIZE; i ++)
