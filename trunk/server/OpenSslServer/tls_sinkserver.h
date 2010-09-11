@@ -52,6 +52,8 @@ class TlsSinkServer : public TlsBaseServer{
 
 		void handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 								byte_ard* readBuf, int readLen);
+		void handleData(SSL *ssl, BIO* proxyClientRequestBio,
+								byte_ard* readBuf, int readLen);
 
 		int handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
 						  byte_ard *readBuf, int readLen);

@@ -95,6 +95,8 @@ int TlsSinkServer::handleMessage(SSL *ssl, BIO* proxyClientRequestBio,
 	}else if(readBuf[0] == 0x31){ 
 		// Handshake message, regular rekey is ox30.
 		handleRekey(ssl, proxyClientRequestBio, readBuf, readLen);
+	}else if(readBuf[0] == 0x01){ 
+		handleData(ssl, proxyClientRequestBio, readBuf, readLen);
 	}else{
         log_err_exit("Error, unsupported protocol message.");
 	}
@@ -299,6 +301,48 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 	} catch(runtime_error rex) {
 		log_err_exit(rex.what());
 	}
+}
+
+void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
+                                      byte_ard* readBuf, int readLen)
+{
+	byte_ard tmpID[10]; 
+	memcpy(tmpID, readBuf+1, 6);
+
+	TsDbSinkSensorProfile *tssp;
+
+	try {
+		tssp = new TsDbSinkSensorProfile(tmpID, dbcd);
+
+	} catch(runtime_error rex) {
+		log_err_exit(rex.what());
+	}
+
+	struct data sensorData;
+
+	unpack_data(readBuf, 
+				(const u_int32_ard*) (tssp->getKsteSched()),
+				&sensorData);
+
+
+	syslog(LOG_NOTICE, "msg_type:     %x", sensorData.msgtype);
+	for(int i = 0; i < ID_SIZE; i++) {
+		syslog(LOG_NOTICE, "id:           %x", sensorData.id[i]);
+	}
+	syslog(LOG_NOTICE, "msg_time:     %u", sensorData.msgtime);
+	syslog(LOG_NOTICE, "data_len:     %x", sensorData.data_len);
+	syslog(LOG_NOTICE, "cipher_len:   %x", sensorData.cipher_len);
+	// data
+	// ciphertext
+	for(int i = 0; i < BLOCK_BYTE_SIZE; i++) {
+		syslog(LOG_NOTICE, "cmac:         %x", sensorData.cmac[i]);
+	}
+
+	for(int i = 0; i < sensorData.data_len; i++) {
+		syslog(LOG_NOTICE, "data:         %x", sensorData.data[i]);
+	}
+
+	delete tssp;
 }
 
 /* This method is called after a BIO channel connection from the proxy client 
