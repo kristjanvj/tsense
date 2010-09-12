@@ -148,5 +148,6 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
 
 void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
 void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg);
+void unpack_data(void* pStream, void* pID);
 
 #endif
