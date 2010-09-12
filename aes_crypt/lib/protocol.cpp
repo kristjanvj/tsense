@@ -650,13 +650,16 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
  * Packs the measurment data collected by the tsensor. Right now,
  * data is assumed to reside inside a byte_ard array.
  *
- * Name:    MSG Code | Cipher Length | Ciphertext                                            | Cmac 
- * Bytes:   1        | 1             | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 16
- * Data:    0x01     |               | Public ID, Msg Time, Buffer length, Data              |      
+ * Name:    MSG Code | Cipher Len | Pub ID | Ciphertext                                            | Cmac 
+ * Bytes:   1        | 1          | 6      | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 16
+ * Data:    0x01     |            |        | Public ID, Msg Time, Buffer length, Data              |      
  */
 
 void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer)
 {
+  /**
+   * Msg type
+   */
   byte_ard* cBuffer = (byte_ard*)pBuffer;
   cBuffer[0] = MSG_T_DATA_SEND;
 
@@ -676,10 +679,17 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
   // Since cipher_len is always going to be congruent to 16 in modulus 16, we can
   // use it to indicate much larger ciphertext then 127 if we use that fact. 
   msg->cipher_len = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
-
   cBuffer[MSGTYPE_SIZE] = msg->cipher_len;
 
-  /*
+  /**
+   * Sink needs the device ID to look up the encryption key.
+   */
+  for (u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    cBuffer[MSGTYPE_SIZE + 1 + i] = msg->id[i];
+  }
+
+  /**
    * Malloc is needed because we don't know the exact size
    */
   byte_ard* plaintext = (byte_ard*)malloc(plainsize);
@@ -719,11 +729,9 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
 
   for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
-    cBuffer[MSGTYPE_SIZE + 1 + (u_int16_ard)msg->cipher_len + i] = msg->cmac[i];
+    cBuffer[MSGTYPE_SIZE + 1 + ID_SIZE + (int16_ard)msg->cipher_len + i] = msg->cmac[i];
   }
 }
-
-#include "aes_utils.h"
 
 /**
  * unpack_data()
@@ -737,7 +745,7 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
  *    Name          | Summary                            | Data
  *    ------------------------------------------------------------------
  *    msgtype       | 1-byte message code                | 0x01
- *    id            | 6-byte public id                   |
+ *    id            | 6-byte public id (from ciphertext) |
  *    msgtime       | 4-byte unix time in u_int          |
  *    data_len      | 1-byte denotes length of data      |
  *    cipher_len    | 1-byte denotes length of ciphertext|
@@ -778,15 +786,8 @@ void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
   // Malloc, is free'd in the end of unpack_data()
   byte_ard* plainbuff = (byte_ard*)malloc(cipherlen);
 
-//  printf("ciphertext:\n");
-//  printByteArd(msg->ciphertext,cipherlen+10,16); 
-  
   CBCDecrypt((void*)msg->ciphertext, (void*)plainbuff, cipherlen, pKeys,
            (const u_int16_ard*)IV);
-
-//  printf("ciphertext:\n");
-//  printByteArd(msg->ciphertext,cipherlen+10,16); 
-//  printf("cipherlen %d\n",cipherlen);
 
   // ID
   for (u_int16_ard i = 0; i < ID_SIZE; i ++)
@@ -818,4 +819,26 @@ void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
   }
   
   free(plainbuff);
+}
+
+/**
+ * unpack_data_getid() is a small utility method for the sink to
+ * scrape the public id from the bytestream since it cannot run
+ * unpack_data() without the key schedule and it cannot determine
+ * what key schedule to run without the id.
+ *
+ * See the documentation for pack_data() on how the bytestream is
+ * ordered. 
+ */
+
+void unpack_data_getid(void* pStream, void* pID)
+{
+  byte_ard* cStream = (byte_ard*)pStream;
+  byte_ard* cID = (byte_ard*)cStream;
+
+  // No buffer overflow. 
+  for(u_int16_ard i = 0; i < ID_SIZE; i++)
+  {
+    cID[i] = cStream[MSGTYPE_SIZE + 1 + i];
+  }
 }
