@@ -1,10 +1,23 @@
 /**
  *  Benedikt Kristinsson, 2010
  *
- *  (GPL here)
- *
  *  Tsense Protocol methods. Written in C++ to ensure comptability with Arduino
  *  wiring, but made to be compilable with gcc and g++.
+ *
+ *    This file is part of the Trusted Sensors Research Project (TSense).
+ *
+ *  TSense is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  TSense is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with the TSense code.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
 
@@ -100,6 +113,7 @@ struct data
   u_int32_ard msgtime;             // Seconds since epoch. 32 bit, susceptable to y2k38.
   byte_ard data_len;               // Length of the data buffer
   byte_ard cipher_len;             // Length of the cipher part (ID + data_len + msgtime + data + padding)
+  byte_ard cipher_len;             // Length of the ciphered portion of the packet. 
   byte_ard* data;                  // The data itself.
   byte_ard* ciphertext;            // The ciphertext. This will ONLY be allocated in unpack's
   byte_ard cmac[BLOCK_BYTE_SIZE];  // CMAC 
@@ -134,6 +148,7 @@ void unpack_newkey(void* pStream, const u_int32_ard* pKeys, struct message* msg)
  */
 
 void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pCmacKeys, void* pBuffer);
+void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg);
 
 void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg);
 #endif
