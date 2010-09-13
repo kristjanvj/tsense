@@ -41,15 +41,15 @@ from time import *
 #
 # Debug "defines"
 #
-debug_dump_buffers = False	# Dump buffers received from sensor/sink in readable hex format
+debug_dump_buffers = True	# Dump buffers received from sensor/sink in readable hex format
 
 #
 # The version info. Useful to detect old sensor software versions if we have
 # several sensor boards around.
 #
 cur_maj_ver = 0
-cur_min_ver = 1
-cur_revision = 30
+cur_min_ver = 2
+cur_revision = 40
 
 #
 # The USB (serial) port parameters for the sensor connection
@@ -68,20 +68,22 @@ socket_timeout = 5
 #
 # Other sensor parameter
 #
-sampling_interval	 = 5   # seconds between samples
-sampling_buffer_size = 20  # Samples per interface per report
+sampling_interval	 = 1   # seconds between samples
+sampling_buffer_size = 10  # Samples per interface per report
 
 #
 # Message type definitions. Message identifiers are carried in the first byte of all messages.
 # See the protocol definition on the wiki page for details
 #
 # The "proper" protocol
+MSG_T_DATA_SEND			= 0x01
 MSG_T_GET_ID_R          = 0x10
 MSG_T_KEY_TO_SINK       = 0x11
 MSG_T_KEY_TO_SENSE      = 0x12
 MSG_T_ID_RESPONSE_ERROR = 0x1f
 MSG_T_REKEY_REQUEST     = 0x30
 MSG_T_REKEY_HANDSHAKE   = 0x31
+MSG_T_REKEY_RESPONSE	= 0x32
 MSG_T_FINISH            = 0x90
 MSG_T_ERROR             = 0xff
 # The sensor/client protocol (USB conn only)
@@ -162,6 +164,12 @@ def check_version_valid(version):
        version[1] == cur_min_ver and \
 	   version[2] >= cur_revision		
 
+def forwardToSink(buf,logger):
+	logger.info("TO SINK: Forwarding buffer to sink '%s' (%d)" % (socket_host,socket_port))
+	# Setup the socket connection
+	sock,sfile = setup_socket()
+	sfile.write(buf)
+
 def forwardAndWait(buf,logger):
 	"""
 	Forward message from the sensor to the sink server on the socket connection and 
@@ -170,17 +178,23 @@ def forwardAndWait(buf,logger):
 	This method handles all possible protocol messages although not strictly necessary.
 	Exceptions are raised for messages which are not legal for the sink to return.
 	"""
-	logger.info("TO SINK: Forwarding buffer to sink '%s' (%d)" % (socket_host,socket_port))
 
+	logger.info("TO SINK: Forwarding buffer to sink '%s' (%d)" % (socket_host,socket_port))
 	# Setup the socket connection
 	sock,sfile = setup_socket()
 	sfile.write(buf)
-#	sfile.write("\n")
+
+	#
+	# TODO: Clean up. Handle all unexpected messages in one else
+	# 
 
 	# Handle the messages -- the id is in the first byte
 	resp = sfile.read(1)  
 	msg_code = ord(resp[0])
-	if msg_code == MSG_T_GET_ID_R:
+	if msg_code == MSG_T_DATA_SEND:
+		logger.info("FROM SINK: Received a data send message")
+		raise Exception("Unexpected data send message from sink");
+	elif msg_code == MSG_T_GET_ID_R:
 		logger.info("FROM SINK: Received an Id response message")
 		raise Exception("Unexpected id response from sink")
 	elif msg_code == MSG_T_KEY_TO_SINK:
@@ -225,10 +239,10 @@ def handleKeyToSense(sfile,logger):
 #	print "handleIdResponseError"
 
 def handleRekeyResponse(sfile,logger):
-	print "handleRekeyResponse"
-	buf = sfile.read(38)
+	print "\nhandleRekeyResponse\n"
+	buf = sfile.read(54)
 	print "received a buffer of length %d:\n%s" % (len(buf),hexstr(buf))
-	if len(buf)!=38:
+	if len(buf)!=54:
 		raise Exception("Unexpected number of bytes received for a newkey message");
 	return buf
 
@@ -385,6 +399,12 @@ def sendIdQuery(ser,logger):
 	ser.timeout = usb_timeout  # Set some reasonable timeout for the serial connection	
 	ser.write(cmd)
 
+def sendStopMessage(ser,logger):
+	cmd=chr(MSG_T_FINISH)
+	ser.timeout = usb_timeout
+	ser.write(cmd);
+	logger.info("Sending stop message to sensor. Return code: 0x%.2x" % readAck(ser,logger));
+
 def handleIdResponse(ser,logger):
 	"""
 	Reads the expected number of bytes for an id response message from the sensor and 
@@ -420,6 +440,10 @@ def listenAndForwardLoop(ser,logger):
 	Messages which should not be received from the sensor raise exceptions.
 	"""
 	logger.debug("Entering listen and forward loop.")
+
+	#
+	# TODO: Clean up. Handle all unexpected messages in one else
+	# 
 	
 	# Repeat "forever" -- that is, until an exception occurs
 	while True:
@@ -427,8 +451,13 @@ def listenAndForwardLoop(ser,logger):
 		buf = ser.read(1)
 		# Handle received messages based on message id in first byte.
 		msg_code = ord(buf[0])
-		print "\n *** Received message with code 0x%.2x ***\n" % msg_code
-		if msg_code == MSG_T_ACK:
+		print "\n *** Received message with code 0x%.2x from tsensor ***\n" % msg_code
+		if msg_code == MSG_T_DATA_SEND:    # Valid from sensor
+			logger.info("FROM SENSOR: Received a data send message")
+			buf+=handleDataMessage(ser)
+			forwardToSink(buf,logger)  # Dont wait for an answer -- fire and forget
+			continue
+		elif msg_code == MSG_T_ACK:
 			# An ACK is not expected at this point in the protocol except for abnormal 
 			# circumstances. Lets print and ignore at this point in time.
 			code = ord(ser.read(1))
@@ -442,7 +471,7 @@ def listenAndForwardLoop(ser,logger):
 			handleDebugPacketFromSensor(ser)
 			continue # Dont handle further
 		elif msg_code == MSG_T_GET_ID_R:
-			logger.info("FROM SENSOR: Received an Id response message") #valid from sensor
+			logger.info("FROM SENSOR: Received an Id response message") # valid from sensor
 			buf+=handleIdResponse(ser,logger)
 			ser.timeout = None
 		elif msg_code == MSG_T_KEY_TO_SINK:
@@ -493,9 +522,18 @@ def listenAndForwardLoop(ser,logger):
 		if code==0x00:
 			logger.info("FROM SENSOR: Normal ACK -- transaction completed");
 		else:
-			logger.exception("Protocol error: ACK with code 0x%.2x" % code)
-			raise Exception("Protocol error: CODE: 0x%.2x" % code)
-							
+#			logger.exception("Protocol error: ACK with code 0x%.2x" % code)
+			raise Exception("Protocol error: CODE: 0x%.2x" % code)  # TODO: REMOVED FOR DEBUG
+					
+def handleDataMessage(ser):
+	rbuf = ser.read(1) # Read the next byte -- crypto length
+	length = ord(rbuf[0])
+	total_length = length + 6 + 16 # add rest of plaintext header and the mac
+	print "Data message received -- encrypted length is %d" % length;
+	rbuf+= ser.read(total_length) # Read the rest of the data
+	print "HEX:\n%s" % hexstr(rbuf)
+	return rbuf
+		
 def handleDebugPacketFromSensor(ser):
 	slen = ser.read(1)
 	length = ord(slen[0]);
@@ -576,16 +614,15 @@ def main(argv=None):
 	logger.info("START: Starting tsclient")
 
 	try:
-		# Setup the serial port
 		try:
-			ser = setup_serial(logger) # TODO: Handle timeouts
-		except Exception, err:
-			print >>sys.stderr, err
-			logger.exception(err)
-			sys.exit(-1)	
+			# Setup the serial port
+			try:
+				ser = setup_serial(logger)
+			except Exception, err:
+				print >>sys.stderr, err
+				logger.exception(err)
+				sys.exit(-1)	
 
-		# Send an id query
-		try:
 			# Check if its really a tsensor thats hanging off the port. Throws an 
 			# excecption if the identifiers dont match.
 			sendStartupDeviceIdentificationQuery(ser,logger)
@@ -595,7 +632,7 @@ def main(argv=None):
 			if not check_version_valid(version):
 				logger.error("This sensor version is really old. Please update. "
 							  "Current minimum version is %.2d.%.2d.%.2d" % \
-                              (cur_maj_ver,cur_min_ver,cur_revision))
+		                      (cur_maj_ver,cur_min_ver,cur_revision))
 				sys.exit(-1)
 			# Set the current time, sampling interval and sample buffer size			
 			sendSetTimeCmd(int(time()),ser,logger)
@@ -610,18 +647,16 @@ def main(argv=None):
 			# so the response is handed as an insertion request to the sink.
 			sendIdQuery(ser,logger) 
 			listenAndForwardLoop(ser,logger)
+		except KeyboardInterrupt:
+			print >>sys.stdout, "Bye"
+			logger.info("STOP: Graceful stop of tsclient")
 		except Exception, err:
 			print >>sys.stderr, err
-			logger.exception(err)		
-			sys.exit(-1)	
-	except KeyboardInterrupt:
-		print >>sys.stdout, "Bye"
-		logger.info("STOP: Graceful stop of tsclient")
-	except Exception, err:
-		print >>sys.stderr, err
-		logger.exception(err)
-
-	# TODO: Clean up ports etc on finally?
+			logger.exception(err)			
+	finally:
+		sendStopMessage(ser,logger);
+		logger.info("tsclient exits");
+		# TODO: Clean up ports etc on finally?
 
 if __name__ == "__main__":
 	sys.exit(main())
