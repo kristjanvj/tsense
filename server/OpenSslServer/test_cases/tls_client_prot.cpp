@@ -31,40 +31,26 @@ void printBytes2(unsigned char* pBytes, unsigned long dLength, int textWidth=16)
         printf("\n");
 }
 
-byte_ard key[] = {  0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-					0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
-
-TSenseKeyPair *K_at;
 TSenseKeyPair *K_st;
 TSenseKeyPair *K_ste;
 
-void do_client_loop(BIO *conn){
+void do_client_loop(BIO *conn, byte_ard *keyBuf, byte_ard *idBuf, int sink_port){
     int err;
 
 	// Pack idresponse message -------------------------------------------------
 
 	printf("Packing and sending idresponse message\n");
 
-	byte_ard pBuffer[IDMSG_FULLSIZE];
-
-	// Get the private key from the EEPROM
-	byte_ard masterKeyBuf[KEY_BYTES] = 
-		{ 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 
-		  0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
-
 	// Expand the masterkey (temporarily) to get encryption and authentication 
 	// schedules. Use the public constant for derivation of authentication key.
-	TSenseKeyPair masterKeys(masterKeyBuf,cAlpha);
+	TSenseKeyPair masterKeys(keyBuf,cAlpha);
 
-	// Get the public id from EEPROM
-	byte_ard idbuf[6] = {0x00,0x01,0x00,0x00,0x00,0x02};
-////&
 	u_int16_ard idNonce = 518;
 
 	// Create the input struct and populate  
 	message msg;
 	msg.msgtype=0x10;
-	msg.pID=idbuf;
+	msg.pID=idBuf;
 	msg.nonce=idNonce;   
 
 	byte_ard idResponseBuf[IDMSG_FULLSIZE];
@@ -143,7 +129,9 @@ void do_client_loop(BIO *conn){
 	// Done unpacking keytosens message ----------------------------------------
 
 	// The server disconnects after each request so we reconnect.
-	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
+	char szConnstr[1024];
+	sprintf(szConnstr,"sink.tsense.sudo.is:%d",sink_port);
+	conn = BIO_new_connect(szConnstr);
 
 	// Pack rekey message ------------------------------------------------------
 
@@ -154,7 +142,7 @@ void do_client_loop(BIO *conn){
 	printf("----------------------\n");
 
 	struct message rekeymsg;
-	rekeymsg.pID = idbuf;
+	rekeymsg.pID = idBuf;
 	rekeymsg.nonce = rekeyNonce;
 
 	// Set the correct MSG type if you are doing a handshake
@@ -220,7 +208,7 @@ void do_client_loop(BIO *conn){
   
 	// Get the device id in the message and compare with my own
 	if (strncmp((const char *)newkeyresp.pID,
-		(const char *)idbuf,ID_SIZE) != 0 )
+		(const char *)idBuf,ID_SIZE) != 0 )
 	{
 		printf("ID mismatch in rekey\n");
 		return;         
@@ -260,83 +248,110 @@ void do_client_loop(BIO *conn){
 
 	// Done deriving K_ste -----------------------------------------------------
   
+	printf("Encryption keys:\n");
+	printf("Kste:\n");
+	printByteArd(K_ste->getCryptoKey(),16,16);
+	printf("Kstea:\n");
+	printByteArd(K_ste->getMacKey(),16,16);
+
+
 	free(newkeyresp.ciphertext);
 	free(newkeyresp.pID);
 
 	printf("Done handling newkey message from sink\n\n");
 }
 
-void senddata(BIO *conn)
+void senddata(BIO *conn, byte_ard *deviceId, int sink_port)
 {
+	printf("\n\nData transmit test\n");
+	printf("==================\n\n");
+
+	printf("Transmission keys:\n");
+	printf("K_STe: ");
+	printByteArd(K_ste->getCryptoKeySched(), 16, 16);
+	printf("K_STea ");
+	printByteArd(K_ste->getMacKeySched(), 16, 16);
+	
+	static unsigned char counter=0;
+
 	data msg;  // Struct to hold the data messages
-	byte_ard tmpid[] = {0x00,0x01,0x00,0x00,0x00,0x02};
-	memcpy(msg.id,tmpid,6);
-	msg.msgtime = 1234;
+	memcpy(msg.id,deviceId,6);
+	time_t t;
+	time(&t);
+	msg.msgtime = t;
 	msg.data_len = 20;
 	msg.data = (byte_ard*)malloc(msg.data_len);
 
+	printf("My time is %ld\n",t);
+
 	byte_ard measBuffer[20];
 	for (int i=0; i<20; i++){
-		measBuffer[i] = 0x01;
+		measBuffer[i] = counter++;
+		counter %= 0xFF;
 	}
-
 	memcpy(msg.data,measBuffer,msg.data_len);
-  
-	u_int16_ard plainsize = ID_SIZE+MSGTIME_SIZE+1+(u_int16_ard)msg.data_len;
+	printf("Data buffer:\n");
+	for( int i=0; i<msg.data_len; i++) 
+		printf("%d ", msg.data[i]);
+	printf("\n\n");
 
+	u_int16_ard plainsize = ID_SIZE+MSGTIME_SIZE+1+msg.data_len;
 	u_int16_ard cipher_len = (1+(plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
-	u_int16_ard bufsize = cipher_len+2+16; // 2 plaintext bytes + cmac
+	u_int16_ard bufsize = cipher_len+8+16; // 8 plaintext bytes + cmac
 	byte_ard* databuf = (byte_ard*)malloc(bufsize);
-
-
     
 	// Use the K_ste derived above to encrypt and mack the data package.
-	pack_data(	&msg, (const u_int32_ard*)K_ste->getCryptoKeySched(), 
-				(const u_int32_ard*)K_ste->getMacKeySched(), databuf );
- 
-  	cout << endl;
- 	cout << "databuf" << endl;
-	printByteArd(databuf,bufsize,16);
-
-	cout << "K_STe" << endl;
-	printByteArd(K_ste->getCryptoKeySched(), 16, 16);
-
-	cout << "K_STea" << endl;
-	printByteArd(K_ste->getMacKeySched(), 16, 16);
+	pack_data( &msg, (const u_int32_ard*)K_ste->getCryptoKeySched(), 
+			   (const u_int32_ard*)K_ste->getMacKeySched(), databuf );
 
 	// The server disconnects after each request so we reconnect.
-	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
+	char szConnstr[1024];
+	sprintf(szConnstr,"sink.tsense.sudo.is:%d",sink_port);
+	conn = BIO_new_connect(szConnstr);
 
 	int err;
 	err = BIO_write(conn, (void*)databuf, bufsize);
 
+  	cout << endl;
+ 	cout << "Wrote data to socket:" << endl;
+	printByteArd(databuf,bufsize,16);
+
 	BIO_free(conn);
   
-
 	// Free
 	free(databuf);
 	free(msg.data);
-
 }
 
 
 int main(int argc, char *argv[]){
 
+	printf("\n\nEnd-to-end protocol test begins\n");
+	printf("===============================\n\n");
+
     BIO *conn;
 
-	printf("NEWKEY_FULLSIZE: %d", NEWKEY_FULLSIZE);
+	byte_ard deviceid[] = {0x00,0x01,0x00,0x00,0x00,0x0a};
 
-	byte_ard K_AT[] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 
-                        0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
+	// Set the private key for device 00 01 - 00 00 00 0A
+	byte_ard masterKeyBuf[KEY_BYTES] = 
+		{ 0x0c, 0xbb, 0x0a, 0x6f, 0xe8, 0x1b, 0x20, 0x17, 
+		  0x14, 0xa1, 0xae, 0x4b, 0xb2, 0xea, 0x5e, 0x00 };
 
-    byte_ard alpha[] = { 0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 
-                         0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
+	if ( argc < 2 )
+	{
+		printf("Sink port required\n");
+		return -1;
+	}
 
-	K_at = new TSenseKeyPair(K_AT, alpha);
+	int sink_port = atoi(argv[1]);
+	printf("Using sink port %d\n\n",sink_port);
 
     init_OpenSSL();
 	
-	conn = BIO_new_connect((char*)"sink.tsense.sudo.is:6002");
+	char szConnstr[1024];
+	sprintf(szConnstr,"sink.tsense.sudo.is:%d",sink_port);
+	conn = BIO_new_connect(szConnstr);
 
     if(!conn){
         int_error("Error createing connection BIO");
@@ -347,13 +362,12 @@ int main(int argc, char *argv[]){
     }
 
     fprintf(stderr, "Connection opened\n");
-    do_client_loop(conn);
+    do_client_loop(conn,masterKeyBuf,deviceid,sink_port);
     fprintf(stderr, "Connection closed\n");
 
-	senddata(conn);
+	senddata(conn,deviceid,sink_port);
 
     BIO_free(conn);
-
 
     return 0;
 }
