@@ -49,8 +49,8 @@
 // CHANGE THIS AT LEAST WHEN MODIFYING THE PROTOCOL.
 //
 #define MAJOR_VERSION   0
-#define MINOR_VERSION   1
-#define REVISION       30
+#define MINOR_VERSION   2
+#define REVISION       40
 
 #include <EEPROM.h>
 #include <stdlib.h>
@@ -58,7 +58,7 @@
 #include "aes_crypt.h"
 #include "protocol.h"
 #include "tstypes.h"
-#include "devinfo.h"    // TODO: REMOVE -- INTEGRATE WITH PROTOCOL INFO AND OTHER HEADERS
+//#include "devinfo.h"    // TODO: REMOVE -- INTEGRATE WITH PROTOCOL INFO AND OTHER HEADERS
 #include "edevdata.h"   // The EEPROM data layout
 #include "memoryFree.h"
 #include "tsense_keypair.h"
@@ -72,7 +72,7 @@ void operator delete(void* ptr) { free(ptr); }
 //
 //#define verbose   // Verbose output to the serial interface.
 //#define debug     // Debug output to the serial interface.
-//#define testcounters // Counters used to generate the measurements rather than analog input
+#define testcounters // Counters used to generate the measurements rather than analog input
 
 // Defines for the digital output pins
 #define LED_STATUS          2
@@ -88,6 +88,9 @@ void operator delete(void* ptr) { free(ptr); }
 #define AI_TEMP         2
 #define AI_UNCONNECTED  5  // This pin is used to create randomness -- do not connect!
 #define AI_CUT_BITS     2  // The number of LSBs cut off the 10 bit value for more efficient packing
+
+#define INTERFACE_COUNT 2   // The number of sampled interfaces
+#define VAL_BYTE_SIZE   1   // The number of bytes allocated per sample. Must be an integer.
 
 //
 // T <-> C protocol messages. Common protocol message definitons are included in protocol.h
@@ -178,7 +181,7 @@ byte_ard samplingInterval = 1;              // The sampling interval in seconds
 byte_ard *measBuffer=NULL;                  // The measurement buffer (includes header for easier encrypt/MAC)
 byte_ard measBufferSize = 10;               // The size of the measurement buffer -- values stored per interface
 byte_ard measBufferCount = 0;               // The current position in the measurement buffer (stored values per interface)
-byte_ard *valBase=NULL;                     // The start of the values array in measBuffer
+//byte_ard *valBase=NULL;                     // The start of the values array in measBuffer
 u_int32_ard *pMsgTime=NULL;                 // Pointer to the time field in the measBuffer header
 byte_ard headerByteSize=0;                  // The size of the header portion of measBuffer
 byte_ard recordByteSize;                    // The size of a single record in measBuffer -- one record is one sample per interface
@@ -192,8 +195,8 @@ TSenseKeyPair *sessionKeys=NULL;         // The session key delivered from the a
 TSenseKeyPair *transportKeys=NULL;       // The crypto key delivered upon re-keying from sink server.
 u_int16_ard sessionKeyUseCounter=0;      // Session keys usage counter
 u_int16_ard transportKeyUseCounter=0;    // Transport key usage counter
-u_int16_ard rekeyInterval=DEFAULT_REKEY_INTERVAL; // The re-keying interval for the transport key -- delivered in message from sink server.
-
+u_int16_ard sessionRekeyInterval=DEFAULT_REKEY_INTERVAL; // The re-keying interval for the session key
+u_int16_ard transportRekeyInterval=DEFAULT_REKEY_INTERVAL; // The re-keying interval for the transport key
 
 /**
  *  setup
@@ -483,7 +486,7 @@ void handleKeyToSense()
 
   // Validate the MAC  
   int validMac = verifyAesCMac( (const u_int32_ard *)masterKeys.getMacKeySched(), 
-                                pCommandBuffer+1, KEYTOSINK_CRYPTSIZE, pCommandBuffer+33 );
+                                senserecv.ciphertext, KEYTOSINK_CRYPTSIZE, senserecv.cmac );
   if ( validMac==0 )                                                              
   {
     setWarningState(ERR_CODE_KEYTOSENSE_MAC_FAILED);
@@ -506,9 +509,9 @@ void handleKeyToSense()
     delete sessionKeys;
   sessionKeys = new TSenseKeyPair(senserecv.key,cBeta);  // Use the key derivation constant
   if ( senserecv.renewal_timer=0 )
-    rekeyInterval=DEFAULT_REKEY_INTERVAL;
+    sessionRekeyInterval=DEFAULT_REKEY_INTERVAL;
   else
-    rekeyInterval=senserecv.renewal_timer;
+    sessionRekeyInterval=senserecv.renewal_timer;
   sessionKeyUseCounter=0; // Set the session key use counter to zero since we have a fresh key
       
   // Cleanup
@@ -520,7 +523,7 @@ void handleKeyToSense()
   setProtocolState(PROT_STATE_SESSION_KEY_SET);        
   sendAck(ERR_CODE_OK);
 
-  sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);  // TESTING ONLY
+/**  sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);  // TESTING ONLY */
 /**  sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);  // TESTING ONLY  **/
 
 /*  
@@ -552,7 +555,7 @@ void sendRekeyRequest()
   rekeyNonce %= NONCE_MAX_VALUE; // Wrap around
   
   // Get the public devie id from EEPROM
-  byte_ard idbuf[DEV_ID_LEN];  
+  byte_ard idbuf[DEV_ID_LEN]; 
   getPublicIdFromEEPROM(idbuf);
     
   // Construct the message struct and fill in the needed fields.
@@ -562,7 +565,7 @@ void sendRekeyRequest()
   msg.pID = idbuf;
 
   // Pack, encrypt and MAC the message using the session key.
-  byte_ard *buffer = (byte_ard *)malloc(REKEY_FULLSIZE);
+  byte_ard buffer[REKEY_FULLSIZE];
   pack_rekey( &msg, (const u_int32_ard *)sessionKeys->getCryptoKeySched(), 
               (const u_int32_ard *)sessionKeys->getMacKeySched(), buffer );  
   sessionKeyUseCounter++;  // Keep track of how often the key has been used
@@ -572,7 +575,7 @@ void sendRekeyRequest()
   
   // Write the buffer to serial and free
   Serial.write(buffer,REKEY_FULLSIZE);  
-  free(buffer);
+//  free(buffer);
 
   // Update the protocol state
   setProtocolState(PROT_STATE_REKEY_PENDING);
@@ -596,25 +599,34 @@ void handleRekeyResponse()
   }
    
   // Allocate a receive buffer and read the expected number of bytes from the serial port
-  byte_ard *pCommandBuffer = (byte_ard *)malloc(REKEY_FULLSIZE);  // TODO: CHECK THE BUFFER SIZE
-  readFromSerial(pCommandBuffer,REKEY_FULLSIZE);
+  byte_ard pCommandBuffer[NEWKEY_FULLSIZE]; // = (byte_ard *)malloc(NEWKEY_FULLSIZE);  // TODO: CHECK THE BUFFER SIZE
+  pCommandBuffer[0]=MSG_T_REKEY_RESPONSE;
+  readFromSerial(pCommandBuffer+1,NEWKEY_FULLSIZE);
 
   // Unpack the raw buffer into a message struct
   message msg; 
   msg.ciphertext = (byte_ard*)malloc(NEWKEY_CRYPTSIZE);
-  msg.pID = (byte_ard*)malloc(6);
+  msg.pID = (byte_ard*)malloc(ID_SIZE);
   
   unpack_newkey(pCommandBuffer,(const u_int32_ard *)sessionKeys->getCryptoKeySched(),&msg);
-  free(pCommandBuffer);
+
+  byte_ard tempmac[16];
+  aesCMac((const u_int32_ard*)sessionKeys->getMacKeySched(), msg.ciphertext, NEWKEY_CRYPTSIZE, tempmac);
 
   // Check the MAC against the encrypted data
-  if ( !verifyAesCMac( (const u_int32_ard *)sessionKeys->getMacKeySched(), msg.ciphertext, REKEY_CRYPTSIZE, msg.cmac ) )
+  int validMac = verifyAesCMac( (const u_int32_ard *)sessionKeys->getMacKeySched(), msg.ciphertext, NEWKEY_CRYPTSIZE, msg.cmac );
+  if ( validMac==0 )
   {
     setWarningState(ERR_CODE_REKEYRESPONSE_MAC_FAILED);
     sendAck(errorCode);
+/*    sendDebugPacket("BUF",pCommandBuffer,NEWKEY_FULLSIZE);
+    sendDebugPacket("CIPHER",msg.ciphertext,NEWKEY_CRYPTSIZE);
+    sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);    
+    sendDebugPacket("MAC",msg.cmac,16);
+    sendDebugPacket("TMAC",tempmac,16);  */
     return;     
   }
-    
+
   //
   // Get the data available from the rekey message
   //  
@@ -640,13 +652,13 @@ void handleRekeyResponse()
   }
 
   // Get the random number R delivered by sink and derive transport encryption and authentication keys
-  byte_ard pTransportKey[KEY_BYTES];  // Allocate temporary buffer for the transport encryption key
-  byte_ard* pDerivKeys[KEY_BYTES*11]; 
-  KeyExpansion(cGamma,pDerivKeys);      // Expand the derivation key schedule for random -> K_STe
-  aesCMac((const u_int32_ard *)pDerivKeys,msg.rand,KEY_BYTES,pTransportKey); // CMAC the random number to get K_STe
-
-  // Set the re-key interval as specified by sink (delivered in t (timer) field in protocol)
-  rekeyInterval = msg.renewal_timer; // Set the re-key interval -- timer is a bit of a misnomer
+  byte_ard pTransportKey[KEY_BYTES];  
+  // Allocate temporary buffer for the transport encryption key
+  byte_ard* pGammaKeySched[KEY_BYTES*11]; 
+  // Expand the derivation key schedule for random -> K_STe
+  KeyExpansion(cGamma,pGammaKeySched);      
+  // CMAC the random number to get K_STe
+  aesCMac((const u_int32_ard *)pGammaKeySched,msg.rand,KEY_BYTES,pTransportKey); 
 
   // Save the transport key -- cEpsilon is the constant for authentication key derivation    
   if ( transportKeys != NULL )
@@ -654,21 +666,184 @@ void handleRekeyResponse()
   transportKeys = new TSenseKeyPair(pTransportKey,cEpsilon);
   // Reset the rekey counter since we have a fresh key
   transportKeyUseCounter=0; 
+
+  // Set the re-key interval as specified by sink (delivered in t (timer) field in protocol)
+  if ( msg.renewal_timer == 0 )
+    transportRekeyInterval = DEFAULT_REKEY_INTERVAL;
+  else
+    transportRekeyInterval = msg.renewal_timer; // Set the re-key interval for the transport key
   
   // Update the protocol state and start the capture
   allocateMeasBuffer();
   setProtocolState(PROT_STATE_KEY_READY);
-  
   sendAck(ERR_CODE_OK);
-  
+
+  // Debug stuff follows -- can be removed later
+/*  
+  sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);
+  sendDebugPacket("CID",msg.pID,6);  
   sendDebugPacket("RAND",msg.rand,16);
-  sendDebugPacket("CKEY",transportKeys->getCryptoKey(),16);
-  sendDebugPacket("MKEY",transportKeys->getMacKey(),16);
-  
-  free(msg.ciphertext);
+  sendDebugPacket("TEKEY",transportKeys->getCryptoKeySched(),16);
+  sendDebugPacket("TMKEY",transportKeys->getMacKeySched(),16);  
+
+  byte_ard temp[20];
+  temp[0]=lowByte(rekeyNonce);
+  temp[1]=highByte(rekeyNonce);
+  temp[2]=lowByte(msg.nonce);
+  temp[3]=highByte(msg.nonce);
+  sendDebugPacket("NONCES",temp,4);
+*/
+  free(msg.ciphertext);  // TODO: CHECK free on abnormal returns
   free(msg.pID);
+  
+  ///// DEBUG /////
+/*
+  delay(1000);
+  measBufferSize=20;
+  measBufferCount=measBufferSize; //*INTERFACE_COUNT;
+  for( int i=0; i<measBufferCount; i++ )
+    measBuffer[i]=i;
+    
+  sendData(); */
 }
  
+void sendData()
+{ 
+  u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + measBufferCount;
+  u_int16_ard cipher_len = plainsize;
+  if ( plainsize%16!=0 )  
+    cipher_len = (1+(cipher_len/16))*16;
+  u_int16_ard bufsize = MSGTYPE_SIZE + 1 + ID_SIZE + cipher_len + 16;
+  byte_ard* transmitBuffer = (byte_ard*)malloc(bufsize);
+  memset(transmitBuffer,0,bufsize);
+
+  // Insert the message identifier  
+  transmitBuffer[0]=0x01;
+  // Insert the cipher buffer length in bytes.
+  // Must be a multiple of blocklenght (16 bytes per block)
+  transmitBuffer[1]=cipher_len;
+  // Insert the public device id -- once for plaintext, once for ciphertext
+  getPublicIdFromEEPROM(transmitBuffer+2);
+  memcpy(transmitBuffer+8,transmitBuffer+2,6);
+  // Insert the curren ttime
+  for( int i=0; i<4; i++ )
+    transmitBuffer[14+i] = ( currentTime >> (8*i) ) & 0xFF;
+  // Insert the data size
+  transmitBuffer[18]=measBufferCount;
+  // Insert the data
+  memcpy(transmitBuffer+19,measBuffer,measBufferCount);
+  
+//  sendDebugPacket("BUF",transmitBuffer,bufsize);
+    
+  // This is a dummy IV -- REPLACE!
+  byte_ard IV[] = {
+    0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30 
+  };
+  
+  // Allocate a cipher buffer -- TODO: DO IN PLACE TO SAVE MEM!!
+  byte_ard *cipherbuff = (byte_ard*)malloc(cipher_len);
+  // Encrypt the data to the temporary cipher buffer
+  CBCEncrypt((void*)(transmitBuffer+8), (void*)cipherbuff, plainsize, AUTOPAD,
+             (const u_int32_ard*)transportKeys->getCryptoKeySched(), (const u_int16_ard*)IV);  
+  // Copy the temporary cipherbuffer into the transmit buffer -- after the plaintext header
+  memcpy(transmitBuffer+8,cipherbuff,cipher_len);  
+  // Mac the cipherbuffer and insert directly into the last 16 bytes of the transmit buffer
+  aesCMac((const u_int32_ard*)transportKeys->getMacKeySched(), cipherbuff, cipher_len, transmitBuffer+8+cipher_len);  
+  // Now we can safely get rid of the cipherbuffer
+  free(cipherbuff);
+  
+//  sendDebugPacket("BUF",transmitBuffer,bufsize);  
+  
+  // Send on the wire and free the transmit buffer
+  Serial.write(transmitBuffer,bufsize); 
+  free(transmitBuffer);
+  
+  // Reset for the next round
+  measBufferCount=0;
+  
+  return;  
+/*  
+    
+  data msg;  // Struct to hold the data message
+  getPublicIdFromEEPROM(msg.id); 
+  msg.msgtime = 0x01020304; // currentTime; ///// DEBUG
+  msg.data_len = measBufferCount;
+  msg.data = (byte_ard*)malloc(msg.data_len);
+  memcpy(msg.data,measBuffer,msg.data_len);
+ 
+  // Allocate a transmission buffer of the correct size
+  // TODO: This should be wrapped much better in the protocol pack/unpack
+  //   msg id - 1 byte
+  //   length of cipher buffer - 1 byte
+  //   Plaintext device id - 6 bytes
+  //   variable length crypto buffer -- depends on the length of the data buffer
+  u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + msg.data_len;
+  u_int16_ard cipher_len = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
+  u_int16_ard bufsize = MSGTYPE_SIZE + 1 + ID_SIZE + cipher_len + 16;
+  
+  byte_ard* databuf = (byte_ard*)malloc(bufsize);
+     
+  pack_data( &msg, (const u_int32_ard*)transportKeys->getCryptoKeySched(), 
+             (const u_int32_ard*)transportKeys->getMacKeySched(), databuf );
+  
+  ///
+  
+//  sendDebugPacket("TCKEY",transportKeys->getCryptoKeySched(),16);
+  
+//  sendDebugPacket("TMKEY",transportKeys->getMacKeySched(),16);
+  
+  sendDebugPacket("BUF",databuf,bufsize);          
+  
+  
+byte_ard IV[] = {
+  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30 
+};
+  
+  byte_ard cipherbuff[msg.cipher_len];
+  CBCEncrypt((void*)(databuf+8), (void*)cipherbuff, plainsize, AUTOPAD,
+             (const u_int32_ard*)transportKeys->getCryptoKeySched(), (const u_int16_ard*)IV);
+  
+  sendDebugPacket("CBUF",cipherbuff,msg.cipher_len);          
+  
+  memcpy(databuf+8,cipherbuff,msg.cipher_len);
+  
+  byte_ard cmac[16];
+  aesCMac((const u_int32_ard*)transportKeys->getCryptoKeySched(), cipherbuff, (u_int16_ard)msg.cipher_len, cmac);  
+  
+  sendDebugPacket("MAC",cmac,16);
+  
+  memcpy(databuf+(8+msg.cipher_len),cmac,16);
+  
+  sendDebugPacket("BUF",databuf,bufsize); */
+  
+  ////
+  /*
+  struct data sensorDataUnpack;
+
+  unpack_data(databuf,
+                (const u_int32_ard*) transportKeys->getCryptoKeySched(),
+                &sensorDataUnpack);
+  
+  sendDebugPacket("PID",sensorDataUnpack.id,6);
+  
+  sendDebugPacket("DATA",sensorDataUnpack.data,sensorDataUnpack.data_len);
+
+  sendDebugPacket("CMAC",sensorDataUnpack.cmac,16);
+  */
+  // Send
+  // Write the buffer to serial and free
+//  Serial.write(databuf,bufsize);  
+    
+  // Free
+//  free(databuf);
+//  free(msg.data);
+  
+//  free(sensorDataUnpack.data);
+//  free(sensorDataUnpack.ciphertext);
+  
+//  measBufferCount=0;
+}
+  
 /**
  *  handleFinish
  *
@@ -679,6 +854,7 @@ void handleFinish()
   // Stop data acquisition, if running, and reset the protocol state to standby.
   deallocateMeasBuffer();
   setProtocolState(PROT_STATE_STANDBY);
+  sendAck(MSG_ACK_NORMAL);
   // TODO: Other cleanup?? 
 }
 
@@ -903,15 +1079,15 @@ void sampleAndReport()
   // Use the test counters -- this is only used for testing to get predictable
   // measurement results. Helps to determine if data is garbled in buffer manipulation,
   // transit or on reception.  
-  static u_int16_ard counter1 = 100;
-  static u_int16_ard counter2 = 100;
-  *(valBase+measBufferCount++) = (counter1++ >> AI_CUT_BITS) & 0xFF; // Cut off 2 LSBs
-  *(valBase+measBufferCount++) = (counter2++ >> AI_CUT_BITS) & 0xFF;
-  counter1 %= 1024;  // Make sure the counters are within the AI range
-  counter2 %= 1024;
+  static u_int16_ard counter1 = 0;
+  static u_int16_ard counter2 = 10;
+  measBuffer[measBufferCount++] = counter1++; // (counter1++ >> AI_CUT_BITS) & 0xFF; // Cut off 2 LSBs
+  measBuffer[measBufferCount++] = counter2++; // (counter2++ >> AI_CUT_BITS) & 0xFF;
+  counter1 %= 0xFF;  // Make sure the counters are within the AI range
+  counter2 %= 0xFF;
   #else
-  *(valBase+measBufferCount++) = (analogRead(AI_LUM) >> AI_CUT_BITS) & 0xFF; // Cut off 2 LSBs
-  *(valBase+measBufferCount++) = (analogRead(AI_TEMP) >> AI_CUT_BITS) & 0xFF;
+  measBuffer[measBufferCount++] = (analogRead(AI_LUM) >> AI_CUT_BITS) & 0xFF; // Cut off 2 LSBs
+  measBuffer[measBufferCount++] = (analogRead(AI_TEMP) >> AI_CUT_BITS) & 0xFF;
   /* Stick other interfaces in here */
   #endif  
       
@@ -921,9 +1097,7 @@ void sampleAndReport()
   // TODO: Add some handling for the case when the serial port is not connected.
   if ( measBufferCount >= measBufferSize*INTERFACE_COUNT )
   {
-    *pMsgTime = currentTime;  // Update the time part of the buffer header.
-    reportValues(measBuffer); 
-    measBufferCount=0;
+    sendData();
     digitalWrite(LED_SIGNAL_TX,HIGH);
   } 
 
@@ -952,20 +1126,13 @@ void sampleAndReport()
  *  TODO: Coordinate with the protocol definition -- see protocol.h.
  */
 bool allocateMeasBuffer()
-{  
-  int headerBitSize = ID_BIT_SIZE + TIME_BIT_SIZE + SINT_BIT_SIZE + LEN_BIT_SIZE + 
-                      ICNT_BIT_SIZE + ABITL_BIT_SIZE + INTERFACE_COUNT*ITYPE_BIT_SIZE;
-  headerByteSize = headerBitSize/8;
-  if ( headerBitSize % 8 != 0 )
-    headerByteSize += 1;
-   
-  recordByteSize = (INTERFACE_COUNT*VAL_BIT_SIZE)/8;
-
+{      
   // Free an already allocated buffer
   if( measBuffer!=NULL )
     deallocateMeasBuffer();
   // Try to allocate the buffer
-  measBuffer = (byte_ard*)malloc(headerByteSize+measBufferSize*recordByteSize);
+  recordByteSize = (INTERFACE_COUNT*VAL_BYTE_SIZE);
+  measBuffer = (byte_ard*)malloc(measBufferSize*recordByteSize);
   if ( measBuffer == NULL )
     return false;
   
@@ -976,7 +1143,8 @@ bool allocateMeasBuffer()
   // Construct the buffer header. This can be constant for the duration of the capture,
   // except for the timestamp of course.
   //
-  
+
+/*  
   // Set the id
   int p=0;
   getPublicIdFromEEPROM(measBuffer+p);
@@ -993,7 +1161,7 @@ bool allocateMeasBuffer()
   // Set the interface count and the analog value bit length -- 
   p+=LEN_BIT_SIZE/8;
   *(measBuffer+p) = INTERFACE_COUNT | ABITL << ICNT_BIT_SIZE;
-  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;
+  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;  */
   /*  // TODO: add interfaces later
   // Set the interface types
   for( int i=0; i<INTERFACE_COUNT; i+=2 )
@@ -1005,7 +1173,7 @@ bool allocateMeasBuffer()
   */
 
   // Store a pointer for the beginning of the data segment of the buffer
-  valBase = measBuffer+headerByteSize;
+//  valBase = measBuffer+headerByteSize;
     
   return true;
 }
@@ -1045,45 +1213,45 @@ void getIdStr()
  *  Prints the current buffer to the serial interface.
  *  TODO: Remove or define out for "production" builds.
  */
-void reportValues(byte_ard *measBuffer)
-{
-/*  
-  Serial.print("Device ID: ");
-  getIdStr();
-  
-  int p=0;
-  p+=ID_BIT_SIZE/8;
-  Serial.println(*pMsgTime);
-    
-  p+=TIME_BIT_SIZE/8;
-  Serial.print((u_int16_ard)(*(measBuffer+p)));
-
-  p+=SINT_BIT_SIZE/8;
-  Serial.println((u_int16_ard)(*(measBuffer+p)));
-  
-  p+=LEN_BIT_SIZE/8;
-  Serial.println((u_int16_ard)(*(measBuffer+p)>>ICNT_BIT_SIZE) & 0x0F);
-  Serial.println((u_int16_ard)(*(measBuffer+p)) & 0x0F);
-
-  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;
-  for( int i=0; i<INTERFACE_COUNT; i+=2 )
-  {
-    Serial.print((u_int16_ard)(*(measBuffer+p+i) & 0x0F),HEX);
-    Serial.print(" ");
-    if ( INTERFACE_COUNT>i)
-    {
-      Serial.print((u_int16_ard)(*(measBuffer+p+i)>>ITYPE_BIT_SIZE & 0x0F),HEX);
-      Serial.print(" ");
-    }
-  }
-*/  
-  Serial.write(0xAB);  // Dummy code for update message -- TODO: REPLACE
-  Serial.write(measBufferCount);
-  byte_ard *valBase = measBuffer+headerByteSize; 
-//  for( int i=0; i<measBufferCount; i++ )
-//    Serial.write( valBase[i] ); // Report the byte format -- remember to shift up at receiving end!
-  Serial.write(valBase,measBufferCount);
-}
+//void reportValues(byte_ard *measBuffer)
+//{
+///*  
+//  Serial.print("Device ID: ");
+//  getIdStr();
+//  
+//  int p=0;
+//  p+=ID_BIT_SIZE/8;
+//  Serial.println(*pMsgTime);
+//    
+//  p+=TIME_BIT_SIZE/8;
+//  Serial.print((u_int16_ard)(*(measBuffer+p)));
+//
+//  p+=SINT_BIT_SIZE/8;
+//  Serial.println((u_int16_ard)(*(measBuffer+p)));
+//  
+//  p+=LEN_BIT_SIZE/8;
+//  Serial.println((u_int16_ard)(*(measBuffer+p)>>ICNT_BIT_SIZE) & 0x0F);
+//  Serial.println((u_int16_ard)(*(measBuffer+p)) & 0x0F);
+//
+//  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;
+//  for( int i=0; i<INTERFACE_COUNT; i+=2 )
+//  {
+//    Serial.print((u_int16_ard)(*(measBuffer+p+i) & 0x0F),HEX);
+//    Serial.print(" ");
+//    if ( INTERFACE_COUNT>i)
+//    {
+//      Serial.print((u_int16_ard)(*(measBuffer+p+i)>>ITYPE_BIT_SIZE & 0x0F),HEX);
+//      Serial.print(" ");
+//    }
+//  }
+//*/  
+//  Serial.write(0xAB);  // Dummy code for update message -- TODO: REPLACE
+//  Serial.write(measBufferCount);
+//  byte_ard *valBase = measBuffer+headerByteSize; 
+////  for( int i=0; i<measBufferCount; i++ )
+////    Serial.write( valBase[i] ); // Report the byte format -- remember to shift up at receiving end!
+//  Serial.write(valBase,measBufferCount);
+//}
 
 /**
  *  reportValuesLong
@@ -1091,54 +1259,54 @@ void reportValues(byte_ard *measBuffer)
  *  Prints the current buffer to the serial interface. Verbose format, useful for debugging.
  *  TODO: Remove or define out for "production" builds.
  */
-void reportValuesLong(byte_ard *measBuffer)
-{
-  Serial.println("\n----------------------------------------");
-  int p=0;
-  Serial.print("Device ID: ");
-  getIdStr();
-  Serial.print("\n");
-  
-  p+=ID_BIT_SIZE/8;
-  Serial.print("Update time: ");
-  Serial.println(*pMsgTime);
-    
-  p+=TIME_BIT_SIZE/8;
-  Serial.print("Sampling interval: ");
-  Serial.print((u_int16_ard)(*(measBuffer+p)));
-  Serial.println("*100 msec");
-
-  p+=SINT_BIT_SIZE/8;
-  Serial.print("Measurement buffer size: ");
-  Serial.println((u_int16_ard)(*(measBuffer+p)));
-  
-  p+=LEN_BIT_SIZE/8;
-  Serial.print("Analog bit size: ");
-  Serial.println((u_int16_ard)(*(measBuffer+p)>>ICNT_BIT_SIZE) & 0x0F);
-  Serial.print("Interface count: ");
-  Serial.println((u_int16_ard)(*(measBuffer+p)) & 0x0F);
-
-  Serial.print("Interface types: ");  
-  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;
-  for( int i=0; i<INTERFACE_COUNT; i+=2 )
-  {
-    Serial.print((u_int16_ard)(*(measBuffer+p+i) & 0x0F),HEX);
-    Serial.print(" ");
-    if ( INTERFACE_COUNT>i)
-    {
-      Serial.print((u_int16_ard)(*(measBuffer+p+i)>>ITYPE_BIT_SIZE & 0x0F),HEX);
-      Serial.print(" ");
-    }
-  }
-   
-  Serial.println("\n----------------------------------------"); 
-  byte_ard *valBase = measBuffer+headerByteSize; 
-  Serial.println("Values:");
-  Serial.println("----------------------------------------");
-  for( int i=0; i<measBufferCount; i++ )
-    Serial.println((u_int16_ard)(*(valBase+i))<<AI_CUT_BITS); // Shift up to convert to 10 bits
-  Serial.println("----------------------------------------");
-}
+//void reportValuesLong(byte_ard *measBuffer)
+//{
+//  Serial.println("\n----------------------------------------");
+//  int p=0;
+//  Serial.print("Device ID: ");
+//  getIdStr();
+//  Serial.print("\n");
+//  
+//  p+=ID_BIT_SIZE/8;
+//  Serial.print("Update time: ");
+//  Serial.println(*pMsgTime);
+//    
+//  p+=TIME_BIT_SIZE/8;
+//  Serial.print("Sampling interval: ");
+//  Serial.print((u_int16_ard)(*(measBuffer+p)));
+//  Serial.println("*100 msec");
+//
+//  p+=SINT_BIT_SIZE/8;
+//  Serial.print("Measurement buffer size: ");
+//  Serial.println((u_int16_ard)(*(measBuffer+p)));
+//  
+//  p+=LEN_BIT_SIZE/8;
+//  Serial.print("Analog bit size: ");
+//  Serial.println((u_int16_ard)(*(measBuffer+p)>>ICNT_BIT_SIZE) & 0x0F);
+//  Serial.print("Interface count: ");
+//  Serial.println((u_int16_ard)(*(measBuffer+p)) & 0x0F);
+//
+//  Serial.print("Interface types: ");  
+//  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;
+//  for( int i=0; i<INTERFACE_COUNT; i+=2 )
+//  {
+//    Serial.print((u_int16_ard)(*(measBuffer+p+i) & 0x0F),HEX);
+//    Serial.print(" ");
+//    if ( INTERFACE_COUNT>i)
+//    {
+//      Serial.print((u_int16_ard)(*(measBuffer+p+i)>>ITYPE_BIT_SIZE & 0x0F),HEX);
+//      Serial.print(" ");
+//    }
+//  }
+//   
+//  Serial.println("\n----------------------------------------"); 
+//  byte_ard *valBase = measBuffer+headerByteSize; 
+//  Serial.println("Values:");
+//  Serial.println("----------------------------------------");
+//  for( int i=0; i<measBufferCount; i++ )
+//    Serial.println((u_int16_ard)(*(valBase+i))<<AI_CUT_BITS); // Shift up to convert to 10 bits
+//  Serial.println("----------------------------------------");
+//}
 
 //
 // TODO: Add a function to pack and send the update message
