@@ -72,8 +72,10 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 
 	byte_ard K_AT[KEY_BYTES];
 
-	// This is the alpha for deriving the MAC key. FIXME Can be removed once the key derivation header has been included.
-	byte_ard alpha[] = { 0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
+	// This is the alpha for deriving the MAC key.
+	// FIXME Can be removed once the key derivation header has been included.
+	byte_ard alpha[] = {0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 
+						0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
 
 	//
 	// Here are some hardcoded encryption keys -- private sensor IDs.
@@ -143,7 +145,7 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 		//	SSL_clear(ssl);
 		//}
 	}
-        else {
+	else {
 		syslog(LOG_NOTICE, "%s", "The idresponse cmac checked out ok!");
 	}
 
@@ -151,12 +153,19 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 	// End unpack idresponse ---------------------------------------------------
 
 	
-	// Check the nonce ---------------------------------------------------------
+	// Check the nonce and id --------------------------------------------------
 
 	syslog(LOG_NOTICE,"Nonce received from %s: %d", szSensorId, recv_id.nonce);
-	// TODO: Store the nonce along with sensor profile and check for consistency,
-	//       replays etc.
+	// TODO: Store the nonce along with sensor profile and check for 
+	// consistency, replays etc.
 	// Also keep track of the last authentication time etc.
+
+	// Quit if the ciphered and plain sensor IDs do not match. This indicates
+	// either an error in the protocol or that the sender does not have the
+	// proper key to encrypt the message.
+	if ( strncmp( (char *)sensorId, (char *)recv_id.pID, 6 ) != 0 ) {
+		log_err_exit("Plaintext and ciphered IDs did not match!");
+	}
 
 	// Generate the session key ------------------------------------------------
 
@@ -171,9 +180,13 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 	}
 
 	char szKeyStr[50];
-	sprintf(szKeyStr,"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
-			K_ST[0], K_ST[1], K_ST[2], K_ST[3], K_ST[4], K_ST[5], K_ST[6], K_ST[7],
-			K_ST[8], K_ST[9], K_ST[10], K_ST[11], K_ST[12], K_ST[13], K_ST[14], K_ST[15] );
+	sprintf(szKeyStr,
+			"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x "
+			"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+			K_ST[0], K_ST[1], K_ST[2], K_ST[3], 
+			K_ST[4], K_ST[5], K_ST[6], K_ST[7],
+			K_ST[8], K_ST[9], K_ST[10], K_ST[11], 
+			K_ST[12], K_ST[13], K_ST[14], K_ST[15] );
 
 	syslog(LOG_NOTICE,"Session key for %s: %s", szSensorId, szKeyStr);
 
@@ -195,15 +208,16 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 					(const u_int32_ard*) (K_at->getMacKeySched()), 
 					keyToSinkBuf);
 
-    	free(recv_id.ciphertext); // Remember to clean up all malloced
+   	free(recv_id.ciphertext); // Remember to clean up all malloced
 	free(recv_id.pID);
 
-	// Done packing the keytosikn message --------------------------------------
+	// Done packing the keytosink message --------------------------------------
 
 	// Dispatch ketosink message to sink.
 	writeToSink(ssl, keyToSinkBuf, KEYTOSINK_FULLSIZE);
 
-	syslog(LOG_NOTICE,"Session key package for sensor %s dispatched to sink", szSensorId);
+	syslog(LOG_NOTICE,
+			"Session key package for sensor %s dispatched to sink", szSensorId);
 
 	int status = (SSL_get_shutdown(ssl) & SSL_RECEIVED_SHUTDOWN)? 1 : 0;
 
