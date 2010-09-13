@@ -215,7 +215,7 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 		memcpy(K_ST,tssp->getKstSched(),KEY_BYTES);
 		char szKeyStr[40];
 
-		sprintf(szKeyStr,	"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x" 
+		sprintf(szKeyStr,	"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x " 
 							"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
 							K_ST[0], K_ST[1], K_ST[2], K_ST[3], 
 							K_ST[4], K_ST[5], K_ST[6], K_ST[7],
@@ -265,7 +265,7 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 
 		char szRandStr[50];
 		sprintf(szRandStr,
-				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x"
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x "
 				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
 				R[0], R[1], R[2], R[3],	R[4], R[5], R[6], R[7],
 				R[8], R[9], R[10], R[11], R[12], R[13], R[14], R[15] );
@@ -284,19 +284,54 @@ void TlsSinkServer::handleRekey(SSL *ssl, BIO* proxyClientRequestBio,
 						(const u_int32_ard*)tssp->getKstaSched(), newkeybuf );
 
 
+		byte_ard M[16];
+		memcpy(M,tssp->getKstaSched(),16);
+		char szMacKeyStr[50];
+		sprintf(szMacKeyStr,
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x "
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+				M[0], M[1], M[2], M[3],	M[4], M[5], M[6], M[7],
+				M[8], M[9], M[10], M[11], M[12], M[13], M[14], M[15]);
+
+		byte_ard MM[16];
+		memcpy(MM,newkeymsg.cmac,16);
+		char szMacStr[50];
+		sprintf(szMacStr,
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x "
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+				MM[0], MM[1], MM[2], MM[3],	MM[4], MM[5], MM[6], MM[7],
+				MM[8], MM[9], MM[10], MM[11], MM[12], MM[13], MM[14], MM[15]);
+
+		syslog(LOG_NOTICE,"Using MAC key: %s",szMacKeyStr);
+		syslog(LOG_NOTICE,"My MAC is: %s", szMacStr);
+
+
 		// Done packing newkey ------------------------------------------------
 
-    syslog(LOG_NOTICE, "Kste:");
-    for (int i = 0; i < 16; i++){
-        syslog(LOG_NOTICE, "%x", tssp->getKsteSched()[i]);
-    }
-
-    syslog(LOG_NOTICE, "Kstea:");
-    for (int i = 0; i < 16; i++){
-        syslog(LOG_NOTICE, "%x", tssp->getKsteaSched()[i]);
-    }
-
-
+		byte_ard Kste[16];
+		memcpy(Kste,tssp->getKsteSched(),16);
+		char szKsteStr[50];
+		sprintf(szKsteStr,
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x "
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+				Kste[0], Kste[1], Kste[2], Kste[3],	
+				Kste[4], Kste[5], Kste[6], Kste[7],
+				Kste[8], Kste[9], Kste[10], Kste[11], 
+				Kste[12], Kste[13], Kste[14], Kste[15]);
+		syslog(LOG_NOTICE, "Kste: %s", szKsteStr);
+ 
+		byte_ard Kstea[16];
+		memcpy(Kstea,tssp->getKsteaSched(),16);
+		char szKsteaStr[50];
+		sprintf(szKsteaStr,
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x "
+				"%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+				Kstea[0], Kstea[1], Kstea[2], Kstea[3],	
+				Kstea[4], Kstea[5], Kstea[6], Kstea[7],
+				Kstea[8], Kstea[9], Kstea[10], Kstea[11], 
+				Kstea[12], Kstea[13], Kstea[14], Kstea[15]);
+		syslog(LOG_NOTICE, "Kstea: %s", szKsteaStr);
+	
 	    // Send newkey message to sensor.
        	// ----------------------------------
 		writeToProxyClient(proxyClientRequestBio, newkeybuf, NEWKEY_FULLSIZE);
