@@ -53,7 +53,8 @@ void TlsAuthServer::handleMessage(SSL *ssl) {
 	}
 }
 
-void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int readLen) 
+void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, 
+										int readLen) 
 {
 	// Start sensor identification -----------------------------------------
 
@@ -61,9 +62,12 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int read
 	memcpy(sensorId,idResponseBuf+1,ID_SIZE);
 
 	char szSensorId[20];
-	sprintf(szSensorId,"%d%d-%d%d%d%d",sensorId[0],sensorId[1],sensorId[2],sensorId[3],sensorId[4],sensorId[5]);
+	sprintf(szSensorId,"%d%d-%d%d%d%d",
+				sensorId[0],sensorId[1],sensorId[2],
+				sensorId[3],sensorId[4],sensorId[5]);
 
-	// This is the plaintext sensor id. Now, lets see if we know the corresponding secret key
+	// This is the plaintext sensor id. Now, lets see if we know the 
+	// corresponding secret key
 	syslog(LOG_NOTICE,"Received id message from tsensor %s",szSensorId); 
 
 	byte_ard K_AT[KEY_BYTES];
@@ -71,21 +75,33 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf, int read
 	// This is the alpha for deriving the MAC key. FIXME Can be removed once the key derivation header has been included.
 	byte_ard alpha[] = { 0x65, 0xa4, 0x56, 0x5d, 0x09, 0xd6, 0x7e, 0xfa, 0xb5, 0x9d, 0x6f, 0x1c, 0xc1, 0xc5, 0x79, 0x9d };
 
+	//
 	// Here are some hardcoded encryption keys -- private sensor IDs.
 	// FIXME Eventually read from file or database. 
-	byte_ard K_AT_2[] = { 0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf }; // #2
-	byte_ard K_AT_4[] = { 0xcf, 0xb5, 0x08, 0x8d, 0xc6, 0x11, 0x06, 0x24, 0xc1, 0x38, 0x62, 0x41, 0x6f, 0xc0, 0x13, 0xaa }; // #4
+	//
+
+	// Device 01-0002
+	byte_ard K_AT_0002[] = {0x09, 0xd2, 0x0c, 0x10, 0xa5, 0xd1, 0x33, 0x1d, 
+							0x15, 0xc6, 0x20, 0x1a, 0x92, 0x9e, 0x83, 0xaf };
+	byte_ard K_AT_0004[] = {0xcf, 0xb5, 0x08, 0x8d, 0xc6, 0x11, 0x06, 0x24, 
+							0xc1, 0x38, 0x62, 0x41, 0x6f, 0xc0, 0x13, 0xaa };
+	byte_ard K_AT_000A[] = {0x0c, 0xbb, 0x0a, 0x6f, 0xe8, 0x1b, 0x20, 0x17, 
+							0x14, 0xa1, 0xae, 0x4b, 0xb2, 0xea, 0x5e, 0x00 };
 
 	// For now, using the last byte as unique sensor identifier does the trick.
 	switch(sensorId[5])
 	{
-		case 2:
+		case 0x02:
 			syslog(LOG_NOTICE,"Using keyset 2");
-			memcpy(K_AT,K_AT_2,KEY_BYTES);
+			memcpy(K_AT,K_AT_0002,KEY_BYTES);
 			break;
-		case 4:
+		case 0x04:
 			syslog(LOG_NOTICE,"Using keyset 4");
-			memcpy(K_AT,K_AT_4,KEY_BYTES);
+			memcpy(K_AT,K_AT_0004,KEY_BYTES);
+			break;
+		case 0x0A:
+			syslog(LOG_NOTICE,"Using keyset A");
+			memcpy(K_AT,K_AT_000A,KEY_BYTES);
 			break;
 		default:
 			syslog(LOG_ERR,"UNKNOWN TSENSOR");
