@@ -773,13 +773,13 @@ void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
   // Read the ciphertext
   for (u_int16_ard i = 0; i < cipherlen; i++)
   {
-    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + 1 + i]; /// ERROR MISSING i
+    msg->ciphertext[i] = cStream[MSGTYPE_SIZE + 1 + ID_SIZE + i]; /// ERROR MISSING i
   }
 
   // .. and cmac
   for (u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
   {
-    msg->cmac[i] = cStream[MSGTYPE_SIZE + 1 + cipherlen + i];
+    msg->cmac[i] = cStream[MSGTYPE_SIZE + 1 + ID_SIZE + cipherlen + i];
   }
 
   // Decrypt
@@ -797,13 +797,15 @@ void unpack_data(void* pStream, const u_int32_ard* pKeys, struct data* msg)
 
   // Msg time (Unix time)
   // Malloc, free'd a few lines below
-  byte_ard* temp_msgtime = (byte_ard*)malloc(MSGTIME_SIZE);
+//  byte_ard* temp_msgtime = (byte_ard*)malloc(MSGTIME_SIZE);
+  msg->msgtime=0;
   for(u_int16_ard i = 0; i < MSGTIME_SIZE; i++)
   {
-    temp_msgtime[i] = plainbuff[ID_SIZE + i];
+    //temp_msgtime[i] = plainbuff[ID_SIZE + i];
+	msg->msgtime += ( plainbuff[ID_SIZE+i] << (i*8) );
   }
-  msg->msgtime = (u_int32_ard)*temp_msgtime;
-  free(temp_msgtime);
+  //msg->msgtime = (u_int32_ard)*temp_msgtime;
+  //free(temp_msgtime);
 
   // Buffer length
   msg->data_len = plainbuff[ID_SIZE + MSGTIME_SIZE];
