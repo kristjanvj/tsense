@@ -354,6 +354,72 @@ void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
 {
 	syslog(LOG_NOTICE, "handleData()");
 
+    // Crypto length
+	int cryptoLen = (int)readBuf[1];
+	syslog(LOG_NOTICE, "Encrypted buffer length is %d",cryptoLen);
+
+	// The plaintext id
+	byte_ard plainId[6];
+	memcpy(plainId,readBuf+2,6); 
+
+	char szPlainId[10];
+	sprintf(szPlainId, "%d%d-%d%d%d%d", 
+			plainId[0], plainId[1], plainId[2], 
+			plainId[3], plainId[4], plainId[5]);
+	syslog(LOG_NOTICE,"Plaintext device id is %s", szPlainId);
+
+/*	for( int i=0; i<cryptoLen; i++)
+		syslog(LOG_NOTICE,"Crypto: 0x%.2x", readBuf[8+i]);
+
+	for( int i=0; i<16; i++)
+		syslog(LOG_NOTICE,"MAC: 0x%.2x", readBuf[8+cryptoLen+i]);
+*/
+
+	TsDbSinkSensorProfile *tssp;
+
+	try {
+		tssp = new TsDbSinkSensorProfile(plainId, dbcd);
+
+	} catch(runtime_error rex) {
+		log_err_exit(rex.what());
+	}
+
+
+	struct data sensorData;
+
+	unpack_data(readBuf, 
+				(const u_int32_ard*) (tssp->getKsteSched()),
+				&sensorData);
+
+	char szUnpackId[10];
+	sprintf(szUnpackId, "%d%d-%d%d%d%d", 
+			sensorData.id[0], sensorData.id[1], sensorData.id[2], 
+			sensorData.id[3], sensorData.id[4], sensorData.id[5]);
+	syslog(LOG_NOTICE,"Unpacked device id is %s", szUnpackId);
+	syslog(LOG_NOTICE, "msg_type:     %x", sensorData.msgtype);
+	syslog(LOG_NOTICE, "msg_time:     %ul", sensorData.msgtime);
+	syslog(LOG_NOTICE, "data_len:     %x", sensorData.data_len);
+	syslog(LOG_NOTICE, "cipher_len:   %x", sensorData.cipher_len);
+
+	// TODO: Make sure the unpaced (decrypted!) message id is the
+	//       same as sent in plaintext
+
+	// TODO: Store and check the timestamp for a (weak) replay check.
+	// This check will be weak since the client can reset the tsensor
+	// time at will.
+
+	for(int i=0; i<sensorData.data_len; i++)
+		syslog(LOG_NOTICE, "Data: %d", sensorData.data[i]);
+
+	delete tssp;
+	free(sensorData.ciphertext);
+	free(sensorData.data);
+	
+	return;
+
+/*
+
+
 	byte_ard tmpID[10]; 
 	memcpy(tmpID, readBuf+1, 6);
 
@@ -386,7 +452,7 @@ void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
 	syslog(LOG_NOTICE, "data_len:     %x", sensorData.data_len);
 	syslog(LOG_NOTICE, "cipher_len:   %x", sensorData.cipher_len);
 	// data
-	// ciphertext
+	// ciphertext */
 	/*
 	for(int i = 0; i < BLOCK_BYTE_SIZE; i++) {
 		syslog(LOG_NOTICE, "cmac:         %x", sensorData.cmac[i]);
@@ -396,13 +462,13 @@ void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
 		syslog(LOG_NOTICE, "data:         %x", sensorData.data[i]);
 	}
 	*/
-
+/*
 	for(int i = 0; i < BLOCK_BYTE_SIZE; i++) {
 		syslog(LOG_NOTICE, "kste:         %x", tssp->getKsteSched()[i]);
 	}
 
 
-	delete tssp;
+	delete tssp; */
 }
 
 /* This method is called after a BIO channel connection from the proxy client 
