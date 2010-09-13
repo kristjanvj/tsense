@@ -724,7 +724,7 @@ void pack_data(struct data* msg, const u_int32_ard* pKeys, const u_int32_ard* pC
   for(u_int16_ard i = 0; i < (u_int16_ard)msg->cipher_len; i++)
   {
     // +1 to accomendate for the crypto length indicator. 
-    cBuffer[MSGTYPE_SIZE + 1 + i] = cipher_buff[i];
+    cBuffer[MSGTYPE_SIZE + 1 + ID_SIZE + i] = cipher_buff[i];
   }
 
   for(u_int16_ard i = 0; i < BLOCK_BYTE_SIZE; i++)
