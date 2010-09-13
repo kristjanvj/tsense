@@ -354,29 +354,22 @@ void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
 {
 	syslog(LOG_NOTICE, "handleData()");
 
-    // Crypto length
+    // Crypto length is in the second byte
 	int cryptoLen = (int)readBuf[1];
 	syslog(LOG_NOTICE, "Encrypted buffer length is %d",cryptoLen);
 
-	// The plaintext id
+	// The plaintext id is in the following 6 bytes
 	byte_ard plainId[6];
 	memcpy(plainId,readBuf+2,6); 
-
+	// Output for debugging
 	char szPlainId[10];
 	sprintf(szPlainId, "%d%d-%d%d%d%d", 
 			plainId[0], plainId[1], plainId[2], 
 			plainId[3], plainId[4], plainId[5]);
 	syslog(LOG_NOTICE,"Plaintext device id is %s", szPlainId);
 
-/*	for( int i=0; i<cryptoLen; i++)
-		syslog(LOG_NOTICE,"Crypto: 0x%.2x", readBuf[8+i]);
-
-	for( int i=0; i<16; i++)
-		syslog(LOG_NOTICE,"MAC: 0x%.2x", readBuf[8+cryptoLen+i]);
-*/
-
+	// Get the database profile based on the plaintext id
 	TsDbSinkSensorProfile *tssp;
-
 	try {
 		tssp = new TsDbSinkSensorProfile(plainId, dbcd);
 
@@ -384,91 +377,57 @@ void TlsSinkServer::handleData(SSL *ssl, BIO* proxyClientRequestBio,
 		log_err_exit(rex.what());
 	}
 
-
+	// Unpack the sensor data using the given key
 	struct data sensorData;
-
 	unpack_data(readBuf, 
 				(const u_int32_ard*) (tssp->getKsteSched()),
 				&sensorData);
 
+	// Validate the MAC
+	int validMac = verifyAesCMac((const u_int32_ard*)(tssp->getKsteaSched()),
+								 sensorData.ciphertext,
+								 sensorData.cipher_len,
+								 sensorData.cmac);
+	if(validMac == 0){
+		log_err_exit("Mac of incoming data message did not match");
+	}
+	else {
+		syslog(LOG_NOTICE,"MAC checked out ok");
+	}
+		
+	// Print the unpacked ID and some other stuff for debugging
 	char szUnpackId[10];
 	sprintf(szUnpackId, "%d%d-%d%d%d%d", 
 			sensorData.id[0], sensorData.id[1], sensorData.id[2], 
 			sensorData.id[3], sensorData.id[4], sensorData.id[5]);
-	syslog(LOG_NOTICE,"Unpacked device id is %s", szUnpackId);
+	syslog(LOG_NOTICE, "Unpacked device id is %s", szUnpackId);
 	syslog(LOG_NOTICE, "msg_type:     %x", sensorData.msgtype);
 	syslog(LOG_NOTICE, "msg_time:     %ul", sensorData.msgtime);
 	syslog(LOG_NOTICE, "data_len:     %x", sensorData.data_len);
 	syslog(LOG_NOTICE, "cipher_len:   %x", sensorData.cipher_len);
 
-	// TODO: Make sure the unpaced (decrypted!) message id is the
-	//       same as sent in plaintext
+	// Make sure the unpaced (decrypted!) message id is the
+	// same as sent in plaintext
+	if( strncmp((char *)plainId,(char *)sensorData.id,6)!=0 )
+		log_err_exit("The plain and ciphered IDs did not match!");
 
 	// TODO: Store and check the timestamp for a (weak) replay check.
 	// This check will be weak since the client can reset the tsensor
 	// time at will.
 
-	for(int i=0; i<sensorData.data_len; i++)
-		syslog(LOG_NOTICE, "Data: %d", sensorData.data[i]);
+	// Write to file
+	FILE *pFile;
+	pFile = fopen("data.log","a");
+	fprintf(pFile,"[%s,%d]:",szUnpackId,sensorData.msgtime);
+	for (int i=0; i<sensorData.data_len; i++)
+		fprintf(pFile,"%d;",sensorData.data[i]);
+	fputc('\n',pFile);
+	fclose(pFile);
 
+	// Free all resources
 	delete tssp;
 	free(sensorData.ciphertext);
 	free(sensorData.data);
-	
-	return;
-
-/*
-
-
-	byte_ard tmpID[10]; 
-	memcpy(tmpID, readBuf+1, 6);
-
-	for(int i = 0; i < 6; i++) {
-		syslog(LOG_NOTICE, "id:         %x", tmpID[i]);
-	}
-
-
-	TsDbSinkSensorProfile *tssp;
-
-	try {
-		tssp = new TsDbSinkSensorProfile(tmpID, dbcd);
-
-	} catch(runtime_error rex) {
-		log_err_exit(rex.what());
-	}
-
-	struct data sensorData;
-
-	unpack_data(readBuf, 
-				(const u_int32_ard*) (tssp->getKsteSched()),
-				&sensorData);
-
-
-	syslog(LOG_NOTICE, "msg_type:     %x", sensorData.msgtype);
-	for(int i = 0; i < ID_SIZE; i++) {
-		syslog(LOG_NOTICE, "id:           %x", sensorData.id[i]);
-	}
-	syslog(LOG_NOTICE, "msg_time:     %u", sensorData.msgtime);
-	syslog(LOG_NOTICE, "data_len:     %x", sensorData.data_len);
-	syslog(LOG_NOTICE, "cipher_len:   %x", sensorData.cipher_len);
-	// data
-	// ciphertext */
-	/*
-	for(int i = 0; i < BLOCK_BYTE_SIZE; i++) {
-		syslog(LOG_NOTICE, "cmac:         %x", sensorData.cmac[i]);
-	}
-
-	for(int i = 0; i < sensorData.data_len; i++) {
-		syslog(LOG_NOTICE, "data:         %x", sensorData.data[i]);
-	}
-	*/
-/*
-	for(int i = 0; i < BLOCK_BYTE_SIZE; i++) {
-		syslog(LOG_NOTICE, "kste:         %x", tssp->getKsteSched()[i]);
-	}
-
-
-	delete tssp; */
 }
 
 /* This method is called after a BIO channel connection from the proxy client 
