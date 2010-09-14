@@ -12,13 +12,40 @@ Several unit tests of the cryptographic primitives were developed and executed r
 \item Unit tests of the CBC-mode encryption and decryption on all supported platforms and for plaintexts of various lengths, from one block (16-bytes) to several blocks in length.
 \item Unit tests of the CMAC authentication. 
 \end{itemize}
-All unit tests are included in our open source implementation at \url{http://code.google.com/p/tsense}.
+All unit tests are included in our open source implementation at \url{http://code.google.com/p/tsense}. We refer to the publicly available code for verification of our implemented primitives.
 
-\subsection{Performance of cryptographic primitives}
+\section{Performance of cryptographic primitives}
 
-\textbf{PERFORMANCE -- AES-128 on Arduino v.s. PC platforms (wall-clock). XTEA for comparison??}
+\subsection{AES encryption and decryption in CBC mode on Arduino}
+
+The precise timing instructions on the Arduino were used to time successive encryption and decryption operations on randomly generated data of one to several blocks in length. The results were that our implementation achieves a throughput of about 1200 blocks/sec for encryption and about 580 blocks/sec for decryption on the Arduino. The worse performance of the decryption operation is most likely due to the more complex mixColumns transformations. Future optimizations will address this.
+
+\subsubsection*{Comparison XTEA block cipher}
+
+We did a quick comparison test of the XTEA \cite{} block cipher, based on the reference algorithm given on \url{http://en.wikipedia.org/wiki/XTEA}. XTEA was designed to be a very efficient block cipher, especially on resource constrained systems. The entire implementation takes about 16 lines of C code. It is interesting to see how this light-weight cipher compares in performance with the more secure AES. The test was performed in the same manner as that for our AES implementation. The results were a throughput of 1315 blocks/sec for encryption and 1538 blocks/sec for decryption. The recommended 32 rounds were used for both operations. We conclude that our AES implementation compares favorably with the XTEA one, given that the XTEA test operated in the slightly simpler ECB mode and has a shorter block length of 64 bits. Accounting for the differing block length shows a very comparable throughput for our AES implementation and the reference XTEA one, as shown in Table~\ref{tab:aes-xtea-comparison}.
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|r|r|r|r|}
+\hline  & Encrypt & Encrypt & Decrypt & Decrypt \\
+\hline  & (blocks/sec) & (Kbytes/sec) & (blocks/sec) & (Kbytes/sec) \\ 
+\hline AES & 1204 & 18.8 & 582 & 9.1 \\ 
+\hline XTEA & 1315 & 10.3 & 1538 & 12.0 \\ 
+\hline 
+\end{tabular}
+\end{center}
+\caption{Comparison of AES and XTEA performance on the Arduino platform}
+\label{tab:aes-xtea-comparison}
+\end{table} 
+
+\subsection{AES encryption and decryption in CBC mode on a laptop}
+
+TODO
+
 
 \section{Verification of cryptographic protocol implementation}
+
+We refer to our earlier discussion in Section~\ref{} on the unit testing of the cryptographic primitives -- the building blocks of the protocols. Regarding the correctness of our protocols, we refer to the publicly available code at \url{http://code.google.com/p/tsense}.
 
 The implementation of the cryptographic protocols -- authentication, key-exchange and data transfer -- was done on a test bed system, similar to the one shown in Figure~\ref{}. PC laptops running linux and a MacBook running OS-X served as hosts (clients) for an Arduino Duemilanove based tsensor. Two virtual machines, running Ubuntu 10.04 LTS (kernel 2.6.32) served as sink and authentication servers. The clients used DHCP to obtain dynamic network addresses, while the two servers had fixed IPs. The sensor board was USB-connected to the host (client).
 
