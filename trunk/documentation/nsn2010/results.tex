@@ -34,14 +34,17 @@ We did a quick comparison test of the XTEA \cite{} block cipher, based on the re
 \hline 
 \end{tabular}
 \end{center}
-\caption{Comparison of AES and XTEA performance on the Arduino platform}
+\caption{Comparison of AES and XTEA performance on the Arduino platform (ATMega328 at 16MHz). Note that AES has a block length of 16 bytes compared to the shorter 8 byte block length of XTEA.}
 \label{tab:aes-xtea-comparison}
 \end{table} 
 
 \subsection{AES encryption and decryption in CBC mode on a laptop}
 
-TODO
+The same code as timed in Section~\ref{} was compiled on a 32-bit Intel laptop with a 1GHz Centrino Dual CPU and 4096 KB cache. The test machine runs Ubuntu linux 9.10 (kernel2.6.31-22). Chunks of random data, from 1 to 256 blocks at 16 bytes each, were generated, encrypted and decrypted. The encryption and decryption operations were timed using the C \texttt{gettimeofday} function, each measurement averaged over several repetitions. The results were that our implementation achieves roughly 2.7 Mbytes/sec.
 
+Our test servers achieve throughput of roughly 4.3 MBytes/sec running the same test. The test servers are 32-bit virtual machines running Ubuntu linux 10.04.1 LTS (2.6.32-24). The CPU runs at 1995 MHz and has a 4096 KB cache.
+
+The AES implementation used in this project is byte oriented and close to the original published pseudocode \shortcite{fips-197-2001}. A reference implementation, written by the supervisor for another project, achieves roughly four times the throughput using the more efficient 32-bit table-based algorithm, described by \shortciteA{daemen1999}.
 
 \section{Verification of cryptographic protocol implementation}
 
@@ -51,11 +54,13 @@ The implementation of the cryptographic protocols -- authentication, key-exchang
 
 The protocols were tested individually at first and then combined. In summary, we were successful in getting the whole system up and running, albeit under fairly well controlled circumstances. Notably, handling of abnormal and unexpected events is lacking in the current version. However, we believe we have shown the feasibility of our implementation in a proof-of-concept setting.
 
-\section{Soundness of the cryptographic protocol}
+\section{Soundness of the cryptographic protocols}
+
+\textbf{TODO: KVJ OR BK}
 
 \textbf{SOME CRYPTOGRAPHIC ANALYSIS OF THE PROTOCOLS}
 
 \section{Cost of materials}
 
-We base our sensor prototype on an Arduino Duemlianove experimentation board, mainly for the convenience of programming the ATmeg328 in such an environment rather than using a separate programmer. The cost of this board is \$29.95 (+ shipping and import costs) from \url{http://www.sparkfun.com}. An Atmel ATmega328 is available for \$4.40 in quantities of 100+, but this would require custom circuit boards and support hardware. The cost of sensors varies according to their sophistication, but the NTC thermistor and photoresistor used in our project cost less than \$2 a piece. A reasonable estimated price for an assembled and tamper-proof tsensor is certainly less than \$20 in quantities using our demonstration sensors. We can therefore conclude that a ATmega-based tsensor is a relatively cheap unit.
+We base our sensor prototype on an Arduino Duemlianove experimentation board, mainly for the convenience of programming the ATmega328 in such an environment, rather than using a separate programmer. The cost of this board is \$29.95 (+ shipping and import costs) from \url{http://www.sparkfun.com}. An Atmel ATmega328 is available for \$4.40 in quantities of 100+ from Sparkfun, but this would require custom circuit boards and some additional support hardware. The cost of sensors varies according to their sophistication, but the NTC thermistor and photoresistor used in our project cost less than \$2 a piece. A reasonable estimated price for an assembled and tamper-proof tsensor is less than \$20 in quantities using our demonstration sensors. We can therefore conclude that a ATmega-based tsensor is a relatively cheap unit and fulfills our initial goal.
 
