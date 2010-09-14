@@ -151,7 +151,7 @@ We will denote encryption $C=\mathcal{E}_K(P)$ with a key $K$, on a plaintext (m
 
 Note that any secure block cipher and any mode of operation (as discussed in the following section) can be used in the TSense system. A particularly logical choice is to use the full strength AES-256, in case a higher security margin is desired, especially for the permanent device key.
 
-\subsubsection{CBC-mode of operation}
+\subsubsection{Mode of operation}
 
 The AES block cipher, as all other block ciphers, can be used in several \textit{modes of operation} \shortcite{dworkin2001}. The most basic one, ECB, encrypts each block independently using the same shared key.  This leads to potential information leakage as identical plaintext encrypts to identical ciphertext, perhaps allowing adversaries to determine correlations and perhaps deduce information. Stronger modes of operation generally feed parts of the plaintext or ciphertext into the encryption/decryption process for subsequent blocks, resulting in unpredictable variations, even for identical plaintext blocks. We used the cipher block chaining (CBC) mode of encryption and decryption in our implementation \shortcite{dworkin2001}\textbf{ + REF}. CBC mode of encryption is widely used, for example in the TinySec transport layer protocol \shortcite{karlof2004} in conjunction with the Skipjack \cite{} cipher.
 
@@ -274,7 +274,7 @@ A set of utilities was developed to configure and diagnose the tsensor.
 
 \paragraph{\textit{tsdiag}} extracts diagnostic information from a USB-connected tsensor device. All information accessible using the serial API is displayed. In the prototype, the entire EEPROM is dumped, which breaks the basic security premise of the device -- the secret key is completely exposed. However, this feature is for development purposes only and would be removed for a production device.
 
-\subsection{tsclient -- TSense client-side software}
+\subsection{\textit{tsclient} -- TSense client-side software}
 
 The \textit{tsclient} is a small and completely untrusted software component installed on an equally untrusted hardware platform. The sole purpose of this software is to interface with the USB-connected tsensor and forward its messages to the sink server. The goal of this project is in essence to force this untrusted piece of software and the platform it resides on to provide only trustworthy information to the sink. 
 %
@@ -286,7 +286,7 @@ tsclient is written completely in python (v. 2.6), using the serial and socket l
 
 tsclient is a python script, executed on the command line. See the source code documentation for details on command line switches. The user needs the connection information for the attached tsensor (USB connection string and baud rate) as well as for the sink server (IP address and port). On startup, the tsclient requests an partially encrypted identification package (see Section~\ref{}) which it then forwards to the designated sink server. This bootstraps the authentication protocol. After the initial insertion request, the tsclient is simply a proxy, forwarding encrypted messages unmodified back and forth between tsensor and sink. tsclient supports only a single tsensor and single sink in the current version. Future enhancements include supporting multiple sensors and multiple sinks per sensor for robustness.
 
-\subsection{tsink -- TSense sink daemon}
+\subsection{\textit{tsink} -- TSense sink daemon}
 
 \textbf{TODO: KR}
 
@@ -300,7 +300,7 @@ tsink is a daemon service, written and tested on 32- and 64-bit OS-X and linux p
 
 \textbf{MORE DETAILS}
 
-\subsection{tauth -- TSense authentication service}
+\subsection{\textit{tauth} -- TSense authentication service}
 
 \textbf{TODO: KR}
 
