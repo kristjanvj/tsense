@@ -50,7 +50,7 @@
 //
 #define MAJOR_VERSION   0
 #define MINOR_VERSION   2
-#define REVISION       40
+#define REVISION       42
 
 #include <EEPROM.h>
 #include <stdlib.h>
@@ -58,8 +58,7 @@
 #include "aes_crypt.h"
 #include "protocol.h"
 #include "tstypes.h"
-//#include "devinfo.h"    // TODO: REMOVE -- INTEGRATE WITH PROTOCOL INFO AND OTHER HEADERS
-#include "edevdata.h"   // The EEPROM data layout
+#include "edevdata.h"       // The EEPROM data layout
 #include "memoryFree.h"
 #include "tsense_keypair.h"
 #include "aes_constants.h"
@@ -134,14 +133,18 @@ void operator delete(void* ptr) { free(ptr); }
 #define ERR_CODE_NO_DATA_READ                           0x05
 #define ERR_CODE_INSUFFICIENT_DATA_READ                 0x06
 //
-#define ERR_CODE_KEYTOSENSE_UNEXPECTED			0x10
-#define ERR_CODE_KEYTOSENSE_MAC_FAILED			0x11
-#define ERR_CODE_KEYTOSENSE_NONCE_FAILED	        0x12
+#define ERR_CODE_IDQUERY_UNEXPECTED                     0x10
 //
-#define ERR_CODE_REKEYRESPONSE_UNEXPECTED		0x20
-#define ERR_CODE_REKEYRESPONSE_MAC_FAILED		0x21
-#define ERR_CODE_REKEYRESPONSE_ID_FAILED		0x22
-#define ERR_CODE_REKEYRESPNSE_NONCE_FAILED		0x23
+#define ERR_CODE_KEYTOSENSE_UNEXPECTED			0x20
+#define ERR_CODE_KEYTOSENSE_MAC_FAILED			0x21
+#define ERR_CODE_KEYTOSENSE_NONCE_FAILED	        0x22
+//
+#define ERR_CODE_REKEY_REQ_SKEY_ERROR                   0x30
+//
+#define ERR_CODE_REKEYRESPONSE_UNEXPECTED		0x40
+#define ERR_CODE_REKEYRESPONSE_MAC_FAILED		0x41
+#define ERR_CODE_REKEYRESPONSE_ID_FAILED		0x42
+#define ERR_CODE_REKEYRESPNSE_NONCE_FAILED		0x43
 //
 #define ERR_CODE_BUF_ALLOCATION            		0xA0
 //
@@ -173,7 +176,6 @@ void operator delete(void* ptr) { free(ptr); }
 //
 // Sensor state variables
 //
-//byte_ard state=0x00;                        // The state bits -- 0: initialized, 1: error, 4 MSB: error code  TODO: REMOVE
 byte_ard protocolState=PROT_STATE_STANDBY;  // The protocol state word
 byte_ard errorCode=0;                       // The protocol error code
 u_int32_ard currentTime;                    // The current update time
@@ -181,7 +183,6 @@ byte_ard samplingInterval = 1;              // The sampling interval in seconds
 byte_ard *measBuffer=NULL;                  // The measurement buffer (includes header for easier encrypt/MAC)
 byte_ard measBufferSize = 10;               // The size of the measurement buffer -- values stored per interface
 byte_ard measBufferCount = 0;               // The current position in the measurement buffer (stored values per interface)
-//byte_ard *valBase=NULL;                     // The start of the values array in measBuffer
 u_int32_ard *pMsgTime=NULL;                 // Pointer to the time field in the measBuffer header
 byte_ard headerByteSize=0;                  // The size of the header portion of measBuffer
 byte_ard recordByteSize;                    // The size of a single record in measBuffer -- one record is one sample per interface
@@ -255,6 +256,7 @@ void loop(void)
     {
       // millis returns the number of msecs since the program began executing
       // If the timeout set equals the current time then reset
+      errorCode=0;
       setProtocolState(PROT_STATE_STANDBY);
       sendAck(ERR_CODE_TIMEOUT);
     }  
@@ -263,7 +265,7 @@ void loop(void)
   // Handle any waiting commands on the serial line
   getCommand();  
 
-  if ( protocolState == PROT_STATE_RUNNING ) // Bit 0 is the running bit
+  if ( protocolState == PROT_STATE_RUNNING )
   {
     // Running state
     digitalWrite(LED_STATUS,HIGH);    
@@ -288,7 +290,7 @@ void loop(void)
         break;
     }
     
-    // Update the clock
+    // Update the clock (about) every second
     if ( ++timeUpdateCounter >= 1000/SHORT_DELAY )
     {
       currentTime++;
@@ -385,9 +387,11 @@ void handleDeviceIdQuery()
 {
   // Only handle if the sensor is in standby mode or id delivered mode. We dont want the sensor
   // state to be messed up by spurious device id queries.
-  if ( protocolState != PROT_STATE_STANDBY && protocolState != PROT_STATE_ID_DELIVERED )
+  if ( protocolState != PROT_STATE_STANDBY )
   {
+    setWarningState(ERR_CODE_IDQUERY_UNEXPECTED);
     Serial.flush(); // Get rid of crud
+    sendAck(errorCode);
     return;  
   }
   
@@ -435,6 +439,7 @@ void handleIdResponseError()
   // TODO: CHECK HANDLING
   setWarningState(ERR_CODE_ID_RESPONSE_ERROR); 
   Serial.flush();
+  sendAck(errorCode);
 }
 
 /** 
@@ -445,6 +450,8 @@ void handleIdResponseError()
  */
 void handleKeyToSense()
 {  
+  errorCode = 0x00;
+  
   // Only handle if the sensor is in correct protocol stage
   if ( protocolState != PROT_STATE_ID_DELIVERED )
   {
@@ -548,7 +555,12 @@ void handleKeyToSense()
 void sendRekeyRequest()
 {
   if ( sessionKeys == NULL )
-    return; // Should not happen! TODO: HANDLE BETTER
+  {
+    setErrorState(ERR_CODE_REKEY_REQ_SKEY_ERROR);
+    Serial.flush(); // Get rid of crud
+    sendAck(errorCode);
+    return;  
+  }
     
   // Increment the nonce
   rekeyNonce++;
@@ -569,13 +581,14 @@ void sendRekeyRequest()
   pack_rekey( &msg, (const u_int32_ard *)sessionKeys->getCryptoKeySched(), 
               (const u_int32_ard *)sessionKeys->getMacKeySched(), buffer );  
   sessionKeyUseCounter++;  // Keep track of how often the key has been used
-  
-//  sendDebugPacket("REKEY-HANDSH",buffer,REKEY_FULLSIZE);
-//  return;
+
+  /****  
+  sendDebugPacket("REKEY-HANDSH",buffer,REKEY_FULLSIZE);
+  return;
+  ****/
   
   // Write the buffer to serial and free
   Serial.write(buffer,REKEY_FULLSIZE);  
-//  free(buffer);
 
   // Update the protocol state
   setProtocolState(PROT_STATE_REKEY_PENDING);
@@ -619,11 +632,13 @@ void handleRekeyResponse()
   {
     setWarningState(ERR_CODE_REKEYRESPONSE_MAC_FAILED);
     sendAck(errorCode);
-/*    sendDebugPacket("BUF",pCommandBuffer,NEWKEY_FULLSIZE);
+    /****    
+    sendDebugPacket("BUF",pCommandBuffer,NEWKEY_FULLSIZE);
     sendDebugPacket("CIPHER",msg.ciphertext,NEWKEY_CRYPTSIZE);
     sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);    
     sendDebugPacket("MAC",msg.cmac,16);
-    sendDebugPacket("TMAC",tempmac,16);  */
+    sendDebugPacket("TMAC",tempmac,16);  
+    ****/
     return;     
   }
 
@@ -679,7 +694,7 @@ void handleRekeyResponse()
   sendAck(ERR_CODE_OK);
 
   // Debug stuff follows -- can be removed later
-/*  
+  /****  
   sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);
   sendDebugPacket("CID",msg.pID,6);  
   sendDebugPacket("RAND",msg.rand,16);
@@ -692,23 +707,19 @@ void handleRekeyResponse()
   temp[2]=lowByte(msg.nonce);
   temp[3]=highByte(msg.nonce);
   sendDebugPacket("NONCES",temp,4);
-*/
-  free(msg.ciphertext);  // TODO: CHECK free on abnormal returns
-  free(msg.pID);
+  ****/
   
-  ///// DEBUG /////
-/*
-  delay(1000);
-  measBufferSize=20;
-  measBufferCount=measBufferSize; //*INTERFACE_COUNT;
-  for( int i=0; i<measBufferCount; i++ )
-    measBuffer[i]=i;
-    
-  sendData(); */
+  free(msg.ciphertext);  // TODO: CHECK free on abnormal returns
+  free(msg.pID);  
 }
  
 void sendData()
-{ 
+{
+  //
+  // NOTE: This completely bypasses the pack function in the protocol which caused weird crashes
+  // probably due to memory issues. Rewrite when time allows.
+  //
+  
   u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + measBufferCount;
   u_int16_ard cipher_len = plainsize;
   if ( plainsize%16!=0 )  
@@ -732,8 +743,10 @@ void sendData()
   transmitBuffer[18]=measBufferCount;
   // Insert the data
   memcpy(transmitBuffer+19,measBuffer,measBufferCount);
-  
-//  sendDebugPacket("BUF",transmitBuffer,bufsize);
+
+  /***  
+  sendDebugPacket("BUF",transmitBuffer,bufsize);
+  ***/
     
   // This is a dummy IV -- REPLACE!
   byte_ard IV[] = {
@@ -751,8 +764,10 @@ void sendData()
   aesCMac((const u_int32_ard*)transportKeys->getMacKeySched(), cipherbuff, cipher_len, transmitBuffer+8+cipher_len);  
   // Now we can safely get rid of the cipherbuffer
   free(cipherbuff);
-  
-//  sendDebugPacket("BUF",transmitBuffer,bufsize);  
+
+  /***  
+  sendDebugPacket("BUF",transmitBuffer,bufsize);  
+  ***/
   
   // Send on the wire and free the transmit buffer
   Serial.write(transmitBuffer,bufsize); 
@@ -760,88 +775,6 @@ void sendData()
   
   // Reset for the next round
   measBufferCount=0;
-  
-  return;  
-/*  
-    
-  data msg;  // Struct to hold the data message
-  getPublicIdFromEEPROM(msg.id); 
-  msg.msgtime = 0x01020304; // currentTime; ///// DEBUG
-  msg.data_len = measBufferCount;
-  msg.data = (byte_ard*)malloc(msg.data_len);
-  memcpy(msg.data,measBuffer,msg.data_len);
- 
-  // Allocate a transmission buffer of the correct size
-  // TODO: This should be wrapped much better in the protocol pack/unpack
-  //   msg id - 1 byte
-  //   length of cipher buffer - 1 byte
-  //   Plaintext device id - 6 bytes
-  //   variable length crypto buffer -- depends on the length of the data buffer
-  u_int16_ard plainsize = ID_SIZE + MSGTIME_SIZE + 1 + msg.data_len;
-  u_int16_ard cipher_len = (1 + (plainsize/BLOCK_BYTE_SIZE)) * BLOCK_BYTE_SIZE;
-  u_int16_ard bufsize = MSGTYPE_SIZE + 1 + ID_SIZE + cipher_len + 16;
-  
-  byte_ard* databuf = (byte_ard*)malloc(bufsize);
-     
-  pack_data( &msg, (const u_int32_ard*)transportKeys->getCryptoKeySched(), 
-             (const u_int32_ard*)transportKeys->getMacKeySched(), databuf );
-  
-  ///
-  
-//  sendDebugPacket("TCKEY",transportKeys->getCryptoKeySched(),16);
-  
-//  sendDebugPacket("TMKEY",transportKeys->getMacKeySched(),16);
-  
-  sendDebugPacket("BUF",databuf,bufsize);          
-  
-  
-byte_ard IV[] = {
-  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30 
-};
-  
-  byte_ard cipherbuff[msg.cipher_len];
-  CBCEncrypt((void*)(databuf+8), (void*)cipherbuff, plainsize, AUTOPAD,
-             (const u_int32_ard*)transportKeys->getCryptoKeySched(), (const u_int16_ard*)IV);
-  
-  sendDebugPacket("CBUF",cipherbuff,msg.cipher_len);          
-  
-  memcpy(databuf+8,cipherbuff,msg.cipher_len);
-  
-  byte_ard cmac[16];
-  aesCMac((const u_int32_ard*)transportKeys->getCryptoKeySched(), cipherbuff, (u_int16_ard)msg.cipher_len, cmac);  
-  
-  sendDebugPacket("MAC",cmac,16);
-  
-  memcpy(databuf+(8+msg.cipher_len),cmac,16);
-  
-  sendDebugPacket("BUF",databuf,bufsize); */
-  
-  ////
-  /*
-  struct data sensorDataUnpack;
-
-  unpack_data(databuf,
-                (const u_int32_ard*) transportKeys->getCryptoKeySched(),
-                &sensorDataUnpack);
-  
-  sendDebugPacket("PID",sensorDataUnpack.id,6);
-  
-  sendDebugPacket("DATA",sensorDataUnpack.data,sensorDataUnpack.data_len);
-
-  sendDebugPacket("CMAC",sensorDataUnpack.cmac,16);
-  */
-  // Send
-  // Write the buffer to serial and free
-//  Serial.write(databuf,bufsize);  
-    
-  // Free
-//  free(databuf);
-//  free(msg.data);
-  
-//  free(sensorDataUnpack.data);
-//  free(sensorDataUnpack.ciphertext);
-  
-//  measBufferCount=0;
 }
   
 /**
@@ -855,6 +788,7 @@ void handleFinish()
   deallocateMeasBuffer();
   setProtocolState(PROT_STATE_STANDBY);
   sendAck(MSG_ACK_NORMAL);
+  errorCode = 0x00;
   // TODO: Other cleanup?? 
 }
 
@@ -866,6 +800,7 @@ void handleFinish()
 void handleGeneralProtocolError()
 {
   setErrorState(ERR_CODE_GEN_PROTOCOL_ERROR);  
+  sendAck(errorCode);  
   // TODO: Other cleanup;
 }
 
@@ -1081,8 +1016,8 @@ void sampleAndReport()
   // transit or on reception.  
   static u_int16_ard counter1 = 0;
   static u_int16_ard counter2 = 10;
-  measBuffer[measBufferCount++] = counter1++; // (counter1++ >> AI_CUT_BITS) & 0xFF; // Cut off 2 LSBs
-  measBuffer[measBufferCount++] = counter2++; // (counter2++ >> AI_CUT_BITS) & 0xFF;
+  measBuffer[measBufferCount++] = counter1++;
+  measBuffer[measBufferCount++] = counter2++;
   counter1 %= 0xFF;  // Make sure the counters are within the AI range
   counter2 %= 0xFF;
   #else
@@ -1101,9 +1036,12 @@ void sampleAndReport()
     digitalWrite(LED_SIGNAL_TX,HIGH);
   } 
 
-  delay(samplingInterval*1000); // Delay for the sampling interval (in msec)
+  // Delay for the sampling interval (in msec)  
+  // Split in two for nicer LED control.
+  delay(samplingInterval*200); 
   digitalWrite(LED_SIGNAL_SAMPLE,LOW);
   digitalWrite(LED_SIGNAL_TX,LOW);  
+  delay(samplingInterval*800); 
 }
 
 /**
@@ -1138,43 +1076,7 @@ bool allocateMeasBuffer()
   
   // Zero the buffer
   memset(measBuffer,0,headerByteSize+measBufferSize*recordByteSize);
-     
-  //
-  // Construct the buffer header. This can be constant for the duration of the capture,
-  // except for the timestamp of course.
-  //
 
-/*  
-  // Set the id
-  int p=0;
-  getPublicIdFromEEPROM(measBuffer+p);
-  // Set the time
-  p+=ID_BIT_SIZE/8;
-  pMsgTime = (u_int32_ard*)(measBuffer+p); // Store a pointer to the time field
-  *(measBuffer+p) = currentTime;
-  // Set the sampling interval (seconds)
-  p+=TIME_BIT_SIZE/8;
-  *(measBuffer+p) = (byte_ard)(samplingInterval) & 0xFF;
-  // Set the buffer length
-  p+=SINT_BIT_SIZE/8;
-  *(measBuffer+p) = (byte_ard)measBufferSize & 0xFF;
-  // Set the interface count and the analog value bit length -- 
-  p+=LEN_BIT_SIZE/8;
-  *(measBuffer+p) = INTERFACE_COUNT | ABITL << ICNT_BIT_SIZE;
-  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;  */
-  /*  // TODO: add interfaces later
-  // Set the interface types
-  for( int i=0; i<INTERFACE_COUNT; i+=2 )
-  {
-    *(measBuffer+p+i) = interface_types[i] & 0x0F;
-    if ( INTERFACE_COUNT>i)
-      *(measBuffer+p+i) |= interface_types[i+1] <<  ITYPE_BIT_SIZE;
-  }
-  */
-
-  // Store a pointer for the beginning of the data segment of the buffer
-//  valBase = measBuffer+headerByteSize;
-    
   return true;
 }
 
@@ -1189,152 +1091,6 @@ void deallocateMeasBuffer()
     return;
   free(measBuffer); 
   measBuffer=NULL;
-}
-
-/**
- *  getIdStr
- *
- *  Produces the public id of the device as a string. Outputs to the serial interface.
- *  The ID is part of the device data kept in the EEPROM.  
- *  TODO: This funciton can be safely removed from "production" builds.
- */
-void getIdStr()
-{
-  for( int i=0; i<DEV_ID_MAN_LEN; i++ )
-    Serial.print(EEPROM.read(DEV_DATA_START+DEV_ID_START+i),HEX);
-  Serial.print("-");
-  for( int i=0; i<DEV_ID_DEV_LEN; i++ )
-    Serial.print(EEPROM.read(DEV_DATA_START+DEV_ID_START+DEV_ID_MAN_LEN+i),HEX);
-}
-
-/**
- *  reportValues
- *
- *  Prints the current buffer to the serial interface.
- *  TODO: Remove or define out for "production" builds.
- */
-//void reportValues(byte_ard *measBuffer)
-//{
-///*  
-//  Serial.print("Device ID: ");
-//  getIdStr();
-//  
-//  int p=0;
-//  p+=ID_BIT_SIZE/8;
-//  Serial.println(*pMsgTime);
-//    
-//  p+=TIME_BIT_SIZE/8;
-//  Serial.print((u_int16_ard)(*(measBuffer+p)));
-//
-//  p+=SINT_BIT_SIZE/8;
-//  Serial.println((u_int16_ard)(*(measBuffer+p)));
-//  
-//  p+=LEN_BIT_SIZE/8;
-//  Serial.println((u_int16_ard)(*(measBuffer+p)>>ICNT_BIT_SIZE) & 0x0F);
-//  Serial.println((u_int16_ard)(*(measBuffer+p)) & 0x0F);
-//
-//  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;
-//  for( int i=0; i<INTERFACE_COUNT; i+=2 )
-//  {
-//    Serial.print((u_int16_ard)(*(measBuffer+p+i) & 0x0F),HEX);
-//    Serial.print(" ");
-//    if ( INTERFACE_COUNT>i)
-//    {
-//      Serial.print((u_int16_ard)(*(measBuffer+p+i)>>ITYPE_BIT_SIZE & 0x0F),HEX);
-//      Serial.print(" ");
-//    }
-//  }
-//*/  
-//  Serial.write(0xAB);  // Dummy code for update message -- TODO: REPLACE
-//  Serial.write(measBufferCount);
-//  byte_ard *valBase = measBuffer+headerByteSize; 
-////  for( int i=0; i<measBufferCount; i++ )
-////    Serial.write( valBase[i] ); // Report the byte format -- remember to shift up at receiving end!
-//  Serial.write(valBase,measBufferCount);
-//}
-
-/**
- *  reportValuesLong
- *
- *  Prints the current buffer to the serial interface. Verbose format, useful for debugging.
- *  TODO: Remove or define out for "production" builds.
- */
-//void reportValuesLong(byte_ard *measBuffer)
-//{
-//  Serial.println("\n----------------------------------------");
-//  int p=0;
-//  Serial.print("Device ID: ");
-//  getIdStr();
-//  Serial.print("\n");
-//  
-//  p+=ID_BIT_SIZE/8;
-//  Serial.print("Update time: ");
-//  Serial.println(*pMsgTime);
-//    
-//  p+=TIME_BIT_SIZE/8;
-//  Serial.print("Sampling interval: ");
-//  Serial.print((u_int16_ard)(*(measBuffer+p)));
-//  Serial.println("*100 msec");
-//
-//  p+=SINT_BIT_SIZE/8;
-//  Serial.print("Measurement buffer size: ");
-//  Serial.println((u_int16_ard)(*(measBuffer+p)));
-//  
-//  p+=LEN_BIT_SIZE/8;
-//  Serial.print("Analog bit size: ");
-//  Serial.println((u_int16_ard)(*(measBuffer+p)>>ICNT_BIT_SIZE) & 0x0F);
-//  Serial.print("Interface count: ");
-//  Serial.println((u_int16_ard)(*(measBuffer+p)) & 0x0F);
-//
-//  Serial.print("Interface types: ");  
-//  p+=(ICNT_BIT_SIZE+ABITL_BIT_SIZE)/8;
-//  for( int i=0; i<INTERFACE_COUNT; i+=2 )
-//  {
-//    Serial.print((u_int16_ard)(*(measBuffer+p+i) & 0x0F),HEX);
-//    Serial.print(" ");
-//    if ( INTERFACE_COUNT>i)
-//    {
-//      Serial.print((u_int16_ard)(*(measBuffer+p+i)>>ITYPE_BIT_SIZE & 0x0F),HEX);
-//      Serial.print(" ");
-//    }
-//  }
-//   
-//  Serial.println("\n----------------------------------------"); 
-//  byte_ard *valBase = measBuffer+headerByteSize; 
-//  Serial.println("Values:");
-//  Serial.println("----------------------------------------");
-//  for( int i=0; i<measBufferCount; i++ )
-//    Serial.println((u_int16_ard)(*(valBase+i))<<AI_CUT_BITS); // Shift up to convert to 10 bits
-//  Serial.println("----------------------------------------");
-//}
-
-//
-// TODO: Add a function to pack and send the update message
-//
-
-/**
- *  doEncryptDecryptTest
- *
- *  Do the FIPS encryption test (appendix B) followed by a decryption.
- *  TODO: Remove or define out for "production" builds.
- */
-void doEncryptDecryptTest()
-{
-  byte_ard pFipsStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34}; // FIPS test vector
-  byte_ard pFipsKey[] = {0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c}; // FIPS key
-    
-  Serial.write(pFipsKey,16);
-  Serial.write(pFipsStr,16);
-
-  byte_ard pKeys[KEY_BYTES*11];  
-  memset(pKeys,0,KEY_BYTES*11);  
-  KeyExpansion(pFipsKey,pKeys);
-
-  EncryptBlock((void*)pFipsStr, (u_int32_ard *)pKeys);  
-  Serial.write(pFipsStr,16);
-
-  DecryptBlock((void*)pFipsStr, (u_int32_ard *)pKeys);
-  Serial.write(pFipsStr,16);
 }
 
 /**
@@ -1368,50 +1124,6 @@ void getPrivateKeyFromEEPROM( byte_ard *key )
 void getPublicIdFromEEPROM( byte_ard *idbuf )
 {
   copyEEPROM2mem(idbuf,DEV_DATA_START+DEV_ID_START,DEV_ID_LEN);
-}
-
-/**
- *  printBytes
- *
- *  For debug only. Pretty print an array of bytes.
- *  Can be safely removed from "production" builds.
- */
-void printBytes(byte_ard* pBytes, int dLength)
-{	 
-  int byteLen=0;
-  for(int i=0; i<dLength;i++)
-  {
-    if(pBytes[i]<0x10) Serial.print("0");
-    Serial.print(pBytes[i],HEX);
-    Serial.print(" ");
-    if(++byteLen%16==0)
-      Serial.print("\n");
-  }
-  Serial.print("\n");
-}
-
-/**
- *  printEEPROMBytes
- *
- *  Dump an EEPROM buffer -- similar to the printBytes method.
- *  Can be safely removed from "production" builds. 
- */
-void printEEPROMBytes(int start, int dLength)
-{
-  int byteLen=0;
-  byte_ard b;
-  for(int i=0; i<dLength;i++)
-  {
-    if( start+1 > EEPROM_SIZE )
-      return;
-    b = EEPROM.read(start+i);
-    if(b<0x10) Serial.print("0");
-    Serial.print(b,HEX);
-    Serial.print(" ");
-    if(++byteLen%16==0)
-      Serial.print("\n");
-  }
-  Serial.print("\n");
 }
 
 /**
@@ -1479,7 +1191,7 @@ int readFromSerial(byte_ard *buf, u_int16_ard length)
 void setProtocolState(byte_ard state)
 {
   protocolState = state;
-  //sendStateUpdateReport(protocolState); // FOR DEBUGGING ONLY
+
   // Set the timeout
   if ( protocolState == PROT_STATE_STANDBY || 
        protocolState == PROT_STATE_KEY_READY )
@@ -1497,6 +1209,7 @@ void setProtocolState(byte_ard state)
   switch( protocolState )
   {
     case PROT_STATE_STANDBY:
+      break;  // Clear all LEDs on standby
     case PROT_STATE_ERROR:
       if ( errorCode!=0 )
       {
@@ -1520,3 +1233,76 @@ void setProtocolState(byte_ard state)
       break;        
   }         
 }
+
+// TODO: DEFINE OUT
+/**s
+ *  doEncryptDecryptTest
+ *
+ *  Do the FIPS encryption test (appendix B) followed by a decryption.
+ *  TODO: Remove or define out for "production" builds.
+ */
+void doEncryptDecryptTest()
+{
+  byte_ard pFipsStr[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34}; // FIPS test vector
+  byte_ard pFipsKey[] = {0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c}; // FIPS key
+    
+  Serial.write(pFipsKey,16);
+  Serial.write(pFipsStr,16);
+
+  byte_ard pKeys[KEY_BYTES*11];  
+  memset(pKeys,0,KEY_BYTES*11);  
+  KeyExpansion(pFipsKey,pKeys);
+
+  EncryptBlock((void*)pFipsStr, (u_int32_ard *)pKeys);  
+  Serial.write(pFipsStr,16);
+
+  DecryptBlock((void*)pFipsStr, (u_int32_ard *)pKeys);
+  Serial.write(pFipsStr,16);
+}
+
+// TODO: DEFINE OUT
+/**
+ *  printBytes
+ *
+ *  For debug only. Pretty print an array of bytes.
+ *  Can be safely removed from "production" builds.
+ */
+void printBytes(byte_ard* pBytes, int dLength)
+{	 
+  int byteLen=0;
+  for(int i=0; i<dLength;i++)
+  {
+    if(pBytes[i]<0x10) Serial.print("0");
+    Serial.print(pBytes[i],HEX);
+    Serial.print(" ");
+    if(++byteLen%16==0)
+      Serial.print("\n");
+  }
+  Serial.print("\n");
+}
+
+// TODO: DEFINE OUT
+/**
+ *  printEEPROMBytes
+ *
+ *  Dump an EEPROM buffer -- similar to the printBytes method.
+ *  Can be safely removed from "production" builds. 
+ */
+void printEEPROMBytes(int start, int dLength)
+{
+  int byteLen=0;
+  byte_ard b;
+  for(int i=0; i<dLength;i++)
+  {
+    if( start+1 > EEPROM_SIZE )
+      return;
+    b = EEPROM.read(start+i);
+    if(b<0x10) Serial.print("0");
+    Serial.print(b,HEX);
+    Serial.print(" ");
+    if(++byteLen%16==0)
+      Serial.print("\n");
+  }
+  Serial.print("\n");
+}
+
