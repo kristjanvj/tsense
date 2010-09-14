@@ -235,11 +235,7 @@ def handleKeyToSense(sfile,logger):
 		raise Exception("Unexpected number of bytes received for a key-to-sense message");
 	return buf
 
-#def handleIdResponseError(ser,logger):
-#	print "handleIdResponseError"
-
 def handleRekeyResponse(sfile,logger):
-	print "\nhandleRekeyResponse\n"
 	buf = sfile.read(54)
 	print "received a buffer of length %d:\n%s" % (len(buf),hexstr(buf))
 	if len(buf)!=54:
@@ -430,6 +426,26 @@ def handleReKeyRequest(ser,logger):
 	logger.debug("\tMAC:\t%s" % hexstr(buf[22:38]))
 	return buf
 
+def logSensorRx(buf,normal=True):
+	f = open("sensor.log","a")
+	f.write(strftime("%H:%M:%S"))
+	f.write("  RX: ");
+	f.write(hexstr(buf))
+	if not normal:
+		f.write("  ERROR")
+	f.write("\n")
+	f.close()
+
+def logSensorTx(buf,normal=True):
+	f = open("sensor.log","a")
+	f.write(strftime("%H:%M:%S"))
+	f.write("  TX: ");
+	f.write(hexstr(buf))
+	if not normal:
+		f.write("  ERROR")
+	f.write("\n")
+	f.close()
+
 def listenAndForwardLoop(ser,logger):
 	"""
 	The listen-and-forward loop monitors the serial port (sensor connection) by a blocking read.
@@ -447,62 +463,70 @@ def listenAndForwardLoop(ser,logger):
 	
 	# Repeat "forever" -- that is, until an exception occurs
 	while True:
-		# wait for a message from serial port (sensor). Blocking read.
-		buf = ser.read(1)
-		# Handle received messages based on message id in first byte.
-		msg_code = ord(buf[0])
-		print "\n *** Received message with code 0x%.2x from tsensor ***\n" % msg_code
-		if msg_code == MSG_T_DATA_SEND:    # Valid from sensor
-			logger.info("FROM SENSOR: Received a data send message")
-			buf+=handleDataMessage(ser)
-			forwardToSink(buf,logger)  # Dont wait for an answer -- fire and forget
-			continue
-		elif msg_code == MSG_T_ACK:
-			# An ACK is not expected at this point in the protocol except for abnormal 
-			# circumstances. Lets print and ignore at this point in time.
-			code = ord(ser.read(1))
-			if code==0x01: # TIMEOUT					
-				logger.exception("FROM SENSOR: Received an ACK message with code 0x%.2x: TIMEOUT " % code)
-				raise Exception("Sensor timeout")
+		try:
+			# wait for a message from serial port (sensor). Blocking read.
+			buf = ser.read(1)
+			# Handle received messages based on message id in first byte.
+			msg_code = ord(buf[0])
+			print "\n *** Received message with code 0x%.2x from tsensor ***\n" % msg_code
+			if msg_code == MSG_T_DATA_SEND:    # Valid from sensor
+				logger.info("FROM SENSOR: Received a data send message")
+				buf+=handleDataMessage(ser)
+				forwardToSink(buf,logger)  # Dont wait for an answer -- fire and forget
+				logSensorRx(buf);
+				continue
+			elif msg_code == MSG_T_ACK:
+				# An ACK is not expected at this point in the protocol except for abnormal 
+				# circumstances. Lets print and ignore at this point in time.
+				code = ord(ser.read(1))
+				if code==0x01: # TIMEOUT					
+					logger.exception("FROM SENSOR: Received an ACK message with code 0x%.2x: TIMEOUT " % code)
+					raise Exception("Sensor timeout")
+				else:
+					logger.exception("FROM SENSOR: Received an ACK message with code 0x%.2x: TIMEOUT " % code)
+					raise Exception("Unexpected ACK with code 0x%.2x received" % code )
+			elif msg_code == MSG_T_DEBUG_PACKET:
+				handleDebugPacketFromSensor(ser)
+				logSensorRx(buf);
+				continue # Dont handle further -- fire and forget!
+			elif msg_code == MSG_T_GET_ID_R:
+				logger.info("FROM SENSOR: Received an Id response message") # valid from sensor
+				buf+=handleIdResponse(ser,logger)
+				logSensorRx(buf);
+				ser.timeout = None
+			elif msg_code == MSG_T_KEY_TO_SINK:
+				logger.info("FROM SENSOR: Received a key-to-sink message")
+				raise Exception("Unexpected key-to-sink from sensor")
+			elif msg_code == MSG_T_KEY_TO_SENSE:
+				logger.info("FROM SENSOR: Received a key-to-sense message") 
+				raise Exception("Unexpected key-to-sense from sensor")
+			elif msg_code == MSG_T_ID_RESPONSE_ERROR:
+				logger.info("FROM SENSOR: Received an id response error")
+				raise Exception("Unexpected id response error from sensor")
+			elif msg_code == MSG_T_REKEY_REQUEST:
+				logger.info("FROM SENSOR: Received an re-key request") # Valid from sensor
+				buf+=handleReKeyRequest(ser,logger)
+				logSensorRx(buf);
+			elif msg_code == MSG_T_REKEY_HANDSHAKE:
+				logger.info("FROM SENSOR: Received a re-keying handshake") 
+				#raise Exception("Unexpected re-keying handshake from sensor")
+				buf+=handleReKeyRequest(ser,logger)
+				logSensorRx(buf);
+			elif msg_code == MSG_T_FINISH:
+				logger.info("FROM SENSOR: Received a finish message")
+				raise Exception("Unexpected FINISH from sensor")
+			elif msg_code == MSG_T_ERROR:
+				logger.info("FROM SENSOR: Received a general error message")
+				raise Exception("GENERAL ERROR")
 			else:
-				logger.exception("FROM SENSOR: Received an ACK message with code 0x%.2x: TIMEOUT " % code)
-				raise Exception("Unexpected ACK with code 0x%.2x received" % code )
-		elif msg_code == MSG_T_DEBUG_PACKET:
-			handleDebugPacketFromSensor(ser)
-			continue # Dont handle further
-		elif msg_code == MSG_T_GET_ID_R:
-			logger.info("FROM SENSOR: Received an Id response message") # valid from sensor
-			buf+=handleIdResponse(ser,logger)
-			ser.timeout = None
-		elif msg_code == MSG_T_KEY_TO_SINK:
-			logger.info("FROM SENSOR: Received a key-to-sink message")
-			raise Exception("Unexpected key-to-sink from sensor")
-		elif msg_code == MSG_T_KEY_TO_SENSE:
-			logger.info("FROM SENSOR: Received a key-to-sense message") 
-			raise Exception("Unexpected key-to-sense from sensor")
-		elif msg_code == MSG_T_ID_RESPONSE_ERROR:
-			logger.info("FROM SENSOR: Received an id response error")
-			raise Exception("Unexpected id response error from sensor")
-		elif msg_code == MSG_T_REKEY_REQUEST:
-			logger.info("FROM SENSOR: Received an re-key request") # Valid from sensor
-			buf+=handleReKeyRequest(ser,logger)
-		elif msg_code == MSG_T_REKEY_HANDSHAKE:
-			logger.info("FROM SENSOR: Received a re-keying handshake") 
-			#raise Exception("Unexpected re-keying handshake from sensor")
-			buf+=handleReKeyRequest(ser,logger)
-		elif msg_code == MSG_T_FINISH:
-			logger.info("FROM SENSOR: Received a finish message")
-			raise Exception("Unexpected FINISH from sensor")
-		elif msg_code == MSG_T_ERROR:
-			logger.info("FROM SENSOR: Received a general error message")
-			raise Exception("GENERAL ERROR")
-		else:
-			raise Exception("FROM SENSOR: Unknown message 0x%.2x received" % msg_code)
-
-		# Only dump the buffer for debug to avoid cluttering the output
-		if debug_dump_buffers:
-			print "Buffer from sensor:\n",hexstr(buf)
-
+				raise Exception("FROM SENSOR: Unknown message 0x%.2x received" % msg_code)
+			# Only dump the buffer for debug to avoid cluttering the output
+			if debug_dump_buffers:
+				print "Buffer from sensor:\n",hexstr(buf)
+		except Exception, err:
+			logSensorRx(buf,True);
+			raise Exception("Error reading from sensor: %s" % err)
+		
 		# Forward to sink and wait for respnse. Exceptions break loop.
 		try:
 			rbuf = forwardAndWait(buf,logger)  
@@ -514,24 +538,29 @@ def listenAndForwardLoop(ser,logger):
 			if debug_dump_buffers:
 				print "Buffer to sensor:\n",hexstr(rbuf)	
 			ser.write(rbuf)
+			logSensorTx(rbuf)
 		else:
+			logSensorTx("NO RESPONSE",True);
 			raise Exception("No response from sink")
-			
+		
 		# Want an ack after writing the buffer to sensor
 		code = readAck(ser,logger)			
+		buf = chr(MSG_T_ACK)
+		buf+= chr(code)
 		if code==0x00:
+			logSensorRx(buf);
 			logger.info("FROM SENSOR: Normal ACK -- transaction completed");
 		else:
-#			logger.exception("Protocol error: ACK with code 0x%.2x" % code)
-			raise Exception("Protocol error: CODE: 0x%.2x" % code)  # TODO: REMOVED FOR DEBUG
+			logSensorRx(buf,True);	
+			raise Exception("Protocol error: CODE: 0x%.2x" % code)
 					
 def handleDataMessage(ser):
 	rbuf = ser.read(1) # Read the next byte -- crypto length
 	length = ord(rbuf[0])
 	total_length = length + 6 + 16 # add rest of plaintext header and the mac
-	print "Data message received -- encrypted length is %d" % length;
+#	print "Data message received -- encrypted length is %d" % length;
 	rbuf+= ser.read(total_length) # Read the rest of the data
-	print "HEX:\n%s" % hexstr(rbuf)
+#	print "HEX:\n%s" % hexstr(rbuf)
 	return rbuf
 		
 def handleDebugPacketFromSensor(ser):
@@ -612,6 +641,9 @@ def main(argv=None):
 
 	# Log a start notice
 	logger.info("START: Starting tsclient")
+	f = open("sensor.log","a")
+	f.write("\n\nCLIENT START %s\n" % ctime())
+	f.close()
 
 	try:
 		try:
