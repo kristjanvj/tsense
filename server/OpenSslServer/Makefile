@@ -27,6 +27,7 @@ AUTH_DD =	$(CC) -D_$(ARCH) $(IFLAGS) $(LFLAGS) tsauthdaemon.cpp \
 			$(CRYPT_DIR)protocol.cpp \
 			$(CRYPT_DIR)aes_cmac.cpp \
 			$(CRYPT_DIR)aes_crypt.cpp \
+			$(CRYPT_DIR)aes_utils.cpp \
 			-o $(AUTHDNAME)
 
 AUTH_MSG = "Compiling auth server:\n-----------------------"
