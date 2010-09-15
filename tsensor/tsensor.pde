@@ -530,18 +530,17 @@ void handleKeyToSense()
   setProtocolState(PROT_STATE_SESSION_KEY_SET);        
   sendAck(ERR_CODE_OK);
 
-/**  sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);  // TESTING ONLY */
-/**  sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);  // TESTING ONLY  **/
+  /****
+  sendDebugPacket("SCKEY",sessionKeys->getCryptoKey(),16);
+  sendDebugPacket("SMKEY",sessionKeys->getMacKey(),16);
 
-/*  
   byte_ard tempBuf[10];
-
   tempBuf[0] = lowByte(idNonce);
   tempBuf[1] = highByte(idNonce);
   tempBuf[2] = lowByte(senserecv.nonce);
   tempBuf[3] = highByte(senserecv.nonce);
   sendDebugPacket("NONCES",tempBuf,4);  
-*/
+  ****/
 
   // Send a rekey request to the associated S
   sendRekeyRequest();                                   
