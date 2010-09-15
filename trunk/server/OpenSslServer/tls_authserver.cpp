@@ -169,8 +169,6 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 
 	// Generate the session key ------------------------------------------------
 
-	// TODO: Use /dev/urandom
-
 	// Generate K_ST.
 	byte_ard K_ST[BLOCK_BYTE_SIZE];
 	generateKey(K_ST);	// Call the key generation function in aes_utils
