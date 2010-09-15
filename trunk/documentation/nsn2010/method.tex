@@ -352,7 +352,7 @@ The client $C$ (untrusted) queries the sensor $T$ for its public ID.
 
 
 \[
-T \rightarrow C: (T, \mathcal{E}_{TA,e}(T, N_T) \paralell \mathcal{T}_{TA,a})
+T \rightarrow C: (T, \mathcal{E}_{TA,e}(T, N_T) \parallel \mathcal{T}_{TA,a})
 \]
 
 We denote a CMAC with $\mathcal{T}$ The keys $K_{TA,e}$ and $K_{TA,a}$
@@ -400,15 +400,16 @@ session key $K_{ST}$ and a renewal timer $rt_{ST}$. The renewal timer
 is a 2-byte integer which is decremented for each use of the session
 key. $A$ also embeds a encrypted package for $T$, containing the
 session key. It is MACed for authenticity. The shared symmetric key
-$K_{AT}$ and the original nonce $N_T$ provdei guarantees to $T$ that
+$K_{AT}$ and the original nonce $N_T$ provides guarantees to $T$ that
 it was in fact $A$ that generated this key.
 
-If $T$ is denied it will repspond with \texttt{MSG_T_ERROR} (not yet implemented). 
+If $T$ is denied it will repspond with \texttt{MSG\_T\_ERROR} (not yet implemented). 
 
 
 \[
 S \rightarrow C \rightarrow T: (keytosense,\mathcal{E}_{AT,e}(N_T,K_{ST},rt_{ST}) \parallel \mathcal{T}_{AT,a})
 \]
+
 $S$ forwards the encrypted package containing the nonce and session
 key to $T$ through $C$. $T$ opens the package and retrieves
 $K_{ST}$. Both $T$ and $S$ will now derive the keys $K_{ST,e}$ and
@@ -441,8 +442,8 @@ T \rightarrow C \rightarrow S: (rekey,T,\mathcal{E}_{ST}(T,N_T) \parallel \mathc
 $T$ uses the session key $K_{ST}$ to request a fresh key. $N_T$ is a
 new nonce. In the first round, this message also serves to let $S$
 know the session key $K_{ST}$ was successfully delivered, then the
-message code \texttt{MSG_T_REKEY_HANDSHAKE} is used. Otherwise, on
-re-keying, the regular message code \texttt{MSG_T_REKEY_RESPONSE} is
+message code \texttt{MSG\_T\_REKEY\_HANDSHAKE} is used. Otherwise, on
+re-keying, the regular message code \texttt{MSG\_T\_REKEY\_RESPONSE} is
 used.
 
 \[
