@@ -296,7 +296,7 @@ void unpack_keytosink(void *pStream, struct message* msg)
 /**
  * pack_keytosens()
  *
- * This method does not requier a key schedule either. It reads the struct generated
+ * This method does not require a key schedule either. It reads the struct generated
  * by unpack_keytosink(), and takes the ciphertext and cmac and writes it to a bytestream.
  * It is intended to forward the ciphered text to the client. It is assumed that the sink
  * has no means of reading the ciphertext.
