@@ -225,9 +225,20 @@ Our choice of hardware for the tsensor prototype was in the spirit of these requ
 %
 We choose to use the Arduino Duemilanove\footnote{\url{http://arduino.cc/en/Main/ArduinoBoardDuemilanove}} prototyping board in this project, mainly for expediency. The Duemilanove comes with an ATmega328 in a  28-pin DIL package and includes all the peripherals necessary for running the CPU. Additionally, a USB-to-serial converter is provided, allowing the board to be connected directly to a host computer for programming and data delivery.
 %
-The Duemilanove was augmented with a very simple interface board, consisting of a couple of sensors (NTC thermistor and a photoresistor) and LEDs. The setup is shown in Figure~\ref{}.
+The Duemilanove was augmented with a very simple interface board, consisting of a couple of sensors (NTC thermistor and a photoresistor) and LEDs. The setup is shown in Figure~\ref{fig:tsensor}.
 %
-\textbf{PICTURE OF ARDUINO AND SENSOR BOARD | EAGLE SCHEMATIC}
+
+\begin{figure}[!t]
+\centerline{
+\subfigure[]{\includegraphics[width=0.45\textwidth]{figures/ts-schematic.png}
+\label{fig:schematic}}
+\subfigure[]{\includegraphics[width=0.45\columnwidth]{figures/tsensor.jpg}
+\label{fig:picture}}} 
+\caption{The tsensor prototype. 
+\subref{fig:schematic} Schematic diagram of the sensor board. 
+\subref{fig:picture} Picture of the Arduino and assembled sensor board.}
+\label{fig:tsensor}
+\end{figure}
 
 \subsubsection{Software development} 
 
