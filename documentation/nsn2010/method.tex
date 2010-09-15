@@ -96,7 +96,7 @@ Production sensors would use a much smaller custom PCB and a surface mount versi
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=0.6\textwidth]{figures/sys-overview.png} 
+\includegraphics[width=0.6\textwidth]{../figures/sys-overview.png} 
 \end{center}
 \caption{System overview. Interaction of the entities of the TSensor system. Green: Trusted entities. Gray: Untrusted entities (compromizable), Black channels: Untrusted, Red channels: Secure.}
 \label{fig:sys-overview}
@@ -344,82 +344,160 @@ As discussed in Section~\ref{}, we use the \textit{Encrypt-then-MAC (ETM)} \shor
 \subsubsection{Initial phase -- authentication and session key exchange}
 
 The authentication and session key exchange proceeds as follows:
+
 \[
 C \rightarrow T: \textit{queryId}
 \]
 The client $C$ (untrusted) queries the sensor $T$ for its public ID.
 
-\[
-T \rightarrow C: (T,\mathcal{E}_{TA}(T,N_T) \parallel \mathcal{T}_{TA,a})
-\]
-The sensor $T$ returns its public id and an encryption of its public id with a nonce using the secret key $K_{TA}$. The whole thing is MACed for authenticity -- we denote this from here on by the symbol $\mathcal{T}$. This message is very similar to the YubiKey OTP. The nonce is only sent in encrypted form in this construction. Its purpose is to prevent replay attacks (provide freshness). The eventual recipient of the encrypted payload (the authentication server $A$) checks the nonce for consistency and returns with the eventual reply to $T$.
 
 \[
-C\rightarrow S: (insert,T,\mathcal{E}_{TA}(T,N_T) \parallel \mathcal{T}_{TA,a})
+T \rightarrow C: (T, \mathcal{E}_{TA,e}(T, N_T) \paralell \mathcal{T}_{TA,a})
 \]
+
+We denote a CMAC with $\mathcal{T}$ The keys $K_{TA,e}$ and $K_{TA,a}$
+are both derived from $K_{TA}$.
+
+The sensor $T$ returns its public id along with an encryption of both
+the ID and a nounce $N_T$. We use the key $K_{TA,e}$ for
+encryption. For authenticity, a CMAC of the message is then appended
+to it. The nonce is only sent in encrypted form in this contrustion,
+the purpose of it is to proved freshness and prevent replay attacks.
+
+\[
+C\rightarrow S: (idresponse,T,\mathcal{E}_{TA,e}(T,N_T) \parallel \mathcal{T}_{TA,a})
+\]
+
 $C$ passes the public id of $T$ and the encrypted packet to $S$.
 
 \[
-S \rightarrow A: (\mathcal{E}_{AS}(insert,T,N_S, \{ \mathcal{E}_{TA}(T,N_T) \parallel \mathcal{T}_{TA,a} \}) \parallel \mathcal{T}_{AS,a})
+S \rightarrow A: (\mathcal{E}_{AS}(idresponse,T, \{
+\mathcal{E}_{TA,e}(T,N_T) \parallel \mathcal{T}_{TA,a} \}) \parallel
+\mathcal{T}_{AS,a})
 \]
-$S$ forwards the sensor public ID $T$, own nonce $N_S$ to $A$ and unmodified encrypted payload to $A$. $A$ checks if $T$ is on record, and if so, generates response. A non-existent id should probably log the $S$ as a possible attacker. 
-%
-$S$ forwards the encrypted/authenticated packet from $T$ unmodified to $A$, but adds extra security by encrypting by a pairwise shared key $K_{AS}$ and authenticating with the derived shared key $K_{AS,a}$. This can most directly be accomplished by using mutually authenticating TLS to set up these keys and provide the crucial identification of the two trusted entities $A$ and $S$.
+
+$S$ forwards the unmodified message from $T$ to $A$, which will then
+read the encrypted packet, check the authenticity of it and repsond
+accordingly. $S$ forwards the packet unmodified but adds extra security
+by encrypting by a pairwise shared key $K_{AS}$ and the dirived key
+$K_{AS,a}$. This is accomplished by using mutually authenticating TLS
+to provide identification and authentication mechanism.
+
+If $T$ is accepted, then it generates the session key
+$K_{ST}$ and sends it to $S$:
 
 \[
-A \rightarrow S: (\mathcal{E}_{AS}(OK,N_S,K_{ST},t_{ST}, \{ \mathcal{E}_{AT}(N_T,K_{ST},t_{ST}) \parallel \mathcal{T}_{AT,a} \} \parallel \mathcal{T}_{AS,a})
+A \rightarrow S: (\mathcal{E}_{AS}(keytosink,T,K_{ST},rt_{ST}, \{
+\mathcal{E}_{TA,e}(N_T,K_{ST},rt_{ST}) \parallel \mathcal{T}_{TA,a}
+\} \parallel \mathcal{T}_{AS,a})
 \]
-A responds with a code for OK (else, returns error code). The nonce $N_S$ is included, along with a randomly generated session key $K_{ST}$ and expiration "time" $t_{st}$ of some sort\footnote{We have to think about this a bit since the Arduino has no real time clock and we want to avoid depending on $C$ for time synchronization. A counter decremented per usage or simply a timelimit in seconds should be ok. Another option is to ignore this for the time being.}. $A$ also embeds an encrypted package for $T$, containing the session key $K_{ST}$, MACed for authenticity. The shared symmetric key $K_{AT}$ and the original nonce $N_T$ provide guarantees to $T$ that it was in fact $A$ that generated this key.
+
+%Hvernig er núna brugðvist við error?
+
+$A$ will either deny or accept the authentication request or deny
+it. If it accepts $T$ it will repsond with the randomly generates
+session key $K_{ST}$ and a renewal timer $rt_{ST}$. The renewal timer
+is a 2-byte integer which is decremented for each use of the session
+key. $A$ also embeds a encrypted package for $T$, containing the
+session key. It is MACed for authenticity. The shared symmetric key
+$K_{AT}$ and the original nonce $N_T$ provdei guarantees to $T$ that
+it was in fact $A$ that generated this key.
+
+If $T$ is denied it will repspond with \texttt{MSG_T_ERROR} (not yet implemented). 
+
 
 \[
-S \rightarrow C \rightarrow T: (\mathcal{E}_{AT}(N_T,K_{ST},t_{ST}) \parallel \mathcal{T}_{AT,a})
+S \rightarrow C \rightarrow T: (keytosense,\mathcal{E}_{AT,e}(N_T,K_{ST},rt_{ST}) \parallel \mathcal{T}_{AT,a})
 \]
-$S$ forwards the encrypted package containing the nonce and session key to $T$ through $C$. $T$ opens the package and retrieves $K_{ST}$. 
+$S$ forwards the encrypted package containing the nonce and session
+key to $T$ through $C$. $T$ opens the package and retrieves
+$K_{ST}$. Both $T$ and $S$ will now derive the keys $K_{ST,e}$ and
+$K_{ST,a}$. $rt_{ST}$ is the key renewal timer and $T$ will request af
+fresh key when it reaces zero.
 
-Note: The session key $K_{TS}$ is a fairly long term \textit{ephemeral} key. See motivation for use of ephemeral keys in e.g.\ Menezes (pp.\ 494). $T$ and $S$ also derive an authentication key $K_{TS,a}$ at this point.
+Note: The session key $K_{TS}$ is a fairly long term
+\textit{ephemeral} key. See motivation for use of ephemeral keys in
+e.g.\ Menezes (pp.\ 494). $T$ and $S$ also derive an authentication
+key $K_{TS,a}$ at this point. (TODO: rewrite)
 
 \subsubsection{Handshake phase and delivery of encryption keys}
 
-The session key has now been delivered to $T$ and $S$. Needham-Schroeder includes a handshake step in which the entities receiving the session key make sure they both have the correct key. We also use the handshake for the initial exchange of encryption/authentication keys. These are the keys which are used in the bulk of the crypto operations -- the data transfer itself.
+The session key has now been delivered to $T$ and
+$S$. Needham-Schroeder includes a handshake step in which the entities
+receiving the session key make sure they both have the correct key. We
+also use the handshake for the initial exchange of
+encryption/authentication keys. These are the keys which are used in
+the bulk of the crypto operations -- the data transfer itself.
 
-The handshake/key exchange must happen right after the delivery of $K_{ST}$ to $T$ and then periodically to refresh the encryption and authentication keys. See also Menezes (pp.\ 497) on point-to-point key update.
-\[
-T \rightarrow C \rightarrow S: (\textit{re-key},T,\mathcal{E}_{ST}(T,N_T) \parallel \mathcal{T}_{ST,a})
-\]
-$T$ uses the session key $K_{ST}$ to request a fresh key. In the first round, this message also serves to let $S$ know the session key $K_{ST}$ was successfully delivered. $N_T$ is a new nonce.
+The handshake/key exchange must happen right after the delivery of
+$K_{ST}$ to $T$ and then periodically to refresh the encryption and
+authentication keys. See also Menezes (pp.\ 497) on point-to-point key
+update.
 
 \[
-S \rightarrow T: (\textit{new-key},T, \{ \mathcal{E}_{ST}(T,N_T,R,t_{expire}) \parallel \mathcal{T}_{STe,a} \} )
+T \rightarrow C \rightarrow S: (rekey,T,\mathcal{E}_{ST}(T,N_T) \parallel \mathcal{T}_{ST,a})
 \]
-$S$ returns a fresh random number $R$ to $T$ (the new key material). $t_{expire}$ is the expiration "time" -- actually, we can use a counter for this so that $T$ requests a new key when the counter reaches zero. The encryption key is derived from this as $K_{STe}=\mathcal{E}_{ST}(R)$. The purpose of this step is to provide bilateral implicit key authentication (See Menezes pp.\ 498). Better yet, use a one-way cryptographically secure hash function for this derivation instead of encryption (see later section on key derivation). $S$ considers the session officially to have been established once the initial encryption key has been delivered.
+
+$T$ uses the session key $K_{ST}$ to request a fresh key. $N_T$ is a
+new nonce. In the first round, this message also serves to let $S$
+know the session key $K_{ST}$ was successfully delivered, then the
+message code \texttt{MSG_T_REKEY_HANDSHAKE} is used. Otherwise, on
+re-keying, the regular message code \texttt{MSG_T_REKEY_RESPONSE} is
+used.
+
+\[
+S \rightarrow T: (newkey,T, \{ \mathcal{E}_{ST}(T,N_T,R,rt_{ST}) \parallel \mathcal{T}_{STe,a} \} )
+\]
+
+$S$ returns the new key material, a fresh 16-byte random number $R$ to $T$.
+$rt_{ST}$ is a fresh key renewal timer. When it reaches zero, $T$ will request a fresh key. The encryption key is derived from $K_{ST}$. The purpose of this step is to provide bilateral implicit key authentication (See Menezes pp.\ 498). See X.X.X for details on key generation. 
 
 \subsubsection{Subsequent re-keying}
 
-How will $T$ request keys in the future when its keys expire, since it is totally dependent on $C$ for outside communication? One way is to add a control message, like the re-keying message above, to the measurement queue which a well-behaved $C$ will forward. $T$ will then simply not produce any output until a new key is delivered. A $C$ meddling with the re-keying would then simply produce no (verifiable) output.
+How will $T$ request keys in the future when its keys expire, since it
+is totally dependent on $C$ for outside communication? One way is to
+add a control message, like the re-keying message above, to the
+measurement queue which a well-behaved $C$ will forward. $T$ will then
+simply not produce any output until a new key is delivered. A $C$
+meddling with the re-keying would then simply produce no (verifiable)
+output.
 
 The encryption and authentication keys $K_{TSe}$ and $K_{TSe,a}$ used for the actual traffic are short term \textit{ephemeral} keys, good for a very limited amount of traffic, say 10000 encryptions.
 
 \subsubsection{Finish message}
 
-A well-behaved client should send a \texttt{FINISH} message when it wishes to terminate a session. This message could carry some summary of the session, e.g.\ start, end times and total number of messages sent, allowing the server to do some sanity checks (see TLS for reference). A FINISH message will invalidate the current $S$-side session and encryption keys and clean up resources. 
+A well-behaved client should send a \texttt{FINISH} message when it
+wishes to terminate a session. This message could carry some summary
+of the session, e.g.\ start, end times and total number of messages
+sent, allowing the server to do some sanity checks (see TLS for
+reference). A FINISH message will invalidate the current $S$-side
+session and encryption keys and clean up resources.
 
 However, clients may leave without any notice. We must handle that by using a soft-state on the $S$ -- a keep-alive timer is reset each time an update is received from a client and the session keys invalidated once the timer elapses.
 
-Note: This refers to the key state only. Actual network connections can be opened per transaction.
+Note: This refers to the key state only. Actual network connections
+can be opened per transaction.
 
 \subsection{Data transfer protocol}
 
-The transfer protocol uses the encryption and authentication keys and is pretty straight forward. \textbf{The following is a pull-based protocol but a push based is a simple modification. FIXME -- describe push-based as default.}
+The transfer protocol uses the encryption and authentication keys and
+is pretty straight forward. \textbf{The following is a pull-based
+  protocol but a push based is a simple modification. FIXME --
+  describe push-based as default.}
 
 \[
 C \rightarrow T: (\textit{poll})
 \]
-$C$ requests the current measurements from $T$. Alternatively, we let $T$ push the measurements and skip this step.
+$C$ requests the current measurements from $T$. Alternatively, we let
+$T$ push the measurements and skip this step.
 
 \[
 T \rightarrow C \rightarrow S: (\textit{update},T,N_T,\mathcal{E}_{STe}(T,N_T,B) \parallel \mathcal{T}_{STe,a})
 \]
-T (optionally) encrypts the buffer $B$, MACs and delivers to $C$, who simply forwards the packet to $S$. A nonce $N_T$ prevents replays -- can simply be a monotonic counter incremented during the lifetime of the encryption key.
+T (optionally) encrypts the buffer $B$, MACs and delivers to $C$, who
+simply forwards the packet to $S$. A nonce $N_T$ prevents replays --
+can simply be a monotonic counter incremented during the lifetime of
+the encryption key.
 
 The message contents $B$ can for example be of the following form:
 \[
@@ -430,13 +508,24 @@ where length is the total length in bytes and $r_i$ is a record:
 r_i = [interface name \parallel timestamp \parallel value ]
 \]
 
-Note: If $B$ is sent in plaintext then we use a MAC over the plaintext, rather than cipher text. That is, simply skip the encryption step.
+Note: If $B$ is sent in plaintext then we use a MAC over the
+plaintext, rather than cipher text. That is, simply skip the
+encryption step.
 
-Note: The encryption and authentication keys $K_{STe}$ and $K_{STe,a}$ must be replaced periodically by a re-keying operation, as discussed previously.
+Note: The encryption and authentication keys $K_{STe}$ and $K_{STe,a}$
+must be replaced periodically by a re-keying operation, as discussed
+previously.
 
 \subsection{Handling the unexpected}
 
-The protocols outlined above assume well-behaved participants. This is not necessarily the case. Timeouts, malfunctions, message losses, malicious actions and program bugs are all factors to be considered when designing robust protocols. We reserve most of the robustness features for future work; components generally fail, hopefully gracefully, in the current version when unexpected events occur. However, we maintain a soft state for intermediary protocol steps, allowing for some degree of robustness. 
+The protocols outlined above assume well-behaved participants. This is
+not necessarily the case. Timeouts, malfunctions, message losses,
+malicious actions and program bugs are all factors to be considered
+when designing robust protocols. We reserve most of the robustness
+features for future work; components generally fail, hopefully
+gracefully, in the current version when unexpected events
+occur. However, we maintain a soft state for intermediary protocol
+steps, allowing for some degree of robustness.
 
 \subsection{Keys and key derivation}
 
