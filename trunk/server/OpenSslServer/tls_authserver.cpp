@@ -172,12 +172,8 @@ void TlsAuthServer::handleIdResponse(SSL *ssl, byte_ard *idResponseBuf,
 	// TODO: Use /dev/urandom
 
 	// Generate K_ST.
-	srand((unsigned)time(0));
-
 	byte_ard K_ST[BLOCK_BYTE_SIZE];
-	for(int i=0; i<BLOCK_BYTE_SIZE; i++){
-		K_ST[i] = (rand() % 0x1ff);
-	}
+	generateKey(K_ST);	// Call the key generation function in aes_utils
 
 	char szKeyStr[50];
 	sprintf(szKeyStr,

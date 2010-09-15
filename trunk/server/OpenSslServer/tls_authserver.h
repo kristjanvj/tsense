@@ -10,6 +10,7 @@
 #include "tls_baseserver.h"
 #include "tsense_keypair.h"
 #include "protocol.h"
+#include "aes_utils.h"
 #include <stdexcept>
 
 using namespace std;
