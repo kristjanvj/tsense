@@ -392,6 +392,62 @@ int newkeytest(byte_ard* id, u_int16_ard n, byte_ard* r, u_int16_ard t)
   free(recvmsg.ciphertext);
   return retval;
 }
+/**
+ *
+ * Name:    MSG Code | Cipher Len | Pub ID | Ciphertext                                            | Cmac 
+ * Bytes:   1        | 1          | 6      | ID: 6, Msg Time: 4, Buffer length: 1, Data: Varies    | 16
+ * Data:    0x01     |            |        | Public ID, Msg Time, Buffer length, Data              |      
+ */
+int datatest(byte_ard* data, byte_ard datalen, byte_ard* id, u_int32_ard t)
+{
+  int retval = 1;
+  printf("data: ");
+
+  struct data senddata;
+  strncpy((char*)senddata.id, (const char*) id, ID_SIZE);
+  senddata.data = data;
+  senddata.msgtime = t;
+  senddata.data_len = datalen;
+
+  //                           ↓ Everything in the crypt part ↓
+  int datablocks = ((datalen+ID_SIZE + MSGTIME_SIZE + 1)/BLOCK_BYTE_SIZE) +1; 
+  // TODO: find a way to define the needed buffer length
+  byte_ard buffer[MSGTYPE_SIZE + 1 + ID_SIZE + (datablocks*BLOCK_BYTE_SIZE)];
+  pack_data(&senddata, (const u_int32_ard*)Keys, (const u_int32_ard*)CmacKeys, (void*)buffer);
+
+
+  // Unpack
+  struct data recvdata;
+  unpack_data((void*)buffer, (const u_int32_ard*)Keys, &recvdata);
+
+  // Verify
+  byte_ard cmac_temp[BLOCK_BYTE_SIZE];
+  aesCMac((const u_int32_ard*)CmacKeys, recvdata.ciphertext, (u_int32_ard)recvdata.cipher_len, cmac_temp);
+  
+  if(recvdata.msgtime == t)
+  {
+    if (strncmp((const char*)recvdata.cmac, (const char*)cmac_temp, BLOCK_BYTE_SIZE) == 0)
+    //if (2 > 1)
+    {
+      printf("Checks out! (Measurment 0: %d)\n", recvdata.data[0]);
+      retval = 0;
+    }
+    else
+    {
+      fprintf(stderr, "CMAC doesnt match! \n");
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Failed: msg time.\n");
+  }
+  
+
+  free(recvdata.ciphertext);
+  free(recvdata.data);
+  return retval;
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -416,6 +472,10 @@ int main(int argc, char* argv[])
   // Sample random (not really random).
   byte_ard rand[KEY_BYTES] = { 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38,
                                0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38 };
+
+  // Sample meassurments.
+  byte_ard measurments[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+  byte_ard measurments_len = 10;
   
   printf("TSense protocol tests\n");
   printf("\n  The values in paranthesis are read from the ciphertext and are printed to \n  make it easier for humans to make sure garbage isn't being read and compared\n\n");
@@ -426,9 +486,10 @@ int main(int argc, char* argv[])
   printf("\n");
   int test4 = rekeytest(9, (byte_ard*)id);
   int test5 = newkeytest((byte_ard*)id, 2, rand, 4);
+  printf("\n");
+  int test6 = datatest((byte_ard*)measurments, measurments_len, (byte_ard*)id, 2);
 
-
-  if ((test1+test2+test3+test4+test5) == 0) // SUM
+  if ((test1+test2+test3+test4+test5+test6) == 0) // SUM
   {
     printf("\nAll OK!\n");
   }

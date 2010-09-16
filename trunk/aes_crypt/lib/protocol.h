@@ -119,7 +119,6 @@ struct data
 };
 
 
-
 /**
  * Key exchange and Authentication 
  */
