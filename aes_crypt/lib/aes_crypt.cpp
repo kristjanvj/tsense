@@ -3,7 +3,7 @@
  * Kristjan Valur Jonsson
  * Benedikt Kristinsson
  *
- * AES Encryption Implementation. Ported to the Arduino 
+ * AES Enryption Implementation. Ported to the Arduino 
  * from the aes Intel platform implementation. The code compiles on
  * both the Arduino platform and Intel i386/amd64
  * 
