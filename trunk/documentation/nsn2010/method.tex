@@ -295,37 +295,25 @@ The \textit{tsclient} is a small and completely untrusted software component ins
 %
 We regard the attached tsensor to be strong enough to uniquely identify the client -- not as trusted but guarantees (within computational bounds) that the Sybil attack \shortcite{Douceur2002} is impossible in this system. In this sense, the tsensor functions similar to a SmartCard authentication system.
 
-tsclient is written completely in python (v. 2.6), using the serial and socket libraries. Using a scripting language like Python for the client software is definitely within the spirit of the project. The program is in plaintext on the client computer, allowing anyone to analyze and even modify it. No user written enhancements (or malicious tampering) should reduce the security guarantees of the overall system. We will attempt to support this claim in Section~\ref{}.
+tsclient is written completely in python (v.\ 2.6), using the serial and socket libraries. Using a scripting language like Python for the client software is definitely within the spirit of the project. The program is in plaintext on the client computer, allowing anyone to analyze and even modify it. No user written enhancements (or malicious tampering) should reduce the security guarantees of the overall system. We will attempt to support this claim in Section~\ref{}.
 
 \subsubsection{Running tsclient}
 
 tsclient is a python script, executed on the command line. See the source code documentation for details on command line switches. The user needs the connection information for the attached tsensor (USB connection string and baud rate) as well as for the sink server (IP address and port). On startup, the tsclient requests an partially encrypted identification package (see Section~\ref{}) which it then forwards (unmodified) to the designated sink server. This bootstraps the authentication protocol. After the initial insertion request, the tsclient is simply a proxy, forwarding encrypted messages unmodified back and forth between tsensor and sink. tsclient supports only a single tsensor and single sink in the current version. Future enhancements include supporting multiple sensors and multiple sinks per sensor for increased robustness.
 
-\subsection{\textit{tsink} -- TSense sink daemon}
+\subsection{\textit{tssinkd} -- The TSense sink daemon}
 
-\textbf{TODO: KR}
+\textit{tsink} -- The TSense sink daemon collects authenticated measurements from one or more tsensor client/sensor systems. In addition, it participates in the authentication and re-keying protocols, as is further described in Section~\ref{}.  For this purpose it uses the same AES encryption library as developed for tsensor for  encrypted communication between it and the tsensor.  The TSense sink server is a traditional Unix daemon written entirely in C++. It uses old school forking to service incoming requests on a child-per-request basis. Because of this the sink daemon needs a persistence layer to store state information. This state information consists of a sensor profile which contains the current session key of the sensor in question, an associated random key and the sensor's unique ID. Using these two keys the server can the generate the key schedules it need s to handle an incoming request. In addition to using a persistence layer to store sensor profiles the sink server  also requires a persistence layer to store measurement data collected from the various tsensor units it services.\\
 
-The \textit{tsink} -- TSense sink daemon collects authenticated measurements from one or more client/sensor systems. In addition, it participates in the authentication and re-keying protocols, as further described in Section~\ref{}. The tsink software and the systems on which it resides are considered trusted for the purposes of this project.
 
-tsink is written entirely in C++ and uses the same codebase as tauth and tsensor for its encryption functions.
-%
-tsink is a daemon service, written and tested on 32- and 64-bit OS-X and linux platforms. The test deployment is on 32-bit virtual machine, running Ubuntu 10.04 and a 2.6.32 kernel. A child is forked for each incoming client connection.
+The sink daemon software, it's persistence layer and the systems on which it resides are considered trusted for the purposes of this project. During implementation some corers were cut. As has already been mentioned communication with tsensor via the untrusted client is secure. Communication with the TSense authorization daemon \emph(tsauthd) is, however, conducted over an industrial strength TLS tunnel (OpenSSL) with mutual authentication via x509 certificates. The persistence layer chosen, for the sake of speedy development, was MySQL since it is ubiquitous and well documented. Neither the persistence layer nor the database it self were secure or encrypted but for the purposes of this proof of concept system they are assumed to be secure. In a production environment the sink daemon would require an secure connection to an encrypted database, the sink daemon software and the machine it resides on would have to be located in a secure facility. Finally it would be advisable to switch from the MySQL library to a proper C++ based database abstraction layer. This should be fairly easy since care was taken to properly separate the sink server code from the database code so the transition to a new database library should be smooth.
 
-\textbf{MySQL -- State that needs to be kept on the sink regarding client/sensor pairs. Cleanup of state, etc.}
+\subsection{\textit{tsauthd} -- TSense authentication service}
 
-\textbf{MORE DETAILS}
+\textit{tsauthd} -- The TSense authentication daemon handles the integration of sensor/client pairs into a working measurement system. The authorization sever holds the private keys (private IDs) of every tsensor unit. Each tsensor must contact the authorization server via the untrusted client and the sink server to obtain a session key before the sensor can start persisting measurement data.  Much like sink server, the authorization server is a traditional Unix daemon written  entirely in C++ and uses old-school forking to handle requests on a child-per-request basis. All communication between the tsensor units and the authorization server is secure and uses the AES encryption libraries developed for tsensor.  The authorization server uses the AES library developed for tsensor to communicate with tsensor but uses OpenSSL/TLS to communicate with the sink server. The authorization server uses the same persistence layer as the sink server to store device profiles consisting of the private key and unique ID of every tsensor in the system. The same caveats regarding the security of the persistence layer apply to the authorization server as did in the case of sink server.\\ 
 
-\subsection{\textit{tauth} -- TSense authentication service}
 
-\textbf{TODO: KR}
-
-The tauth -- TSense authentication daemon assists in the insertion of sensor/client pairs into a working measurement system. The tauth holds all the private keys (private IDs) of all tsensors. The tauth software and the platform it resides on is considered to be highly a highly trusted and hardened server for the purposes of this project. tauth is entirely written in C++ and uses the same codebase as tsink and tsensor for its encryption functions.  
-
-tsink is a daemon service, written and tested on 32- and 64-bit OS-X and linux platforms. The test deployment is on 32-bit virtual machine, running Ubuntu 10.04 and a 2.6.32 kernel. A child is forked for each incoming connection.
-
-\textbf{Storage of private cryptographic keys.}
-
-\textbf{MORE DETAILS}
+As is the case with the sink server, the machine the authorization server resides on, the persistence layer the authorization server uses are considered to be highly a highly trusted and hardened purposes of this proof-of-concept project. In a production environment tsauthd would have to be deployed on a secure machine, connected to an encrypted database over a secure connection and it would have to be installed in a high security facility.
 
 \section{Cryptographic protocols}
 
