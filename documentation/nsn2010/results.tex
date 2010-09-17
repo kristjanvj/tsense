@@ -64,6 +64,7 @@ The protocols were tested individually at first and then combined. In summary, w
 The daemons were tested on  on 32 bit Linux and 64 bit OS X/BSD platforms with the main test environment being 32 bit Linux  virtual machines, running Ubuntu 10.04 and the  2.6.32 kernel. Both the Linux and OS X/BSD machines used Intel CPUs and neither the daemons nor the encryption or network libraries they use were tested on machines with big-endian processors. Doing so might reveal bugs in the networking and encryption libraries. 
 
 \section{Soundness of the cryptographic protocols}
+\label{sec:crypto-protocol-analysis}
 
 \textbf{TODO: KVJ OR BK}
 
@@ -72,4 +73,9 @@ The daemons were tested on  on 32 bit Linux and 64 bit OS X/BSD platforms with t
 \section{Cost of materials}
 
 We base our sensor prototype on an Arduino Duemlianove experimentation board, mainly for the convenience of programming the ATmega328 in such an environment, rather than using a separate programmer. The cost of this board is \$29.95 (+ shipping and import costs) from \url{http://www.sparkfun.com}. An Atmel ATmega328 is available for \$4.40 in quantities of 100+ from Sparkfun, but this would require custom circuit boards and some additional support hardware. The cost of sensors varies according to their sophistication, but the NTC thermistor and photoresistor used in our project cost less than \$2 a piece. A reasonable estimated price for an assembled and tamper-proof tsensor is less than \$20 in quantities using our demonstration sensors. We can therefore conclude that a ATmega-based tsensor is a relatively cheap unit and fulfills our initial goal.
+
+
+\textbf{INTEGRATE:}
+%
+Production sensors would use a much smaller custom PCB and a surface mount version of the processor. ATmega328 (in the 28-pin package) cost \$4.40 in quantities of 100+ from \url{http://www.sparkfun.com} in june 2010. Bulk manufacture of an ATmega328-based tsensor device is estimated as starting at about \$10, depending on the type and sophistication of the embedded sensors. Estimated size for a production unit is less than 2x2 cm, using a surface mount ATmega328 package. Even smaller sizes can be achieved using custom ICs. 
 
