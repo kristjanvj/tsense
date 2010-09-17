@@ -193,14 +193,15 @@ This method is in our opinion secure enough for our purpose, while being much si
 %\url{http://en.wikipedia.org/wiki/Key_derivation_function}
 
 \subsubsection{Padding}
+% used to cite dworkin2001
 
 The smallest unit that a block cipher operates on is a single
 block. The block size in AES is 16 bytes, hence the plaintext needs to
-be padded if it isn't divisable by 16. We use the convention of
-padding with a 1-byte followed by as few 0-bytes as possible ---
-possibly none \cite[Appendex A]{dworkin2001}. That is, given the
-datastring $x$ of length $n_x$, the padded string $x'$ is produced if
-$16 \nmid n_x$, such that $16 \mid n_{x'}$. The lengths of the
+be padded if it isn't divisable by 16. That is, given the datastring
+$x$ of length $n_x$, the padded string $x'$ is produced if $16 \nmid
+n_x$, such that $16 \mid n_{x'}$. Otherwise, $x$ is used as-is. We use
+Zero Padding, that is all the bytes required to be padded are padded
+with zero.\cite[pp343]{menzes1996}.  The lengths of the
 encrypted sections in the protocol messages are either known
 beforehand or the length is sent along in the message and this removes
 the need of unambiqous padding.
