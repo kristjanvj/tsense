@@ -55,6 +55,7 @@ The main requirements for the TSense system were
 \item All cryptographic algorithms should be open and non-proprietary.
 \item System integrity should be ensured. In particular, an adversary should not be able to insert cloned sensors or simulate multiple sensors. 
 \item The sensor should be as compact and cheap as possible.
+\item The cryptographic software library for the sensor should be cross platform.
 \end{enumerate}
 
 \subsubsection{Simplicity}
@@ -70,7 +71,7 @@ However, elliptic curve public key cryptosystems \cite{koblitz1987,hankerson2004
 %even as short as XXXX bits \cite{} \textbf{SEE ALSO \cite{NIST-recommended-elliptic-curves-1999}}, meaning that such algorithms may be practical on small resource constrained devices.  \textbf{CITE JOHNSON, HANKERSON.}
 %
 
-We decided to base our implementation solely on a single symmetric cryptographic primitive -- the AES block cipher. This approach saves the otherwise required coding and testing effort required in implementing an additional asymmetric algorithm. We therefore reserve the asymmetric cryptographic protocols for future work. However, note that the symmetric encryption algorithm is an important ingredient of asymmetric transport protocols, such as SSL; the much slower asymmetric algorithm is generally only used for symmetric key exchange, while the symmetric algorithm secures the data transfer itself.
+We decided to base our implementation solely on a single symmetric cryptographic primitive -- the AES block cipher. This approach saves the otherwise required coding and testing effort required in implementing an additional asymmetric algorithm. We therefore reserve the asymmetric cryptographic protocols for future work. However, note that the symmetric encryption algorithm is an important ingredient of asymmetric transport protocols, such as SSL; the much slower asymmetric algorithm is generally only used for symmetric key exchange, while the symmetric algorithm secures the data transfer itself. Thus the work done on this symmetric algorithm would still be of great use in any future work aimed at expanding this system to include an additional asymmetric algorithm.
 
 %Security objectives are often stated in terms of the CIA trilogy -- \textit{confidentiality}, \textit{integrity} and \textit{availability}. 
 %%
@@ -95,14 +96,14 @@ System integrity requirements also dictate that the secret sensor keys should ex
 We base our sensor device on a small microcontroller, the Atmel ATmega328, widely used in sensor nodes and embedded applications. Our development platform is an Arduino Duemilanove experimentation board with an ATmega328 in a 28-pin DIL package. The board is about 5x7 cm in size.
 The cost of this board is \$29.95 (+ shipping and import costs) in quantities of one from \url{http://www.sparkfun.com} in june 2010. 
 %
-A smaller surface mount package for the ATmega is available, which means that a production PCB for a trusted sensor may be as small as 2x2 cm. The sensor itself and tamperproof housing unavoidably adds to the size, but a relatively small and inexpensive unit can be realized in a production setting.
+A smaller surface mount package for the ATmega is available, which means that a production PCB for a trusted sensor may be as small as 2x2 cm. The sensor itself and tamperproof housing unavoidably adds to the size and cost, but a relatively small and inexpensive unit can be realized in a production setting.
 
 \section{The TSense system}
 \label{sec:tsense-system-overview}
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=0.6\textwidth]{../figures/sys-overview.png} 
+\includegraphics[width=0.6\textwidth]{figures/sys-overview.png} 
 \end{center}
 \caption{System overview. Interaction of the entities of the TSensor system. Green: Trusted entities. Gray: Untrusted entities (compromizable), Black channels: Untrusted, Red channels: Secure -- end-to-end encrypted and authenticated.}
 \label{fig:sys-overview}
@@ -142,8 +143,10 @@ The tsink and tauth communicate over an IP network, using TCP-IP and Transport L
 \end{description}
 
 \section{Cryptographic primitives}
+\label{sec:crypt-prim}
 
 \subsection{The block cipher -- AES}
+\label{sec:block-ciphher-aes}
 
 A symmetric block or stream cipher is the workhorse of any confidentiality-preserving transfer protocol. 
 %
@@ -203,6 +206,7 @@ MAC verification is a corresponding operation, in essence comparing the received
 Note that any secure MAC algorithm and authenticating encryption mode, as described in the following section, can be used in the TSense system.
 
 \subsubsection{Authenticating encryption}
+\label{sec:authenc}
 
 Authenticating encryption algorithms provide confidentiality and authenticity guarantees in a single primitive. In terms of block ciphers, we have several proposed authenticating modes of encryption, some examples being Counter with CBC-MAC (CCM) \shortcite{dworkin2004}, Offset Codebook (OCB) \shortcite{rogaway2003} and Galois Counter Mode (GCM) \shortcite{dworkin2007}. Authenticating stream ciphers are discussed by \shortciteA{teo2009}. However, in the TSense project, we use the conceptually simpler composition of generic encryption and MAC algorithms, as described by \shortciteA{bellare2007}.
 
@@ -216,13 +220,14 @@ According to \fullciteauthor{bellare2007}, generic encryption and MAC primitives
 %
 Here, $\bar{\mathcal{E}}(K_e \parallel K_m,P)$ denotes authenticating encryption of a message $P$ using shared (symmetric) keys $K_e \parallel K_m$, where $K_e$ is the encryption key and $K_m$ is the MAC key. Two separate keys are required as re-using a key for two different purposes is considered a bad practice.
 
-All three composition paradigms are strong enough for our purposes, since we use a block cipher and MAC for which no known (efficient) attacks exist. However, ETM is considered by \citeauthor{bellare2007} to be the strongest of the three and was therefore chosen as the composition paradigm for our cryptographic protocols.
+All three composition paradigms are strong enough for our purposes, since we use a block cipher and MAC for which no known (efficient) attacks exist. However, EtM is considered by \citeauthor{bellare2007} to be the strongest of the three and was therefore chosen as the composition paradigm for our cryptographic protocols.
 
 \section{System components}
 
 Our system consists of the four node types, previously introduced in Section~\ref{sec:tsense-system-overview}. We will now proceed to describe each module type independently in more details. Refer to the source code and documentation, available at the project site \url{http://code.google.com/p/tsense}, for further details.
 
 \subsection{\textit{tsensor} -- Trusted sensor module}
+\label{tsensor}
 
 The tsensor gives us the ability to "bootstrap" trust in a networked measurement system, in which intermediary nodes, including the clients hosting the sensors, are untrusted. In order to provide this guarantee of trust, the tsensor cryptographically tags all readings with a message authentication code (MAC), providing receiver-end verifiability. The tsensor is intended to be a small, tamperproof device, guaranteeing that this trusted module or its produced results cannot be tampered with -- the physical protection\footnote{Our prototype is presently anything but tamperproof, as can readily be seen from Figure~\ref{fig:tsensor}. However, we assume a production model would be very well protected against physical tampering. Tamper-proof or tamper-resistant embedded systems are presently being produced by e.g.\ Freescale \url{http://www.freescale.com}.} prevents unauthorized access to the device internals, while the cryptographic protocols ensure (within computational bounds) that no adversary can modify or intercept messages. 
 
@@ -253,14 +258,15 @@ The Duemilanove was augmented with a very simple sensor interface board, consist
 \end{figure}
 
 \subsubsection{Software development} 
+\label{tsensor-sdev}
 
 The ATmega-series CPUs can be programmed in assembly language or using a C++ variant and the avr-gcc/avr-g++ compilers. The Arduino prototyping system includes an IDE for C/C++ development, with one button compile and upload capabilities, which we used for the tsensor software developmnt.
 
 The 32K of program memory is rather restricted by current computing standards, but still allows development of fairly sophisticated programs. As stated previously, we chose an byte-oriented symmetric block cipher for all operations, rather than trying the limits of the hardware with a more computationally intensive asymmetric algorithm and digital signatures. We also implemented only one base cryptographic primitive -- the AES block cipher -- to conserve program memory space.
 
-The 2K of RAM on the ATmega328 proved to be a more severe restriction. The RAM is needed to hold a small amount of operating system state, as well as the program heap and stack space. Our earliest tsensor prototypes were plaqued by hard to diagnose spurious crashes, seemingly due to program memory corruption. The reason for these crashes was that allocating the AES lookup tables (s-box, inverse s-box and round-constant lookup tables), a total of 528 bytes, in RAM caused heap and stack memory collisions. We then moved all statically assigned data to the 1K EEPROM, which solved this particular problem.
+The 2K of RAM on the ATmega328 proved to be a more severe restriction. The RAM is needed to hold a small amount of operating system state, as well as the program heap and stack space. Our earliest tsensor prototypes were plagued by hard to diagnose spurious crashes, seemingly due to program memory corruption. The reason for these crashes was that allocating the AES lookup tables (s-box, inverse s-box and round-constant lookup tables), a total of 528 bytes, in RAM caused heap and stack memory collisions. We then moved all statically assigned data to the 1K EEPROM, which solved this particular problem.
 
-We designed the software for maximum re-usability on the various system components. Concretely, the same implementation of AES in CBC mode and CMAC compiles for the ATmega328 on the tsensor and for 32- and 64-bit Intel/AMD platforms for the sink- and authentication server under Linux and OS-X.
+We designed the software for maximum re-usability on the various system components. Concretely, the same implementation of AES in CBC mode and CMAC compiles for the ATmega328 on the tsensor and for 32- and 64-bit Intel/AMD platforms for the sink- and authentication server under Linux and OS X.
 
 \subsubsection{Device identification data}
 
@@ -319,15 +325,15 @@ tsclient is a python script, executed on the command line. See the source code d
 
 \subsection{\textit{tssinkd} -- The TSense sink daemon}
 
-\textit{tsink} -- The TSense sink daemon collects authenticated measurements from one or more tsensor client/sensor systems. In addition, it participates in the authentication and re-keying protocols, as is further described in Section~\ref{}.  For this purpose it uses the same AES encryption library as developed for tsensor for  encrypted communication between it and the tsensor.  The TSense sink server is a traditional Unix daemon written entirely in C++. It uses old school forking to service incoming requests on a child-per-request basis. Because of this the sink daemon needs a persistence layer to store state information. This state information consists of a sensor profile which contains the current session key of the sensor in question, an associated random key and the sensor's unique ID. Using these two keys the server can the generate the key schedules it need s to handle an incoming request. In addition to using a persistence layer to store sensor profiles the sink server  also requires a persistence layer to store measurement data collected from the various tsensor units it services.\\
+\textit{tssinkd} -- The TSense sink daemon collects authenticated measurements from one or more tsensor client/sensor systems. In addition, it participates in the authentication and re-keying protocols, as is further described in Section~\ref{sec:cryptographic-protocols}.  For this purpose it uses the same AES encryption library developed for tsensor (see Sections \ref{sec:crypt-prim} and \ref{tsensor-sdev}) for encrypted communication between it and the tsensor.  The TSense sink server is a traditional Unix daemon written entirely in C++. It uses old school forking to service incoming requests on a child-per-request basis. Because of this the sink daemon needs a persistence layer to store state information. This state information consists of a sensor profile which contains the current session key of the sensor in question, an associated random key and the sensor's unique ID. Using these two keys the server can the generate the key schedules it need s to handle an incoming request. In addition to using a persistence layer to store sensor profiles the sink server  also requires a persistence layer to store measurement data collected from the various tsensor units it services.\\
 
 
-The sink daemon software, it's persistence layer and the systems on which it resides are considered trusted for the purposes of this project. During implementation some corers were cut. As has already been mentioned communication with tsensor via the untrusted client is secure. Communication with the TSense authorization daemon \emph(tsauthd) is, however, conducted over an industrial strength TLS tunnel (OpenSSL) with mutual authentication via x509 certificates. The persistence layer chosen, for the sake of speedy development, was MySQL since it is ubiquitous and well documented. Neither the persistence layer nor the database it self were secure or encrypted but for the purposes of this proof of concept system they are assumed to be secure. In a production environment the sink daemon would require an secure connection to an encrypted database, the sink daemon software and the machine it resides on would have to be located in a secure facility. Finally it would be advisable to switch from the MySQL library to a proper C++ based database abstraction layer. This should be fairly easy since care was taken to properly separate the sink server code from the database code so the transition to a new database library should be smooth.
+The sink daemon software, it's persistence layer and the systems on which it resides are considered trusted for the purposes of this project. During implementation some corers were cut. As has already been mentioned communication with tsensor via the untrusted client is secure. Communication with the TSense authorization daemon (tsauthd) is, however, conducted over an industrial strength TLS tunnel (OpenSSL) with mutual authentication via x509 certificates. The persistence layer chosen, for the sake of speedy development, was MySQL since it is ubiquitous and well documented. Neither the persistence layer nor the database it self were secure or encrypted but for the purposes of this proof of concept system they are assumed to be secure. In a production environment the sink daemon would require a secure connection to an encrypted database, the sink daemon software and the machine it resides on would have to be located in a secure facility. Finally it would be advisable to switch from the MySQL library to a proper C++ based database abstraction layer. This should be fairly easy since care was taken to properly separate the sink server code from the database code so the transition to a new database library should be smooth.
 
 \subsection{\textit{tsauthd} -- TSense authentication service}
 \label{sec:tsauthd-description}
 
-\textit{tsauthd} -- The TSense authentication daemon handles the integration of sensor/client pairs into a working measurement system. The authorization sever holds the private keys (private IDs) of every tsensor unit. Each tsensor must contact the authorization server via the untrusted client and the sink server to obtain a session key before the sensor can start persisting measurement data.  Much like sink server, the authorization server is a traditional Unix daemon written  entirely in C++ and uses old-school forking to handle requests on a child-per-request basis. All communication between the tsensor units and the authorization server is secure and uses the AES encryption libraries developed for tsensor.  The authorization server uses the AES library developed for tsensor to communicate with tsensor but uses OpenSSL/TLS to communicate with the sink server. The authorization server uses the same persistence layer as the sink server to store device profiles consisting of the private key and unique ID of every tsensor in the system. The same caveats regarding the security of the persistence layer apply to the authorization server as did in the case of sink server.\\ 
+\textit{tsauthd} -- The TSense authentication daemon handles the integration of sensor/client pairs into a working measurement system. The authorization sever holds the private keys (private IDs) of every tsensor unit. Each tsensor must contact the authorization server via the untrusted client and the sink server to obtain a session key before the sensor can start persisting measurement data.  Much like sink server, the authorization server is a traditional Unix daemon written  entirely in C++ and uses old-school forking to handle requests on a child-per-request basis. All communication between the tsensor units and the authorization server is secure.  The authorization server uses the AES library developed for tsensor (see Sections \ref{sec:crypt-prim} and \ref{tsensor-sdev}) to communicate with tsensor but uses OpenSSL/TLS to communicate with the sink server. The authorization server uses the same persistence layer as the sink server to store device profiles consisting of the private key and unique ID of every tsensor in the system. The same caveats regarding the security of the persistence layer apply to the authorization server as did in the case of sink server.\\ 
 
 
 As is the case with the sink server, the machine the authorization server resides on, the persistence layer the authorization server uses are considered to be highly a highly trusted and hardened purposes of this proof-of-concept project. In a production environment tsauthd would have to be deployed on a secure machine, connected to an encrypted database over a secure connection and it would have to be installed in a high security facility.
@@ -346,7 +352,7 @@ The authentication protocol is a symmetric protocol using a trusted thrid party,
 %
 The original Needham-Schroeder was vulnerable to replay attacks \shortcite{denning1981}, which can be fixed by using nonces and/or timestamps \cite{needham1987}. We use both nonces and timestamps in our protocols.
 
-As discussed in Section~\ref{}, we use the \textit{Encrypt-then-MAC (ETM)} \shortciteA{bellare2007} composition paradigm, in which the plaintext is first encrypted and then a MAC of the ciphertext appended. We use $\mathcal{T}_K$ in our protocol to indicate \textit{tagging} (MACing) of the message ciphertext with a shared symmetric secret key $K$. $\mathcal{E}_K$ and $\mathcal{D}_K$ are used for encryption (resp.\ decryption) with a shared symmetric secret key $K$.
+As discussed in Section ~\ref{sec:authenc}, we use the \textit{Encrypt-then-MAC (EtM)} \shortciteA{bellare2007} composition paradigm, in which the plaintext is first encrypted and then a MAC of the ciphertext appended. We use $\mathcal{T}_K$ in our protocol to indicate \textit{tagging} (MACing) of the message ciphertext with a shared symmetric secret key $K$. $\mathcal{E}_K$ and $\mathcal{D}_K$ are used for encryption (resp.\ decryption) with a shared symmetric secret key $K$.
 
 \subsubsection{Authentication}
 
