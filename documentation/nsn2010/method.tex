@@ -97,7 +97,6 @@ The cost of this board is \$29.95 (+ shipping and import costs) in quantities of
 %
 A smaller surface mount package for the ATmega is available, which means that a production PCB for a trusted sensor may be as small as 2x2 cm. The sensor itself and tamperproof housing unavoidably adds to the size, but a relatively small and inexpensive unit can be realized in a production setting.
 
-
 \section{The TSense system}
 \label{sec:tsense-system-overview}
 
@@ -115,7 +114,7 @@ The TSense system is shown in its simplest form in Figure~\ref{fig:sys-overview}
 
 \item \textbf{T}: The trusted sensor -- \textit{tsensor} -- measures some array of quantities, e.g.\ temperature, pollutant particle count or luminosity, and publishes in an authenticated manner to a client ($C$). The published results may additionally be encrypted. tsensor would be a fully enclosed and tamper-proof unit in a production setting.
 
-\item \textbf{C}: The client -- \textit{tsclient} -- hosts the sensor, e.g.\ physically attached or USB-connected. The client is the corruptible (adversary controlled) entity in our model, as further discussed in Section~\ref{sec:sec-goals}. A honest client will always forward measurements unmodified to the sink $S$, whereas a corrupted $C$ may attempt modify the readings.
+\item \textbf{C}: The client -- \textit{tsclient} -- hosts the sensor, e.g.\ physically attached or USB-connected. The client is the corruptible (adversary controlled) entity in our model. A honest client will always forward measurements unmodified to the sink $S$, whereas a corrupted $C$ may attempt modify the readings.
 
 \item \textbf{S}: The sink server -- \textit{tsink} -- collects measurements forwarded from a number of client nodes over standard TCP/IP. A network may include multiple networked sinks to achieve some degree of scalability. In such a system, each of the sinks is a \textit{clusterhead} for a number of clients. In this work, we regard all sinks to be trusted. %This is a simplifying assumption that will be relaxed in future work.
 
