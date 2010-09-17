@@ -18,9 +18,23 @@ Efficiency was not the primary focus of this project. Rather, we concentrated on
 
 =====
 
-TODO: Conclusions and future work.
+\section{Conclusions}
 
-Discuss how our initial goals were met by the implementation. Decided to use only private (symmetric) crypto as this is more in the spirit of the project -- small resource constrained devices. Discuss assumptions such as tamper-proofness.
+The primary goal of this project was to investigate the feasibility of implementing an strong cryptographic primitive that fulfils the latest current security security demands. Early on we decided to focus on symmetric encryption as this is was easily implemented given the project time frame. Symmetric encryption is also less resource intensive which was a bonus since we had only a limited notion of how well the Arduino Duemilanove would be able to handle the workload we had in mind for it. Finally implementing symmetric encryption would still prove to be a useful subset of our larger goal which is to implement a public key system for our system.\\
+
+Our goal of producing a cross platform AES implementation complete with a CBC-CMAC component went smoothly and apart from a few minor easily resolved hiccups. The Arduino Duemilanove system was fairly easily able to handle 128 bit AES and would probably be able to handle 256 bit AES either off the shelf or with minor hardware enhancements. The performance of our implementation was quite a lot better than we expected and compared favourably with a the lightweight XTEA block cipher which was especially pleasing since this cipher was purpose designed to be efficient on resource constrained systems. Furthermore AES is more complex that XTEA and our AES implementation is therefore considerably bulkier in terms of the size of code and the resultant binaries but it still fit easily in the 32 kilobyte program memory of the arduino and more importantly did not exhaust the meaner 2 kilobytes of RAM. This was especially satisfying since our AES and CBC-CMAC implementations are not fully optimized. Further work on the AES library component woudl doubtless yield some improvements in memory footprint and potentially marked improvements in throughput. While we did not achieve all that we set out to do, namely the implementation of a public key based system we still feel that we basically managed to achieve the larger overall goal of producing an end-to-end secure sensor system featuring encryption and security features that live up to current demands for such systems but still managed to do so without compromising the goal of keeping the cost of the sensor system low.
+
+
+\hspace*{20mm}
+
+
+
+
+\textcolor{red}{TODO: BF KVJ, Memory usage on the Arduino.} 
+
+
+
+as this is more in the spirit of the project -- small resource constrained devices. Discuss assumptions such as tamper-proofness.
 
 Future work: Public key crypto or zero-knowledge proofs for identification and key exchange instead of symmetric. The weaknesses of this system are the single point of failure and compromise in form of $A$. Scalability becomes an issue in a large system, as $A$ is bound to be loaded. Storage requirements on $A$ are considerable, especially since it is required to keep state on each sensor (last counter, last seen, ...). All this should be considered. See \cite{rfc-4556-2006} on using public keys for initial key exchange.
 See \cite{bellovin1992}, \cite{bellovin1993} on EKE, \cite{wu1997} on zero-knowledge password proofs. 
@@ -40,6 +54,8 @@ The choice of cipher algorithms also plays a part in performance. One may for ex
 Strengthen permanent secret keys by using AES-256. Costs space in terms of EEPROM storage but would be sufficient to use this longer variant for session key establishment.
 
 ======
+
+\textcolor{red}{\bf Why is message size an issue?}
 
 Cutting down message size by truncating MAC and using ciphertext stealing. See also \cite{karlof2004} on this.
 Efficiency in transmitted size can be increased by using a cipher with a shorter blocklength -- see XTEA and Skipjack.
