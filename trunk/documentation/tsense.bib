@@ -2861,12 +2861,31 @@
   location = {Dallas, Texas, United States}
 }
 
-@INPROCEEDINGS{Bellare1996,
+@INPROCEEDINGS{bellare1996,
   author = {Mihir Bellare and Ran Canetti and Hugo Krawczyk},
   title = {Keying hash functions for message authentication},
   year = {1996},
   pages = {1--15},
   publisher = {Springer-Verlag},
+  abstract = {The use of cryptographic hash functions like MD5 or SHA for message
+	authentication has become a standard approach in many Internet applications
+	and protocols. Though very easy to implement, these mechanisms are
+	usually based on ad hoc techniques that lack a sound security analysis.
+	
+	
+	 We present new constructions of message authentication schemes based
+	on a cryptographic hash function. Our schemes, NMAC and HMAC, are
+	proven to be secure as long as the underlying hash function has some
+	reasonable cryptographic strengths. Moreover we show, in a quantitative
+	way, that the schemes retain almost all the security of the underlying
+	hash function. In addition our schemes are efficient and practical.
+	Their performance is essentially that of the underlying hash function.
+	Moreover they use the hash function (or its compression function)
+	as a black box, so that widely available library code or hardware
+	can be used to implement them in a simple way, and replaceability
+	of the underlying hash function is easily supported.},
+  file = {bellare1996.pdf:bellare1996.pdf:PDF},
+  keywords = {HMAC, MAC},
   owner = {kristjan},
   timestamp = {2010.03.15}
 }
@@ -12544,7 +12563,7 @@
 	with hundreds of code patches.
 	
 	
-	    We used dynamic and static reverse engineering to learn the operation
+	 We used dynamic and static reverse engineering to learn the operation
 	of this generator. This paper presents a
 	
 	description of the underlying algorithms and exposes several security
@@ -13016,6 +13035,15 @@
 	pace with a bidirectional 100 Mbps link with sufficient headroom
 	to weather a high-speed flooding attack of small packets.},
   location = {Washington, D.C.}
+}
+
+@BOOK{hankerson2004,
+  title = {Guide to Elliptic Curve Cryptography},
+  publisher = {Springer},
+  year = {2004},
+  author = {Darrel Hankerson and Alfred Menezes and Scott Vanslone},
+  owner = {kristjan},
+  timestamp = {2010.09.16}
 }
 
 @INPROCEEDINGS{haridasan2006,
@@ -27476,7 +27504,7 @@
   location = {New York, NY, USA}
 }
 
-@MISC{rfc-4494-song-2006s,
+@MISC{rfc-4494-song-2006,
   author = {JH. Song and R. Poovendran and J. Lee},
   title = {{RFC}-4494: The {AES-CMAC-96} Algorithm and Its Use with {IPsec}},
   month = {June},
