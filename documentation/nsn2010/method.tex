@@ -194,7 +194,23 @@ This method is in our opinion secure enough for our purpose, while being much si
 
 \subsubsection{Padding}
 
-\textbf{Block ciphers operate on the smallest unit of a single block. Hence, the plaintext needs to be padded to an even multiple of the block length (16 bytes in the case of AES). We follow the convention presented in PKCS\#7 \cite{RFC-2315-kaliski-1998}. Another suitable padding scheme is presented by \shortciteA{menezes1996} in algorihtm 9.30. \textbf{TODO: CHECK SCHNEIER ON CBC AND PADDING.} \textbf{SEE ALSO \cite[Appendix A]{dworkin2001}.} \textbf{Ciphertext stealing REF. \cite{dworkin2010}}}
+The smallest unit that a block cipher operates on is a single
+block. The block size in AES is 16 bytes, hence the plaintext needs to
+be padded if it isn't divisable by 16. We use the convention of
+padding with a 1-byte followed by as few 0-bytes as possible ---
+possibly none \cite[Appendex A]{dworkin2001}. That is, given the
+datastring $x$ of length $n_x$, the padded string $x'$ is produced if
+$16 \nmid n_x$, such that $16 \mid n_{x'}$. The lengths of the
+encrypted sections in the protocol messages are either known
+beforehand or the length is sent along in the message and this removes
+the need of unambiqous padding.
+
+There are other possible padding schemes. One example of such a scheme
+is to pad the datastring $x$ with only 0-bytes to produce the padded
+string $x'$ \cite[pp. 343]{menzes1996}. Another method is to pad the
+string $x$ with $m$-bytes, where $m$ denotes the number of bytes needed to
+pad the string to produce the padded $x'$. \cite{RFC-2315-kaliski-1998}
+
 
 \subsection{Message Authentication Code (MAC) algorithm}
 
