@@ -74,7 +74,7 @@ void setup(void)
     bufsize = bufsize+bufsize;    
   } 
   //mac_test();
-  //pack_unpack_test();   
+  //pack_unpack_test();
   
   Serial.println("\n\n\nTests done.\n\n");
 }
@@ -195,7 +195,7 @@ void encrypt_cbc_timed_test(int bufsize, int reps)
   
   randomSeed(analogRead(5));  // Unconnected analog pin
   
-  byte_ard P[bufsize];
+  byte_ard P[bufsize];              // Bufsize is in bytes, not blocks
   for ( int i=0; i<bufsize; i++ )
     P[i] = random(256);
   byte_ard C[bufsize];  
@@ -220,14 +220,16 @@ void encrypt_cbc_timed_test(int bufsize, int reps)
   endtime=micros();
 
   double diff = (double)(endtime-starttime);
-  double t = (diff/reps) / 1000.0;
+  double t = (diff/reps);
 
-  Serial.print(bufsize); Serial.print(";");
-  Serial.print(reps); Serial.print(";");
-  Serial.print(starttime); Serial.print(";");
-  Serial.print(endtime); Serial.print(";");
-  Serial.print(t); Serial.print(";");
-  Serial.print(t/(bufsize/16)); Serial.print("\n");
+  int blockCount = bufsize/16; // 16 bytes per block for AES
+
+  Serial.print(bufsize); Serial.print(";");          // Bytes
+  Serial.print(reps); Serial.print(";");             // # of repetitions
+  Serial.print(starttime); Serial.print(";");        // micro secs
+  Serial.print(endtime); Serial.print(";");          // micro secs
+  Serial.print(t); Serial.print(";");                // ave time per operation in micro secs
+  Serial.print(t/blockCount); Serial.print("\n");    // time per block in micro secs
 }
 
 void encrypt_decrypt_cbc_timed_test(int bufsize, int reps)
@@ -275,14 +277,15 @@ void encrypt_decrypt_cbc_timed_test(int bufsize, int reps)
   else
   {
     double diff = (double)(endtime-starttime);
-    double t = (diff/reps) / 1000.0;
+    double t = (diff/reps);
+    int blockCount = bufsize/16;
   
-    Serial.print(bufsize); Serial.print(";");
-    Serial.print(reps); Serial.print(";");
-    Serial.print(starttime); Serial.print(";");
-    Serial.print(endtime); Serial.print(";");
-    Serial.print(t); Serial.print(";");
-    Serial.print(t/(bufsize/16)); Serial.print("\n");
+    Serial.print(bufsize); Serial.print(";");          // Bytes
+    Serial.print(reps); Serial.print(";");             // # of repetitions 
+    Serial.print(starttime); Serial.print(";");        // micro secs
+    Serial.print(endtime); Serial.print(";");          // micro secs
+    Serial.print(t); Serial.print(";");                // Ave time per operation in micro secs
+    Serial.print(t/blockCount); Serial.print("\n");   // Time per block in micro secs
   }
 }
 
