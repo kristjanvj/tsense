@@ -209,7 +209,7 @@ There are other possible padding schemes. One example of such a scheme
 is to pad the datastring $x$ with only 0-bytes to produce the padded
 string $x'$ \cite[pp. 343]{menzes1996}. Another method is to pad the
 string $x$ with $m$-bytes, where $m$ denotes the number of bytes needed to
-pad the string to produce the padded $x'$. \cite{RFC-2315-kaliski-1998}
+pad the string to produce $x'$. \cite{RFC-2315-kaliski-1998}
 
 
 \subsection{Message Authentication Code (MAC) algorithm}
@@ -357,11 +357,17 @@ As is the case with the sink server, the machine the authorization server reside
 \section{Cryptographic protocols}
 \label{sec:cryptographic-protocols}
 
-\textbf{TODO: BK}
+Our protocol spans four parts; the authenticaion of the $tsensor$
+device, the initial key exchange between it and $tssinkd$, subsequent
+re-keying and the data transfers themselves. Messages are encrypted
+with our AES-128 library and a CMAC of each ciphertext is appened to
+every message for data integrety. The protocol aims to be as secure as
+possible while still maintaing a small payload.
 
 \subsection{Authentication and key exchange protocols}
 \label{sec:cryptographic-protocols-authentication}
 
+% Taka út? ↓
 \textbf{See also \url{http://www.gsm-security.net/faq/gsm-authentication-key-generation.shtml} and \url{http://www.hackcanada.com/blackcrawl/cell/gsm/gsm-secur/gsm-secur.html} on the GSM network.}
 
 The authentication protocol is a symmetric protocol using a trusted thrid party, based on the Needham-Schroeder authentication and key exchange protocol \shortcite{needham1978} [B. Schneier -- Applied Crypto]. A modified Needham-Schroeder is also used in the Kerberos protocol \shortcite{neuman1994}. The main modification in our protocol is that $T$ does not communicate directly with $A$ but through $S$. This adds a layer of obscurity to $A$ as only the fairly well trusted $S$ need direct knowledge of its address, in essence a bit of security-by-obscurity for $A$.
