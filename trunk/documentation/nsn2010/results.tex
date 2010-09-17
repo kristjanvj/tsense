@@ -4,64 +4,72 @@
 
 Our work began with construction of small prototypes, in order to get to grips with the Duemilanove and the Arduino development environment. Although we hit some initial problems, the experience of working with the Arduino system was overall a pleasant one. The basic system design decisions were then discussed in the group, which settled on the fully symmetric crypto approach. We then proceeded to code and test the cryptographic primitives on the supported platforms. The cryptographic protocols were designed in parallel with the code development. Once all the ducks were in a row, we proceeded to code the protocols in a multi-platform library, again for minimum coding effort and maximum maintainability. The final step was to integrate and test the system as a whole. We will describe our results in this section.
 
-\section{Verification of cryptographic algorithms}
+\section{Verification of cryptographic primitives}
+\label{sec:verification-of-cryptographic-primitives}
 
 Several unit tests of the cryptographic primitives were developed and executed repeatedly during the software development on all supported platforms:
 \begin{itemize}
-\item Unit tests of the AES block cipher -- encryption and decryption using available test vectors, e.g.\ the key expansion and encryption test vectors from the FIPS \cite{} document and using randomly generated blocks. The AES known answer test (KAT) \cite{} was also used in our tests.
-\item Unit tests of the CBC-mode encryption and decryption on all supported platforms and for plaintexts of various lengths, from one block (16-bytes) to several blocks in length.
-\item Unit tests of the CMAC authentication algorithm. 
-\item Unit testing data provider (test client) which can replace the sensor/client pair in testing against sink and authentication servers.
+\item Arduino Duemilanovae with Atmel ATmega328 processor, used for tsensor develpment
+\item Laptops with Intel and AMD 32- and 64 bit processors, running Ubuntu Linux and OS/X used for client, sink and authentication server development.
+\item Virtual machines, running Ubuntu Linux, used for sink and authentication server development.
 \end{itemize}
-All unit tests are included in our open source implementation at \url{http://code.google.com/p/tsense}. We refer to the publicly available code for verification of our implemented primitives.
+%
+Tests included the following:
+%
+\begin{itemize}
+\item Unit tests of the AES block cipher -- encryption and decryption using available test vectors, e.g.\ the key expansion and encryption test vectors from the FIPS \shortcite{fips-197-2001} document and the AES known answer test (KAT)\footnote{\url{http://csrc.nist.gov/groups/STM/cavp/documents/aes/KAT_AES.zip}}.
+\item Unit tests of the CBC-mode encryption and decryption on all supported platforms and for plaintexts of various lengths, from one block (16-bytes) to several blocks in length. The bulk of our testing consisted of checking the consistency of encryption and subsequent decryption of data chunks of various lengths, from sub-block size to several block sizes. 
+\item Unit tests of the CMAC authentication algorithm, using randomly generated data as well as the test cases provided by \shortciteA{rfc-4494-song-2006}.
+\item Unit testing data provider (test client), which can replace the sensor/client pair in testing against sink and authentication servers.
+\end{itemize}
+All unit tests are included in our open source implementation at \url{http://code.google.com/p/tsense}. We refer to the publicly available code for further verification of our implemented primitives.
 
 \section{Performance of cryptographic primitives}
 
 \subsection{AES encryption and decryption in CBC mode on Arduino}
+\label{sec:aes-cbc-performance-arduino}
 
-The precise timing instructions on the Arduino were used to time successive encryption and decryption operations on randomly generated data of one to several blocks in length. \texttt{The micros()}\footnote{\url{http://arduino.cc/en/Reference/Micros}} function available on the Arduino platform was used for the timing tests. The results were that our implementation achieves a throughput of about 1200 blocks/sec for encryption and about 580 blocks/sec for decryption on the Arduino. The worse performance of the decryption operation is most likely due to the more complex mixColumns transformations. Future optimizations will address this.
+The precise timing instructio \texttt{The micros()}\footnote{\url{http://arduino.cc/en/Reference/Micros}} on the Arduino was used to time successive encryption and decryption operations on randomly generated data of one to several blocks in length. An Arduino Duemilanovae board with an ATmega328 running at 16MHz was used for the test. Briefly, the results were that our implementation achieves an average throughput of 1213 blocks/sec for encryption and 592 blocks/sec for decryption on the Arduino. The worse performance of the decryption operation is most likely due to the more complex mixColumns transformations required for decryption. Future optimizations will address this.
 
 Given that the data stream from the sensors is not continuous and each packet is rather short, we conclude that the throughput of the AES encryption algorithm is quite sufficient for our project.
 
 \subsubsection*{Comparison with the XTEA block cipher}
 
-We did a quick comparison test of the XTEA \cite{} block cipher, based on the reference algorithm given on \url{http://en.wikipedia.org/wiki/XTEA}. XTEA was designed to be a very efficient block cipher, especially on resource constrained systems. The entire implementation takes about 16 lines of C code. It is interesting to see how this light-weight cipher compares in performance with the more secure AES. The test was performed in the same manner as that for our AES implementation. The results were a throughput of 1315 blocks/sec for encryption and 1538 blocks/sec for decryption. The recommended 32 rounds were used for both operations. We conclude that our AES implementation compares favorably with the XTEA one, given that the XTEA test operated in the slightly simpler ECB mode and has a shorter block length of 64 bits. Accounting for the differing block length shows a very comparable throughput for our AES implementation and the reference XTEA one, as shown in Table~\ref{tab:aes-xtea-comparison}.
+We did a quick comparison test of the XTEA \shortcite{needham1997} block cipher, based on the reference algorithm given on \url{http://en.wikipedia.org/wiki/XTEA}. XTEA was designed to be a very efficient block cipher, especially on resource constrained systems. The entire implementation takes about 16 lines of C code. It is interesting to see how this light-weight cipher compares in performance with the more secure AES. The test was performed in the same manner as that for our AES implementation. The results were a throughput of 1316 blocks/sec for encryption and 1574 blocks/sec for decryption. The recommended 32 rounds were used for both operations. We conclude that our AES implementation compares favorably with the XTEA one, given that the XTEA test operated in the slightly simpler ECB mode and has a shorter block length of 64 bits. Accounting for the differing block length shows a very acceptable throughput for our AES implementation, as shown in Table~\ref{tab:aes-xtea-comparison}.
 
 \begin{table}[h]
 \begin{center}
 \begin{tabular}{|c|r|r|r|r|}
 \hline  & Encrypt & Encrypt & Decrypt & Decrypt \\
 \hline  & (blocks/sec) & (Kbytes/sec) & (blocks/sec) & (Kbytes/sec) \\ 
-\hline AES & 1204 & 18.8 & 582 & 9.1 \\ 
-\hline XTEA & 1315 & 10.3 & 1538 & 12.0 \\ 
+\hline AES & 1213 & 18.9 & 592 & 9.3 \\ 
+\hline XTEA & 1316 & 10.3 & 1574 & 12.1 \\ 
 \hline 
 \end{tabular}
 \end{center}
-\caption{Comparison of AES and XTEA performance on the Arduino platform (ATMega328 at 16MHz). Note that AES has a block length of 16 bytes compared to the shorter 8 byte block length of XTEA.}
+\caption{Comparison of AES and XTEA performance on the Arduino platform (ATmega328 at 16MHz). Note that AES has a block length of 16 bytes compared to the shorter 8 byte block length of XTEA.}
 \label{tab:aes-xtea-comparison}
 \end{table} 
 
-\subsection{AES encryption and decryption in CBC mode on an Intel-based platform}
+\subsection{AES encryption and decryption in CBC mode on Intel-based platforms}
 
-The same code as timed in Section~\ref{} was compiled on a 32-bit Intel laptop with a 1GHz Centrino Dual CPU and 4MB L2 cache. The test machine runs Ubuntu linux 9.10 (kernel2.6.31-22). Chunks of random data, from 1 to 256 blocks at 16 bytes each, were generated, encrypted and decrypted. The encryption and decryption operations were timed using the C \texttt{gettimeofday} function, each measurement averaged over several repetitions. The results were that our implementation achieves roughly 2.7 Mbytes/sec. This result was also verified using the Unix \texttt{time}\footnote{\url{http://unixhelp.ed.ac.uk/CGI/man-cgi?time}} utility.
+The same code as timed in Section~\ref{sec:aes-cbc-performance-arduino} was compiled in a test framework on a 32-bit Intel laptop with a Centrino Dual CPU, each core running at 1GHz and 4MB L2 cache. Only one core of the CPU was used in the test. The test machine runs Ubuntu Linux 9.10 (kernel2.6.31-22). Chunks of random data, from 1 to 256 blocks at 16 bytes each, were generated, encrypted and decrypted. The encryption and decryption operations were timed using the C \texttt{gettimeofday} function, each measurement averaged over several repetitions. The results were that our implementation achieves roughly 2.7 Mbytes/sec. This result was also verified using the Unix \texttt{time}\footnote{\url{http://unixhelp.ed.ac.uk/CGI/man-cgi?time}} utility.
 
-Our test servers achieved throughput of roughly 4.3 MBytes/sec running the same test. The test servers are 32-bit virtual machines running Ubuntu linux 10.04.1 LTS (2.6.32-24). The CPU runs at 1995 MHz and has a 4MB L2 cache.
+Our test servers achieved throughput of roughly 4.3 MBytes/sec running the same test. The test servers are 32-bit virtual machines running Ubuntu Linux 10.04.1 LTS (2.6.32-24). The single CPU runs at 1995 MHz and has a 4MB L2 cache.
 
-The AES implementation used in this project is byte oriented and close to the original published pseudocode \shortcite{fips-197-2001}. A reference implementation, written by the supervisor for another project, achieves roughly four times the throughput using the more efficient 32-bit table-based algorithm, described by \shortciteA{daemen1999}.
+The AES implementation used in this project is byte oriented and close to the original published pseudocode \shortcite{fips-197-2001}. A reference implementation, written by the supervisor for another project, achieves roughly four times the throughput using the more efficient 32-bit table-based algorithm, described by \shortciteA{daemen1999}. Updating our present library to utilize such features is reserved for future work.
 
-Our conclusion is that the AES algorithm on a typical sink platform can achieve throughput which is several orders of magnitude greater than that of the sensors, meaning a single sink server can service several hundred continuously transmitting sensors, factoring in the bursty nature of the communications.
+Our conclusion is that the AES algorithm on a typical sink platform can achieve throughput which is orders of magnitude greater than that of the sensors, meaning a single sink server can service several hundred continuously transmitting sensors, especially factoring in the bursty nature of the communications.
 
-\section{Verification of cryptographic protocol implementation}
+\section{System verification}
 
-We refer to our earlier discussion in Section~\ref{} on the unit testing of the cryptographic primitives -- the building blocks of the protocols. Regarding the correctness of our protocols, we refer to the publicly available code at \url{http://code.google.com/p/tsense}.
+We refer to our earlier discussion in Section~\ref{sec:verification-of-cryptographic-primitives} on the unit testing of the cryptographic primitives -- the building blocks of the protocols. Regarding the correctness of our protocols, we refer to the publicly available code at \url{http://code.google.com/p/tsense} and the analysis of Section~\ref{sec:crypto-protocol-analysis}.
 
-The implementation of the cryptographic protocols -- authentication, key-exchange and data transfer -- was done on a test bed system, similar to the one shown in Figure~\ref{}. PC laptops running linux and a MacBook running OS-X served as hosts (clients) for an Arduino Duemilanove based tsensor. Two virtual machines, running Ubuntu 10.04 LTS (kernel 2.6.32) served as sink and authentication servers. The clients used DHCP to obtain dynamic network addresses, while the two servers had fixed IPs. The sensor board was USB-connected to the host (client).
+The daemons (sink and authentication servers) were tested on 32-bit Linux and 64-bit OS X/BSD platforms, with the main test environment being 32 bit Linux virtual machines, running Ubuntu 10.04 and the 2.6.32 kernel. Both the Linux and OS X/BSD machines used Intel CPUs and neither the daemons nor the encryption or network libraries they use were tested on machines with big-endian processors. Doing so might reveal bugs in the networking and encryption libraries. 
+
+The implementation of the cryptographic protocols -- authentication, key-exchange and data transfer -- was done on a test bed system, similar to the one shown in Figure~\ref{fig:sys-overview}. Laptops running linux and a MacBook running OS-X served as hosts (clients) for an Arduino Duemilanove based tsensor. Two virtual machines, running Ubuntu 10.04 LTS (kernel 2.6.32) served as sink and authentication servers. The clients used DHCP to obtain dynamic network addresses, while the two servers had fixed IPs. The sensor board was USB-connected to its host (client).
 
 The protocols were tested individually at first and then combined. In summary, we were successful in getting the whole system up and running, albeit under fairly well controlled circumstances. Notably, handling of abnormal and unexpected events is lacking in the current version. However, we believe we have shown the feasibility of our implementation in a proof-of-concept setting.
-
-\subsection{ The server test environment}
-\textbf{INTEGRATE}
-The daemons were tested on  on 32 bit Linux and 64 bit OS X/BSD platforms with the main test environment being 32 bit Linux  virtual machines, running Ubuntu 10.04 and the  2.6.32 kernel. Both the Linux and OS X/BSD machines used Intel CPUs and neither the daemons nor the encryption or network libraries they use were tested on machines with big-endian processors. Doing so might reveal bugs in the networking and encryption libraries. 
 
 \section{Soundness of the cryptographic protocols}
 \label{sec:crypto-protocol-analysis}
@@ -70,12 +78,11 @@ The daemons were tested on  on 32 bit Linux and 64 bit OS X/BSD platforms with t
 
 \textbf{SOME CRYPTOGRAPHIC ANALYSIS OF THE PROTOCOLS}
 
-\section{Cost of materials}
+\section{Cost of materials and production sensor size}
 
-We base our sensor prototype on an Arduino Duemlianove experimentation board, mainly for the convenience of programming the ATmega328 in such an environment, rather than using a separate programmer. The cost of this board is \$29.95 (+ shipping and import costs) from \url{http://www.sparkfun.com}. An Atmel ATmega328 is available for \$4.40 in quantities of 100+ from Sparkfun, but this would require custom circuit boards and some additional support hardware. The cost of sensors varies according to their sophistication, but the NTC thermistor and photoresistor used in our project cost less than \$2 a piece. A reasonable estimated price for an assembled and tamper-proof tsensor is less than \$20 in quantities using our demonstration sensors. We can therefore conclude that a ATmega-based tsensor is a relatively cheap unit and fulfills our initial goal.
+We base our sensor prototype on an Arduino Duemlianove experimentation board, mainly for the convenience of programming the ATmega328 in such an environment, rather than having to use a separate programmer. The cost of this board is \$29.95 (+ shipping and import costs) from \url{http://www.sparkfun.com}. An Atmel ATmega328 is available for \$4.40 in quantities of 100+ from Sparkfun, but this would require custom circuit boards and some additional support hardware. The cost of sensors varies according to their sophistication, but the NTC thermistor and photoresistor used in our project cost less than \$2 a piece. A reasonable estimated price for an assembled and tamper-proof tsensor is less than \$20 in quantities using our demonstration sensors. 
 
+Production sensors would use a much smaller custom PCB and a surface mount version of the processor. Estimated size for a production unit is less than 2x2 cm, using a surface mount ATmega328 package. Even smaller sizes can be achieved using custom ICs. The size of the final package depends on the type of sensor and the hardening to be applied, but we can conclude that it is certainly practical to manufacture a reasonably small fully enclosed tsensor. 
 
-\textbf{INTEGRATE:}
-%
-Production sensors would use a much smaller custom PCB and a surface mount version of the processor. ATmega328 (in the 28-pin package) cost \$4.40 in quantities of 100+ from \url{http://www.sparkfun.com} in june 2010. Bulk manufacture of an ATmega328-based tsensor device is estimated as starting at about \$10, depending on the type and sophistication of the embedded sensors. Estimated size for a production unit is less than 2x2 cm, using a surface mount ATmega328 package. Even smaller sizes can be achieved using custom ICs. 
+Our conclusions are that an ATmega-based tsensor is a relatively cheap and small unit, which fulfills our initial goal.
 
