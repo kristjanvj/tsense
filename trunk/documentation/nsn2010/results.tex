@@ -51,6 +51,10 @@ We did a quick comparison test of the XTEA \shortcite{needham1997} block cipher,
 \label{tab:aes-xtea-comparison}
 \end{table} 
 
+\subsubsection*{Memory footprint}
+
+Code size is quite important on a small device, such as the ATmega controller. Our compiled tsensor code binary is currently 14.5 KB of the total available program memory of 32KB. The AES test code binary, used for the timing tests above, is 11.2 KB, while the XTEA test code binary is 6.7 KB. Most of the difference in binary size between the two implementations is due to the more complex AES algorithm. However, a size difference of less than factor two is quite acceptable, in our opinion, for the more secure AES block cipher. Note also that our full tsensor implementation with the AES block cipher currently occupies less than 50\% of the available program memory of the ATmega328, which means that more complex cryptographic primitives, such as public key crypto, can most likely be implemented in future versions.
+
 \subsection{AES encryption and decryption in CBC mode on Intel-based platforms}
 
 The same code as timed in Section~\ref{sec:aes-cbc-performance-arduino} was compiled in a test framework on a 32-bit Intel laptop with a Centrino Dual CPU, each core running at 1GHz and 4MB L2 cache. Only one core of the CPU was used in the test. The test machine runs Ubuntu Linux 9.10 (kernel2.6.31-22). Chunks of random data, from 1 to 256 blocks at 16 bytes each, were generated, encrypted and decrypted. The encryption and decryption operations were timed using the C \texttt{gettimeofday} function, each measurement averaged over several repetitions. The results were that our implementation achieves roughly 2.7 Mbytes/sec. This result was also verified using the Unix \texttt{time}\footnote{\url{http://unixhelp.ed.ac.uk/CGI/man-cgi?time}} utility.
