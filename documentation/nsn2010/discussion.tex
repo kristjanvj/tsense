@@ -22,15 +22,12 @@ Efficiency was not the primary focus of this project. Rather, we concentrated on
 
 The primary goal of this project was to investigate the feasibility of implementing an strong cryptographic primitive that fulfils the latest current security security demands. Early on we decided to focus on symmetric encryption as this is was easily implemented given the project time frame. Symmetric encryption is also less resource intensive which was a bonus since we had only a limited notion of how well the Arduino Duemilanove would be able to handle the workload we had in mind for it. Finally implementing symmetric encryption would still prove to be a useful subset of our larger goal which is to implement a public key system for our system.\\
 
-Our goal of producing a cross platform AES implementation complete with a CBC-CMAC component went smoothly and apart from a few minor easily resolved hiccups. The Arduino Duemilanove system was fairly easily able to handle 128 bit AES and would probably be able to handle 256 bit AES either off the shelf or with minor hardware enhancements. The performance of our implementation was quite a lot better than we expected and compared favourably with a the lightweight XTEA block cipher which was especially pleasing since this cipher was purpose designed to be efficient on resource constrained systems. Furthermore AES is more complex that XTEA and our AES implementation is therefore considerably bulkier in terms of the size of code and the resultant binaries but it still fit easily in the 32 kilobyte program memory of the arduino and more importantly did not exhaust the meaner 2 kilobytes of RAM. This was especially satisfying since our AES and CBC-CMAC implementations are not fully optimized. Further work on the AES library component woudl doubtless yield some improvements in memory footprint and potentially marked improvements in throughput. While we did not achieve all that we set out to do, namely the implementation of a public key based system we still feel that we basically managed to achieve the larger overall goal of producing an end-to-end secure sensor system featuring encryption and security features that live up to current demands for such systems but still managed to do so without compromising the goal of keeping the cost of the sensor system low.
-
-
-\hspace*{20mm}
-
-
-
-
 \textcolor{red}{TODO: BF KVJ, Memory usage on the Arduino.} 
+
+Our goal of producing a cross platform AES implementation complete with a CBC-CMAC component went smoothly and apart from a few minor easily resolved hiccups. The Arduino Duemilanove system was fairly easily able to handle 128 bit AES and would probably be able to handle 256 bit AES either off the shelf or with minor hardware enhancements. The performance of our implementation was quite a lot better than we expected and compared favourably with a the lightweight XTEA block cipher (see Table \ref{tab:aes-xtea-comparison}) which was especially pleasing since this cipher was purpose designed to be efficient on resource constrained systems. Furthermore AES is more complex that XTEA and our AES implementation is therefore considerably bulkier in terms of the size of code and the resultant binaries. Nevertheless our application fit easily in the 32 kilobyte program memory of the arduino and more importantly did not exhaust the meager 2 kilobytes of RAM. This was especially satisfying since our AES and CBC-CMAC implementations are not fully optimized. Further work on the AES library component woudl doubtless yield some improvements in memory footprint and potentially marked improvements in throughput. While we did not achieve all that we set out to do, namely the implementation of a public key based system we still feel that we basically managed to achieve the larger overall goal of producing an end-to-end secure sensor system featuring encryption and security features that live up to current demands for such systems but still managed to do so without compromising the goal of keeping the cost of the sensor system low.\\
+
+\textcolor{red}{\bf end of conclusion}
+\vspace{30mm}
 
 
 

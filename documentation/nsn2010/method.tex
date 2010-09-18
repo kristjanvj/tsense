@@ -87,7 +87,7 @@ Shannon's maxim "the enemy knows the system" is often a prudent assumption. Kerc
 
 The Sybil attack \cite{Douceur2002} is a very real threat to any distributed system. In this attack, an adversary simulates multiple colluding nodes on a single (or relatively few) highly capable platform. An adversary could easily simulate thousands of tsensors on a single high-end PC, unless measures are taken to prevent such an attack. Cloning and multiple insertion of a single sensor is a related, but less damaging, attack.
 %
-Various solutions have been proposed for the Sybil attack, but the only absolute one is using strong and unforgeable node identities. This is the approach we take. Each tsensor has a strong and unforgeable (within computational bounds) identity in the form of a globally unique public ID and a 128-bit secret key (randomly generated), shared only with the authentication service. The identification and authentication protocol, described in Section~\ref{}, ensures (within computational bounds) that no more than one instance of any tsensor can be active in the system at any given time. Since the trusted authentication server holds the private keys and identities of all sensors manufactured, we can claim that no adversary can simulate a non-existent sensor.
+Various solutions have been proposed for the Sybil attack, but the only absolute one is using strong and unforgeable node identities. This is the approach we take. Each tsensor has a strong and unforgeable (within computational bounds) identity in the form of a globally unique public ID and a 128-bit secret key (randomly generated), shared only with the authentication service. The identification and authentication protocol, described in Section~\ref{sec:cryptographic-protocols}, ensures (within computational bounds) that no more than one instance of any tsensor can be active in the system at any given time. Since the trusted authentication server holds the private keys and identities of all sensors manufactured, we can claim that no adversary can simulate a non-existent sensor.
 
 System integrity requirements also dictate that the secret sensor keys should exist on as few nodes as possible. Each key is unique and permanently "burned" onto the tsensor device. The symmetric nature of the authentication protocol requires the key to be present on at least one other node. Minimal distribution of the secret key is achieved by using a trusted third party, the authentication server.
 
@@ -117,9 +117,9 @@ The TSense system is shown in its simplest form in Figure~\ref{fig:sys-overview}
 
 \item \textbf{C}: The client -- \textit{tsclient} -- hosts the sensor, e.g.\ physically attached or USB-connected. The client is the corruptible (adversary controlled) entity in our model. A honest client will always forward measurements unmodified to the sink $S$, whereas a corrupted $C$ may attempt modify the readings.
 
-\item \textbf{S}: The sink server -- \textit{tsink} -- collects measurements forwarded from a number of client nodes over standard TCP/IP. A network may include multiple networked sinks to achieve some degree of scalability. In such a system, each of the sinks is a \textit{clusterhead} for a number of clients. In this work, we regard all sinks to be trusted. %This is a simplifying assumption that will be relaxed in future work.
+\item \textbf{S}: The sink server -- \textit{tssinkd} -- collects measurements forwarded from a number of client nodes over standard TCP/IP. A network may include multiple networked sinks to achieve some degree of scalability. In such a system, each of the sinks is a \textit{clusterhead} for a number of clients. In this work, we regard all sinks to be trusted. %This is a simplifying assumption that will be relaxed in future work.
 
-\item \textbf{A}: The authentication server -- \textit{tauth} -- is the trusted third party (see Section~\ref{}) in our system and handles authentication of sensor/client pairs at the time of insertion into a working measurement network. 
+\item \textbf{A}: The authentication server -- \textit{tsauthd} -- is the trusted third party (see Section~\ref{sec:cryptographic-protocols}) in our system and handles authentication of sensor/client pairs at the time of insertion into a working measurement network. 
 %Even though we regard the $S$ to be trusted, it is a prudent measure to limit the distribution of sensor private keys. In our model, we limit the distribution of the private sensor keys to $T$ and $A$ nodes. 
 We regard tauth to be incorruptible. A single tauth is assumed in the TSense system, which is a reasonable assumption from a scalability standpoint, since authentication takes place much less frequently than data collection.
 
@@ -132,7 +132,7 @@ Communications channels are as follows:
 The tsensor and tsclient communicate over a serial link, provided by an USB-serial emulator. The tsclient, and by extension both of its communications channels, are considered untrusted. The tsensor and tsclient communicate using a dedicated serial communications protocol.
 
 \item {$tsclient \longleftrightarrow tsink$:}
-The tsclient and tsink communicate over an IP network, using a set of dedicated protocols described in Section~\ref{}. Other transport layer protocols than TCP may be used; our decision to use standard socket communications was merely one of convenience. 
+The tsclient and tsink communicate over an IP network, using a set of dedicated protocols described in Section~\ref{sec:cryptographic-protocols}. Other transport layer protocols than TCP may be used; our decision to use standard socket communications was merely one of convenience. 
 %In particular, we may consider unreliable wireless communications protocols in our future work. 
 tsclient and tsink use a standard unencrypted TCP connection; all security is provided by tsensor/sink operations, rendering critical operations inaccessible and unmodifiable (within computational bounds) by the untrusted tsclient and any third parties.
 
@@ -194,6 +194,7 @@ This method is in our opinion secure enough for our purpose, while being much si
 
 \subsubsection{Padding}
 % used to cite dworkin2001
+
 
 The smallest unit that a block cipher operates on is a single
 block. The block size in AES is 16 bytes, hence the plaintext needs to
@@ -369,8 +370,8 @@ possible while still maintaing a small payload.
 \subsection{Authentication and key exchange protocols}
 \label{sec:cryptographic-protocols-authentication}
 
-% Taka út? ↓
-\textbf{See also \url{http://www.gsm-security.net/faq/gsm-authentication-key-generation.shtml} and \url{http://www.hackcanada.com/blackcrawl/cell/gsm/gsm-secur/gsm-secur.html} on the GSM network.}
+%\textbf{See also \url{http://www.gsm-security.net/faq/gsm-authentication-key-generation.shtml} and %\url{http://www.hackcanada.com/blackcrawl/cell/gsm/gsm-secur/gsm-secur.html} on the GSM network.}
+
 % Removed '[B. Schneier -- Applied Crypto]'
 
 The authentication protocol is a symmetric protocol using a trusted thrid party, based on the Needham-Schroeder authentication and key exchange protocol \shortcite{needham1978}. A modified Needham-Schroeder is also used in the Kerberos protocol \shortcite{neuman1994}. The main modification in our protocol is that $T$ does not communicate directly with $A$ but through $S$. This adds a layer of obscurity to $A$ as only the fairly well trusted $S$ needs direct knowledge of its address, in essence a bit of security-by-obscurity for $A$.
