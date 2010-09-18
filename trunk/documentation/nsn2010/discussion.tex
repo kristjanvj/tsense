@@ -2,34 +2,29 @@
 \chapter{Discussion}
 \label{sec:discussion}
 
-\section{Future work}
-
-Future work -- sketch distributed.
-
-Work on protocol robustness -- current protocol has minimum error handling and such. Make system overall more resilient.
-
-Utilizing asymmetric crypto, at least for initial identification and session key exchange, is worth considering. This would allow private sensor keys to be truly private, that is only reside burned onto the tamperproof sensor device itself. All sinks can then safely hold the corresponding public keys, without sacrificing any security. This would in turn decrease the reliance on the authentication server; in fact, its role would be reduced to a fairly non-critical public key distribution service. Public key crypto algorithms are rather well known but their feasibility on resource constrained hardware is questionable. We will consider such algorithms, in particular elliptic curve \cite{} encryption and signature algorithms, in future projects.
-
-=====
-
-Efficiency was not the primary focus of this project. Rather, we concentrated on developing a working prototype that satisfies rigorous security requirements. Future work includes optimizing the protocols for more resource constrained networks, e.g.\ wireless transports. One way of increasing efficiency is to decrease security, e.g.\ by using shorter encryption and MAC keys or sacrificing encryption and solely use MACs. A more satisfying solution is to explore authenticating block or stream ciphers. Block ciphers, such as AES, can be operated in several accepted authenticating modes, e.g.\ Galoais Counter Mode (GCM) \cite{} and OCB (Offset CodeBook) \cite{}. Authenticating modes are generally more efficient, since one slightly more complex operation is generally faster than two simpler ones. \textbf{CIPHER SIZE OF AUTHENTICATING MODES???} \textbf{AUTHENTICATED STREAM CIPHERS.}
-
-\textbf{Ciphertext stealing to prevent code expansion -- cite Schneier.}
-
-=====
 
 \section{Conclusions}
 
-The primary goal of this project was to investigate the feasibility of implementing an strong cryptographic primitive that fulfils the latest current security security demands. Early on we decided to focus on symmetric encryption as this is was easily implemented given the project time frame. Symmetric encryption is also less resource intensive which was a bonus since we had only a limited notion of how well the Arduino Duemilanove would be able to handle the workload we had in mind for it. Finally implementing symmetric encryption would still prove to be a useful subset of our larger goal which is to implement a public key system for our system.\\
+The primary goal of this project was to investigate the feasibility of implementing an strong cryptographic primitive that fulfils the latest current security security demands. Early on, we decided to focus on symmetric encryption, as this is was easily implemented, given the project time frame. Symmetric encryption is also less resource intensive, which was a bonus, since we had only a limited notion of how well the Arduino Duemilanove would be able to handle the workload we had in mind for it. Finally implementing symmetric encryption would still prove to be a useful subset of our larger goal, which is to implement a public key system for our system.\\
 
 \textcolor{red}{TODO: BF KVJ, Memory usage on the Arduino.} 
 
-Our goal of producing a cross platform AES implementation complete with a CBC-CMAC component went smoothly and apart from a few minor easily resolved hiccups. The Arduino Duemilanove system was fairly easily able to handle 128 bit AES and would probably be able to handle 256 bit AES either off the shelf or with minor hardware enhancements. The performance of our implementation was quite a lot better than we expected and compared favourably with a the lightweight XTEA block cipher (see Table \ref{tab:aes-xtea-comparison}) which was especially pleasing since this cipher was purpose designed to be efficient on resource constrained systems. Furthermore AES is more complex that XTEA and our AES implementation is therefore considerably bulkier in terms of the size of code and the resultant binaries. Nevertheless our application fit easily in the 32 kilobyte program memory of the arduino and more importantly did not exhaust the meager 2 kilobytes of RAM. This was especially satisfying since our AES and CBC-CMAC implementations are not fully optimized. Further work on the AES library component woudl doubtless yield some improvements in memory footprint and potentially marked improvements in throughput. While we did not achieve all that we set out to do, namely the implementation of a public key based system we still feel that we basically managed to achieve the larger overall goal of producing an end-to-end secure sensor system featuring encryption and security features that live up to current demands for such systems but still managed to do so without compromising the goal of keeping the cost of the sensor system low.\\
+Our goal of producing a cross platform AES implementation, complete with a CBC-CMAC component, went smoothly and apart from a few minor easily resolved hiccups. The Arduino Duemilanove system was fairly easily able to handle 128 bit AES and would probably be able to handle 256 bit AES, either off the shelf or with minor hardware enhancements. The performance of our implementation was significantly better than we expected and compared favourably with a the lightweight XTEA block cipher (see Table \ref{tab:aes-xtea-comparison}), which was especially pleasing since this cipher was purpose designed to be efficient on resource constrained systems. Furthermore, AES is more complex that XTEA and our AES implementation is therefore considerably bulkier in terms of the size of code and the resultant binaries. Nevertheless our application fit easily in the 32 kilobyte program memory of the Arduino, and more importantly, did not exhaust the meager 2 kilobytes of RAM. This was especially satisfying since our AES and CBC-CMAC implementations are not fully optimized. Further work on the AES library component would doubtless yield some improvements in memory footprint and potentially marked improvements in throughput. While we did not achieve all that we set out to do, namely the implementation of a public key based system we still feel that we managed to achieve the larger overall goal of producing an end-to-end secure sensor system, featuring encryption and security features, that live up to current demands for such systems, but still managed to do so without compromising the goal of keeping the cost of the sensor system low.\\
 
 \textcolor{red}{\bf end of conclusion}
 \vspace{30mm}
 
 
+\section{Future work}
+
+Work on protocol robustness -- current protocol has minimum error handling and such. Make system overall more resilient.
+
+Utilizing asymmetric cryptography, at least for initial identification and session key exchange, is worth considering. This would allow private sensor keys to be truly private, that is only reside burned onto the tamperproof sensor device itself. All sinks can then safely hold the corresponding public keys, without sacrificing any security. This would in turn decrease the reliance on the authentication server; in fact, its role would be reduced to a fairly non-critical public key distribution service. Public key crypto algorithms are rather well known but their feasibility on resource constrained hardware is questionable. We will consider such algorithms, in particular elliptic curve encryption and signature algorithms, in future projects.
+
+Efficiency was not the primary focus of this project. Rather, we concentrated on developing a working prototype that satisfies rigorous security requirements. Future work includes optimizing the protocols for more resource constrained networks, e.g.\ wireless transports. One way of increasing efficiency is to decrease security, e.g.\ by using shorter encryption and MAC keys or sacrificing encryption and solely use MACs and even truncating the MAC. A more satisfying solution is to explore authenticating block or stream ciphers. 
+
+
+\textcolor{red}{\bf end of future work}
 
 as this is more in the spirit of the project -- small resource constrained devices. Discuss assumptions such as tamper-proofness.
 
@@ -39,33 +34,3 @@ See \cite{bellovin1992}, \cite{bellovin1993} on EKE, \cite{wu1997} on zero-knowl
 Should also discuss here reasonable security levels. We are not talking about a system of extreme importance, such as credit card chip systems which must be unbreakable (or nearly so). Rather, we really dont care about compromise, as long as the number of compromised nodes is low enough to maintain the required confidence level in the system.
 
 The choice of cipher algorithms also plays a part in performance. One may for example consider a different block cipher than AES, which is claimed by e.g.\ \shortciteA{karlof2004} to be slower than Skipjack and RC5. Stream ciphers are generally very fast, but also difficult to handle since one must be very careful never to re-use initialization vectors. We may consider some modern stream ciphers, for example the eCrypt portfolio in future work.
-
-
-=======
-
-\textbf{Formal verification of cryptographic protocols, e.g.\ using the automatic verification tool ProVerif\footnote{\url{http://www.proverif.ens.fr}}.}
-
-
-======
-
-Strengthen permanent secret keys by using AES-256. Costs space in terms of EEPROM storage but would be sufficient to use this longer variant for session key establishment.
-
-======
-
-\textcolor{red}{\bf Why is message size an issue?}
-
-Cutting down message size by truncating MAC and using ciphertext stealing. See also \cite{karlof2004} on this.
-Efficiency in transmitted size can be increased by using a cipher with a shorter blocklength -- see XTEA and Skipjack.
-
-====
-
-Cipher-independence.
-
-====
-
-\textbf{Dont implement a secure hash function -- see \cite{cohen2001} on possible implementation based on AES. Also Vortex \cite{gueron2008}.}
-
-
-=====
-
-\cite{bellare1998a} on modular analysis of authentication and key exchange protocols.
