@@ -78,7 +78,14 @@ The protocols were tested individually at first and then combined. In summary, w
 \section{Soundness of the cryptographic protocols}
 \label{sec:crypto-protocol-analysis}
 
-\textcolor{red}{ \bf TODO: KVJ OR BK\\SOME CRYPTOGRAPHIC ANALYSIS OF THE PROTOCOLS}
+The code for the protocol is publicly availible at \url{http://code.google.com/p/tsense}, satisfying Kerckhoffs' principle that ``a cryptosystem should be secure even if everything about the system is public knowledge''. The code was also written with security in mind, aiming to leave as few vulnerabilites as possible --- preferrably none at all. Great care was taken to prevent the possibilites of buffer overflow and because of the techinal nature of the protocol itself, format-string attacks are not possible. Although this aims to provide local security and not directly security over the data, the system can only be considered secure as long as all parts are secure. If remote code execution were possible on either the tsensor, tssink or tsauth --- then an atacker could be able to alter data. If a potential attacker has the device public ID (16-byte AES key) then the system is compromised for that particular sensor node but it will not have any effect on other nodes.
+
+Since the crypography in the protocol is based on AES it can only be considered secure as long as AES is considered secure. At the time of writing (September 2010) there are no known attacks against the AES cipher, except a reduced 8-round version of AES-128. We are using the full 10-round AES-128.
+
+If the potential attacker would get hold of the current session key, he can get hold of all future session keys as well, since the new key-material is encrypted with a key derived from the current session key before it is sent. 
+
+Since the encrypted portion of the messages are MAC-ed with a separate key (although derived from the same key as the encryption key), the messages can not be altered on the fly. Again, this assumptation only holds as long as the attack does not have knowledge over the keys. 
+
 
 \section{Cost of materials and production sensor size}
 
