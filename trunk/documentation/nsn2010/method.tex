@@ -338,11 +338,11 @@ Our protocol consists of four parts:
 \begin{enumerate}
 \item the authentication of the \textit{tsensor} device, and by extension, unique identification of the hosting client.
 \item the session key exchange between \textit{tsensor} and sink.
-\item periodic re-keying of the \textit{tsensor} to install (and maintain freshness of) transport encryption and authentication keys.
+\item periodic re-keying of the \textit{tsensor} to install, and maintain freshness of, transport encryption and authentication keys.
 \item data transfer of encrypted and authenticated data between tsensor and sink.
 \end{enumerate} 
 %
-Messages are encrypted with our AES-128 library and a CMAC of each ciphertext is appended to ensure data integrity. The aim of the design is to make the protocol as secure as possible, while still maintaining a small payload.
+Messages are encrypted with our AES-128 library and CMAC of ciphertexts is appended to ensure data integrity. The aim of the design is to make the protocol as secure as possible, while still maintaining a small payload.
 
 \subsection{Authentication and key exchange protocols}
 \label{sec:cryptographic-protocols-authentication}
@@ -351,16 +351,19 @@ The authentication protocol is a symmetric protocol, using a trusted third party
 %
 Restricting access to the authentication service to solely the trusted sinks adds an extra layer of protection, as only the trusted sinks need direct knowledge of its address, in essence a bit of security-by-obscurity for $A$.
 %
-The original Needham-Schroeder was vulnerable to replay attacks \shortcite{denning1981}, which can be fixed by using nonces and/or timestamps \cite{needham1987}. We use primarily nonces in our protocols to counter replay attacks.
+The original Needham-Schroeder was vulnerable to replay attacks \shortcite{denning1981}, which can be fixed by using nonces and/or timestamps \cite{needham1987}. We use primarily nonces in our protocols to counter replay attacks. Using timers to guarantee freshness is problematic in our case, as the sensor relies on the untrusted client to set its time. Instead, we use randomly initialized monotonically increasing counters as nonce sources.
 
-As discussed in Section~\ref{sec:authenc}, we use the \textit{Encrypt-then-MAC (EtM)} \shortcite{bellare2007} composition paradigm, in which the plaintext is first encrypted and then a MAC of the ciphertext appended. We use $\mathcal{T}_K$ in our protocol to indicate \textit{tagging} (MACing) of the message ciphertext with a shared symmetric secret key $K$. $\mathcal{E}_K$ and $\mathcal{D}_K$ is used for encryption (resp.\ decryption) with a shared symmetric secret key $K$.
+As discussed in Section~\ref{sec:authenc}, we use the \textit{Encrypt-then-MAC (EtM)} \shortcite{bellare2007} composition paradigm, in which the plaintext is first encrypted and then a MAC of the ciphertext appended. We use $\mathcal{T}_K$ in our protocol to indicate \textit{tagging} (MACing) of the message ciphertext, using a shared symmetric key $K$. 
+%$\mathcal{E}_K$ and $\mathcal{D}_K$ is used for encryption (resp.\ decryption) with a shared symmetric key $K$.
+%
+For brevity, we denote the encryption with a key $K_{XY}$, that is a key shared pairwise between entities $X$ and $Y$, as $\mathcal{E}_{XY}(\bullet)$, instead of the more accurate form $\mathcal{E}_{K_{XY}}(\bullet)$. Similarly, we denote decryption with the key $K_{XY}$ as $\mathcal{D}_{XY}(\bullet)$, and tagging of the entire encrypted message simply as $\mathcal{T}_{XY,e}$. We emphasize that the same key is never used for both encryption and tagging of a message.
 
 \subsubsection{Authentication}
 
 The authentication and session key exchange proceeds as follows:
 
 \[
-C \rightarrow T: \textit{queryId}
+C \rightarrow T: (\textit{queryId})
 \]
 %
 The client $C$ (untrusted) queries the sensor $T$ for its public ID.
@@ -370,39 +373,39 @@ T \rightarrow C: (\textit{idresponse}, T, \mathcal{E}_{AT}(T, N_T) \parallel \ma
 \]
 %
 The sensor $T$ returns its public ID (denoted by $T$ above), along with an encryption of 
-the ID and a nonce $N_T$, using the permanent device key $K_{AT}$ for
-encryption. A CMAC, constructed using a derived authentication key $K_{AT,a}$ 
+the ID and a nonce $N_T$, using the permanent device key $K_{AT}$. A CMAC, constructed using a derived authentication key $K_{AT,a}$ 
 (see Section~\ref{sec:key-derivation} on key derivation) of the message is appended to ensure authenticity. 
-The purpose of the nonce is to provide freshness guarantees and prevent replay attacks. 
+The key pair $K_{AT}$ and $K_{AT,a}$ is shared between sensor $T$ and authentication service $A$.
+The purpose of the nonce $N_T$ is to provide freshness guarantees and prevent replay attacks. 
 It is only sent in encrypted form in this construction.
 
 \[
-C\rightarrow S: (idresponse,T,\mathcal{E}_{AT}(T,N_T) \parallel \mathcal{T}_{AT,a})
+C\rightarrow S: (\textit{idresponse},T,\mathcal{E}_{AT}(T,N_T) \parallel \mathcal{T}_{AT,a})
 \]
 %
-$C$ passes the public id of $T$ and the encrypted packet to $S$ (unmodified).
+$C$ passes the public id of $T$ and the encrypted packet to $S$, unmodified since it does not hold the keys to decrypt it. In fact, neither does $S$. The encryption key is, as indicated by the subscript, only shared between the sensor and authentication service.
 
 \[
-S \rightarrow A: (\mathcal{E}_{AS}(idresponse,T, \{
-\mathcal{E}_{TA,e}(T,N_T) \parallel \mathcal{T}_{TA,a} \}) \parallel
+S \rightarrow A: (\mathcal{E}_{AS}(\textit{idresponse},T, \{
+\mathcal{E}_{AT}(T,N_T) \parallel \mathcal{T}_{AT,a} \}) \parallel
 \mathcal{T}_{AS,a})
 \]
 %
 $S$ forwards the unmodified message from $T$ to $A$, which will then
 read the encrypted packet, check the authenticity of it and respond
 accordingly. $S$ forwards the packet unmodified, but adds extra security
-by encrypting by a pairwise shared key $K_{AS}$ and the derived key
-$K_{AS,a}$. In our implementation, we assume this key exchange is handled implicitly by the TLS tunnel.
+by encrypting by the key $K_{AS}$, which the sink $S$ shares with the authentication service $A$, and the derived key
+$K_{AS,a}$. In our implementation, we assume the keys $K_{AS}$ and $K_{AS,a}$ are negotiated implicitly by the TLS mechanism.
 
 \subsubsection{Session key exchange}
 
-If $T$ is accepted, then $A$ generates a random 128-bit long session key $K_{ST}$ and
+If $T$ is accepted, then $A$ generates a random 128-bit session key $K_{ST}$ and
 sends it to $S$, along with the re-keying (renewal) interval $rt_{ST}$ and the
-original nonce $N_T$. 
+original nonce $N_T$. As before, the subscript $ST$ indicates that the session key is pairwise shared between a sensor $T$ and sink $S$.
 
 \[
-A \rightarrow S: (\mathcal{E}_{AS}(keytosink,T,K_{ST},rt_{ST}, \{
-\mathcal{E}_{TA,e}(N_T,K_{ST},rt_{ST}) \parallel \mathcal{T}_{TA,a}
+A \rightarrow S: (\mathcal{E}_{AS}(\textit{keytosink},T,K_{ST},rt_{ST}, \{
+\mathcal{E}_{AT}(N_T,K_{ST},rt_{ST}) \parallel \mathcal{T}_{TA,a}
 \} \parallel \mathcal{T}_{AS,a})
 \]
 %
@@ -410,10 +413,11 @@ $A$ constructs an encrypted packet, containing the original nonce $N_T$ and the 
 which $S$ must forward unmodified to $T$ (through $C$). The nonce allows $T$ to ascertain that
 it was in fact $A$ that generated the session key -- it is highly improbable that any other party,
 including the otherwise trusted sink, can generate this package correctly. This provides bilateral implicit key authentication
-\cite[pp.498]{menzes1996} between sensor and authentication service.
+\cite[pp. 498]{menezes1996} between sensor and authentication service. 
+In essence, both nodes use correct (according to some rule) encryption as proof of identity, that is, the communicating partner holds the corresponding secret key.
 
 %
-$rt_{ST}$ is a 2-byte integer, which specifies how often the provided session key 
+$rt_{ST}$ is a 2-byte integer, which specifies how often the session key 
 may be used before renewal. Relatively short duration encryption keys help to make cryptanalytic attacks infeasible.
 
 %$A$ also embeds a encrypted package for $T$, containing the
@@ -425,11 +429,11 @@ If $T$ is not validated, the the authentication service will respond with \textt
 implemented).
 
 \[
-S \rightarrow C \rightarrow T: (keytosense,\mathcal{E}_{AT,e}(N_T,K_{ST},rt_{ST}) \parallel \mathcal{T}_{AT,a})
+S \rightarrow C \rightarrow T: (\textit{keytosense},\mathcal{E}_{AT}(N_T,K_{ST},rt_{ST}) \parallel \mathcal{T}_{AT,a})
 \]
 %
-$S$ forwards the encrypted package, containing the nonce $N_T$ and session
-key to $T$ through $C$. $T$ opens the package and retrieves $K_{ST}$.
+$S$ forwards the (unmodified) encrypted package, containing the nonce $N_T$ and session
+key to $T$ through $C$. $T$ opens the package, by decrypting with $K_{AT}$, and retrieves $K_{ST}$.
 
 %The session key $K_{ST}$ is a 16-byte long \textit{ephemeral} key from
 %wich $K_{ST,e}$ and $K_{ST,a}$ are derived. This makes cryptoanalytic
@@ -443,7 +447,7 @@ The session key has now been delivered to $T$ and $S$.
 
 \subsubsection{Initial handshake and transport key delivery}
 
-The session key has now been delivered to $T$ and $S$. This key is only
+The session key $K_{ST}$ has now been delivered to $T$ and $S$. This key is only
 used for re-keying, that is, delivery of transport encryption and authentication keys
 which are used for the data transfer. 
 
@@ -453,30 +457,30 @@ also use the handshake for the initial exchange of the
 encryption and authentication keys for the data transfer protocol -- the most
 frequently used keys in our protocol. 
 
-The handshake must take place right after the delivery of $K_{ST}$ to $T$
-and then the transport key exchange is performed periodically, as dictated by the specified re-keying interval, to refresh the keys.
+The handshake must take place right after the delivery of $K_{ST}$ to $T$.
+The transport key exchange is performed repeatedly during the session, as dictated by the specified re-keying interval, to refresh the keys.
 
 \[
-T \rightarrow C \rightarrow S: (rekey,T,\mathcal{E}_{ST}(T,N_T) \parallel \mathcal{T}_{ST,a})
+T \rightarrow C \rightarrow S: (\textit{rekey},T,\mathcal{E}_{ST}(T,N_T) \parallel \mathcal{T}_{ST,a})
 \]
 %
-Here $T$ uses the session key $K_{ST}$ to request a fresh set of transport keys. A
-guarantee of freshness is desired, but the hardware used for $T$ does
-not have a hardware clock and we do not want to rely on $C$ for this purpose. So, a freshly generated nonce $N_T$
-provides the necessary freshness guarantees. 
+Here, a sensor $T$ uses the session key $K_{ST}$ to request a fresh set of transport keys from the sink $S$. 
+%A guarantee of freshness is desired, but the hardware used for $T$ does
+%not have a hardware clock and we do not want to rely on $C$ for this purpose. 
+A freshly generated nonce $N_T$ provides the necessary freshness guarantees and bilateral implicit key authentication.
 %This is done to provide bilateral implicit key authentication
 %\cite[pp.498]{menzes1996}.
 
 \[
-S \rightarrow T: (newkey,T, \{ \mathcal{E}_{ST}(T,N_T,R,rt_{ST}) \parallel \mathcal{T}_{STe,a} \} )
+S \rightarrow T: (\textit{newkey},T, \{ \mathcal{E}_{ST}(T,N_T,R,rt_{ST}) \parallel \mathcal{T}_{STe,a} \} )
 \]
 %
 $S$ returns the new \textit{key material}, a fresh 16-byte random number $R$ to
-$T$.  $rt_{ST}$ is a fresh key renewal timer. When it reaches zero,
-$T$ will request a fresh key. The encryption key is derived from
-$K_{ST}$. This provides the bilateral implicit key authentication.
+$T$. The random number is used to derive the data transfer keys $K_{STe}$ and $K_{STe,a}$, as described in Section~\ref{sec:key-derivation}.
+$rt_{ST}$ is the key renewal timer, indicating how often the keys derived from $R$ can be used before next re-keying. 
+The encryption key $K_{STe}$ is derived from $R$, which provides bilateral implicit key authentication between $T$ and $S$ upon subsequent data encryption and decryption operations.
 
-In the first round after session key delivery, this exchange also serves as a handshake to ensure both $T$ and the respective $S$ hold the same session key $K_{ST}$. The message code
+In the first round after session key delivery, this exchange serves as a handshake to ensure both $T$ and the respective $S$ hold the same session key $K_{ST}$. The message code
 \texttt{MSG\_T\_REKEY\_RESPONSE} is used for regular re-keying requests
 and \texttt{MSG\_T\_REKEY\_HANDSHAKE} is used for the first-round handshake.
 
@@ -491,7 +495,7 @@ and \texttt{MSG\_T\_REKEY\_HANDSHAKE} is used for the first-round handshake.
 
 \subsection{Data transfer protocol}
 
-The data transfer protocol uses the encryption key $K_{STe}$ and the derived authentication key $K_{STe,a}$, derived from the key material delivered in the re-keying step (see Section~\ref{sec:key-derivation}). The current protocol is push-based (the sensor periodically publishes data), although it can be trivially modified to allow for pull-based (polling) operation.
+The data transfer protocol uses the encryption key $K_{STe}$ and the derived authentication key $K_{STe,a}$, both derived from the key material delivered in the re-keying step (see Section~\ref{sec:key-derivation} on key derivation). The current protocol is push-based (the sensor periodically publishes data), although it can be trivially modified to allow for pull-based (polling) operation.
 
 \[
 T \rightarrow C \rightarrow S: (\textit{data},T,length_{\mathcal{E}},\mathcal{E}_{STe}(T,t_T,D) \parallel \mathcal{T}_{STe,a})
@@ -499,8 +503,8 @@ T \rightarrow C \rightarrow S: (\textit{data},T,length_{\mathcal{E}},\mathcal{E}
 %
 T encrypts the measurement data $D$, MACs it and delivers to
 $C$, who will forward it to $S$. $T$ is the public sensor ID and $t_T$ is the four byte (Unix) timestamp of the first sample in the data payload.
-Encrypting the sensor public ID provides the receiving sink with the means of authenticating the transmitting sensor against its state tables.
-
+Encrypting the sensor public ID provides the receiving sink with the means of authenticating the transmitting sensor (implicit key-based authentication).
+%
 %A fresh nonce $N_T$ prevents replays.
 
 The measurement data $D$ in on the following form:
@@ -511,7 +515,7 @@ The measurement data $D$ in on the following form:
 %
 where $length_D$ is the total length in bytes and $m_i \in \mathbb{Z}$ is a measurement
 record. % where $i \in \mathbb{N}$.
-In our current protocol, we limit the size of each measurement to $2^8$, that is a single byte.
+In our current protocol, we limit the size of each measurement to a single byte. Any number of bytes per measurement can be used without modifying the protocol.
 
 The transport keys $K_{STe}$ and $K_{STe,a}$ must be periodically refreshed, as dictated by the re-keying interval, specified on delivery by the sink.
 
@@ -532,9 +536,6 @@ features for future work; components generally fail, hopefully
 gracefully, in the current version when unexpected events
 occur. Further protocol robustness is reserved for future work.
 
-%However, we maintain a soft state for intermediary protocol
-steps, allowing for some degree of robustness.
-
 \subsection{Keys and key derivation}
 \label{sec:key-derivation}
 
@@ -543,10 +544,10 @@ We observe the principle that a cryptographic key should never be used for more 
 We have a number of such different key pairs -- private sensor ID (permanent master key), per-session generated session keys and limited lifetime encryption keys. For each of the encryption keys, we \textit{derive} corresponding authentication keys, using a suitable one-way function. A cryptographically secure hash function, such as sha-256, may be used for this purpose, but we elect to use our CMAC primitive in this work. We assume an encryption key $K_e$ exists (permanent, generated or delivered) and we wish to derive the corresponding authentication (MAC) key. The derivation procedure is as follows:
 %
 \[
-K_m = \mathcal{T}_\Psi(K_e)
+K_m = f_\Psi(K_e) = \mathcal{T}_\Psi(K_e)
 \]
 %
-where $\mathcal{T}$ is a MAC generating function, $\Psi$ is a publicly available constant (128-bits) and $K_e$ is the encryption key used as \textit{key material} for the authentication key $K_m$. 
+where $f$ is a key generating function (CMAC in our case), $\Psi$ is a publicly available constant (128-bits) and $K_e$ is the encryption key used as \textit{key material} for the authentication key $K_m$. Here, we assume CMAC is a cryptographically secure one-way function. Hashing the key material, even with a known encryption key $\Psi$, in essence produces a "random-looking" result from the "random-looking" key material. The assumption of cryptographic security implies that the output should be uncorrelated with the input. An adversary must therefore work much harder to manipulate an encrypted and authenticated message.
 %The encryption key is a "random-looking" series of bytes, which hashed by the MAC function produces a "random-looking" result. The one-wayness of the MAC function means that gaining knowledge of $K_m$ gives no information about $K_e$. The converse is of course not true, but an adversary gaining knowledge of $K_e$ breaks the initial premise for the derivation. 
 
 The keys and key derivation used in the TSense project are the following:
@@ -568,7 +569,7 @@ Note that the secure channel between sink and authentication server requires the
 
 \subsection{Generation of cryptographic keys}
 
-The system depends on one secret key -- the 128-bit private device ID $K_{TA}$ -- generated and burned to the device EEPROM at time of manufacture. This key is a 16-byte long random value, generated by reading from the \texttt{/dev/random} device in Unix. \texttt{/dev/random} allows access to an entropy pool, maintained by collecting environmental "noise" generated by the operating system and device drivers in normal operation. This is generally regarded as much closer to true randomness than pseudorandom generators, although vulnerabilities have been found in some implementations \shortcite{gutterman2006}. The non-blocking \texttt{/dev/urandom} can optionally be used for on-line key generation (session and transport keys) in the protocol to decrease latency.
+The system depends on one secret key -- the 128-bit private device ID $K_{TA}$ -- generated and burned to the device EEPROM at time of manufacture. This key is a 16-byte long random value, generated by reading from the Unix \texttt{/dev/random} device. \texttt{/dev/random} allows access to an entropy pool, maintained by collecting environmental "noise" generated by the operating system and device drivers. This is generally regarded as much closer to true randomness than pseudorandom generators, although vulnerabilities have been found in some implementations \shortcite{gutterman2006}. The non-blocking \texttt{/dev/urandom} can optionally be used for on-line key generation (session and transport keys) in the protocol to decrease latency.
 
 %We regard the keys generated by reading /dev/random and /dev/urandom to be sufficiently random for our purposes. However, to reduce the risk of possible correlations, we propose to run the generated random number through a cryptographically secure hash function. In our case, we would use the CMAC primitive, in essence a keyed hash function, to generate the final key. One of the requirements for a robust MAC function is that the results are indistinquishable (within computational bounds) from a random value for any input. A hashed pseudorandom number will therefore be even more random than its predecessor. 
 
