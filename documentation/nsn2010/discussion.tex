@@ -2,7 +2,7 @@
 \chapter{Discussion}
 \label{sec:discussion}
 
-The primary goal of this project was to investigate the issues involved in securing measurement data as close to the source as possible -- at the sensor it self. One factor to consider in this respect was the feasibility of implementing a strong cryptographic primitive, fulfilling the current security demands. 
+The primary goal of this project was to investigate the issues involved in securing measurement data as close to the source as possible -- at the sensor it self. One factor to consider in this respect was the feasibility of implementing a strong cryptographic primitive, fulfilling the current security demands, even on resource constrained hardware, such as the ATmega.
 %
 Early on, we decided to focus on symmetric encryption, rather than asymmetric, as this is was easily implemented, given the project time frame. Symmetric encryption is also less resource intensive, which was a bonus, since we had only a limited notion of how well the Arduino Duemilanove would be able to handle the workload we had in mind for it. Finally implementing symmetric encryption would still prove to be a useful subset of our larger goal, which is to implement a public key cryptosystem for TSense.
 
@@ -10,7 +10,7 @@ Our goal of producing a cross platform AES implementation, complete with a CBC-C
 %
 The performance of our implementation was better than we expected and compared favorably with a the lightweight XTEA block cipher (see Table \ref{tab:aes-xtea-comparison}), which was especially pleasing since this cipher was purpose designed to be efficient and light-weight. Furthermore, AES is more complex that XTEA and our AES implementation is therefore considerably bulkier in terms of the size of code and the resultant binaries. Nevertheless our application fit easily in the 32 kilobyte program memory of the Arduino, and more importantly, did not exhaust the meager 2 kilobytes of RAM. This was especially satisfying, since our AES and CBC-CMAC implementations are not fully optimized. Further work on the AES library component would doubtless yield improvements in memory footprint and throughput. 
 
-In summary, while we did not achieve all that we set out to do, namely the implementation of a public key based system we still feel that we managed to achieve the larger overall goal of producing an end-to-end secure sensor system, featuring encryption and security features, that live up to current demands for such systems, but still managed to do so without compromising the goal of keeping the cost of the sensor system low.
+In summary, while we did not achieve all that we set out to do, namely the implementation of a public key based system we still feel that we managed to achieve the larger overall goal of producing an end-to-end secure sensor system, featuring encryption and security features, that live up to current demands for such systems, but still managed to do so without compromising the goal of keeping the cost of the sensor system low. Most importantly, we demonstrated the feasibility of absolute end-to-end secure data stream, allowing positive receiver end verifiability of measurements.
 
 %\textbf{OPTIMIZATIONS OF CIPHER INCL TTRANSFORMS}
 
